@@ -71,78 +71,124 @@ export default function TeamPage({ teamSlug, onBack }) {
   const [loading, setLoading] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
   const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
-  const [tab, setTab] = useState("live");
+  const [tab, setTab] = useState("results");
   const [expandedMatch, setExpandedMatch] = useState(null);
   const [liveView, setLiveView] = useState("totals");
 
   // Load team and matches
   useEffect(() => {
-    loadTeamData();
+    let channel = null;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data: teams } = await supabase.from('teams').select('*');
+        const found = teams?.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
+        if (!found) { setLoading(false); return; }
+        setTeam(found);
+
+        // Check stored coach PIN
+        const storedPin = localStorage.getItem(`coach-pin-${found.id}`);
+        if (storedPin && found.coach_pin && storedPin === found.coach_pin) setIsCoach(true);
+
+        // Load all matches for this team
+        const { data: allMatches } = await supabase
+          .from('matches')
+          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .or(`home_team_id.eq.${found.id},away_team_id.eq.${found.id}`)
+          .order('match_date', { ascending: false });
+
+        if (allMatches) {
+          const live = allMatches.find(m => m.status === 'live');
+          const ended = allMatches.filter(m => m.status === 'ended');
+          setMatches(ended);
+
+          if (live) {
+            setLiveMatch(live);
+            setTab("live");
+
+            // Load current events
+            const { data: events } = await supabase
+              .from('match_events')
+              .select('*')
+              .eq('match_id', live.id)
+              .order('seq', { ascending: false });
+            if (events) setLiveEvents(events);
+
+            // Subscribe to real-time
+            channel = supabase.channel(`team-page-${live.id}`);
+            channel
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${live.id}` },
+                (payload) => {
+                  const updated = payload.new;
+                  setLiveMatch(updated);
+                  // If match ended, move to results
+                  if (updated.status === 'ended') {
+                    setTab("results");
+                    setLiveMatch(null);
+                    // Reload to get updated match list
+                    load();
+                  }
+                })
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_events', filter: `match_id=eq.${live.id}` },
+                (payload) => setLiveEvents(prev => [payload.new, ...prev]))
+              .subscribe();
+          }
+        }
+      } catch (err) {
+        console.error('Load team data error:', err);
+      }
+      setLoading(false);
+    };
+
+    load();
+
+    // Cleanup subscription
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [teamSlug]);
 
-  const loadTeamData = async () => {
-    setLoading(true);
-    try {
-      // Find team by slug (name lowercased, spaces to hyphens)
-      const { data: teams } = await supabase.from('teams').select('*');
-      const found = teams?.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
-      if (!found) { setLoading(false); return; }
-      setTeam(found);
-
-      // Check coach PIN from localStorage
-      const storedPin = localStorage.getItem(`coach-pin-${found.id}`);
-      if (storedPin) setIsCoach(true);
-
-      // Load matches where this team played
-      const { data: allMatches } = await supabase
+  // Also poll for live matches every 15s (backup if real-time misses)
+  useEffect(() => {
+    if (!team) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
         .from('matches')
         .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-        .or(`home_team_id.eq.${found.id},away_team_id.eq.${found.id}`)
-        .order('match_date', { ascending: false });
-
-      if (allMatches) {
-        const live = allMatches.find(m => m.status === 'live');
-        const ended = allMatches.filter(m => m.status === 'ended');
-        setMatches(ended);
-
-        if (live) {
-          setLiveMatch(live);
-          setTab("live");
-          // Load events for live match
-          const { data: events } = await supabase
-            .from('match_events')
-            .select('*')
-            .eq('match_id', live.id)
-            .order('seq', { ascending: false });
-          if (events) setLiveEvents(events);
-
-          // Subscribe to real-time updates
-          const channel = supabase.channel(`team-page-${live.id}`);
-          channel
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${live.id}` },
-              (payload) => setLiveMatch(payload.new))
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_events', filter: `match_id=eq.${live.id}` },
-              (payload) => setLiveEvents(prev => [payload.new, ...prev]))
-            .subscribe();
-
-          return () => supabase.removeChannel(channel);
-        } else {
-          setTab("results");
-        }
+        .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
+        .eq('status', 'live')
+        .limit(1);
+      if (data?.length > 0 && !liveMatch) {
+        setLiveMatch(data[0]);
+        setTab("live");
+        // Load events
+        const { data: events } = await supabase.from('match_events').select('*').eq('match_id', data[0].id).order('seq', { ascending: false });
+        if (events) setLiveEvents(events);
+      } else if (data?.length === 0 && liveMatch) {
+        setLiveMatch(null);
+        setTab("results");
       }
-    } catch (err) {
-      console.error('Load team data error:', err);
-    }
-    setLoading(false);
-  };
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [team, liveMatch]);
 
   const handlePinSubmit = () => {
-    // For now, accept any 4+ char PIN (real auth would verify against team record)
-    if (pinInput.length >= 4) {
+    if (!team) return;
+    // Verify against team's stored PIN
+    if (team.coach_pin && pinInput === team.coach_pin) {
       setIsCoach(true);
-      if (team) localStorage.setItem(`coach-pin-${team.id}`, pinInput);
+      localStorage.setItem(`coach-pin-${team.id}`, pinInput);
       setShowPinModal(false);
+      setPinError(false);
+    } else if (!team.coach_pin && pinInput.length >= 4) {
+      // No PIN set on team — allow any PIN for now
+      setIsCoach(true);
+      localStorage.setItem(`coach-pin-${team.id}`, pinInput);
+      setShowPinModal(false);
+      setPinError(false);
+    } else {
+      setPinError(true);
     }
   };
 
@@ -389,7 +435,9 @@ export default function TeamPage({ teamSlug, onBack }) {
           <div onClick={e => e.stopPropagation()} style={{ background: "#1E293B", borderRadius: 12, padding: 20, width: 260, border: "1px solid #334155" }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, textAlign: "center" }}>🔒 Coach Login</div>
             <div style={{ fontSize: 10, color: "#64748B", marginBottom: 12, textAlign: "center" }}>Enter the team PIN</div>
-            <input value={pinInput} onChange={e => setPinInput(e.target.value)} type="password" placeholder="PIN" style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 16, textAlign: "center", letterSpacing: "0.3em", boxSizing: "border-box", outline: "none" }} autoFocus />
+            <input value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }} type="password" placeholder="PIN"
+              style={{ width: "100%", padding: 10, borderRadius: 8, border: pinError ? "1px solid #EF4444" : "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 16, textAlign: "center", letterSpacing: "0.3em", boxSizing: "border-box", outline: "none" }} autoFocus />
+            {pinError && <div style={{ fontSize: 10, color: "#EF4444", textAlign: "center", marginTop: 6 }}>Incorrect PIN</div>}
             <button onClick={handlePinSubmit} style={{ width: "100%", marginTop: 10, padding: 10, borderRadius: 8, background: "#8B5CF6", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Unlock</button>
           </div>
         </div>

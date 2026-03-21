@@ -9,28 +9,51 @@ const MODES = [
   { id: "demo", icon: "🎮", title: "Demo Match", desc: "Try the recorder, data discarded" },
 ];
 
+// Reusable team picker with its own search
+function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
+  const [search, setSearch] = useState("");
+  const filtered = search.trim() ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())) : teams;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={S.label}>{label}</label>
+      <input style={{ ...S.input, fontSize: 11, marginBottom: 6, padding: "8px 10px" }} value={search}
+        onChange={e => setSearch(e.target.value)} placeholder={`🔍 Search ${label.toLowerCase()}...`} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 140, overflowY: "auto" }}>
+        {filtered.map(t => {
+          const isSel = selected?.id === t.id;
+          const isOth = t.id === otherId;
+          return (
+            <button key={t.id} onClick={() => !isOth && onSelect(t)} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
+              border: isSel ? `2px solid ${t.color}` : `1px solid ${theme.border}44`,
+              background: isSel ? t.color + "22" : theme.surface,
+              cursor: isOth ? "not-allowed" : "pointer", opacity: isOth ? 0.3 : 1,
+            }}>
+              <div style={{ width: 20, height: 20, borderRadius: 4, background: t.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{t.name.charAt(0)}</div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: theme.text }}>{t.name}</div>
+              {isSel && <div style={{ marginLeft: "auto", fontSize: 11 }}>✓</div>}
+            </button>
+          );
+        })}
+        {filtered.length === 0 && <div style={{ fontSize: 10, color: theme.textDim, padding: 8, textAlign: "center" }}>No teams found</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function MatchSetupScreen({ teams, onStart, onImportGame, onBack, onManageTeams }) {
   const [mode, setMode] = useState(null);
 
   if (!mode) {
     return (
       <div style={S.app}>
-        <div style={S.nav}>
-          <button style={S.backBtn} onClick={onBack}>←</button>
-          <div style={S.navTitle}>New Match</div>
-        </div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>New Match</div></div>
         <div style={S.page}>
-          <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>
-            Choose how to create a match
-          </div>
+          <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>Choose how to create a match</div>
           {MODES.map(m => (
-            <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }}
-              onClick={() => setMode(m.id)}>
+            <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => setMode(m.id)}>
               <div style={{ fontSize: 28 }}>{m.icon}</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div>
-                <div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>{m.desc}</div>
-              </div>
+              <div><div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div><div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>{m.desc}</div></div>
             </div>
           ))}
         </div>
@@ -48,19 +71,13 @@ export default function MatchSetupScreen({ teams, onStart, onImportGame, onBack,
 function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
   const [setupHome, setSetupHome] = useState(null);
   const [setupAway, setSetupAway] = useState(null);
-  const [matchLength, setMatchLength] = useState(60);
+  const [matchLength, setMatchLength] = useState("60");
   const [breakFormat, setBreakFormat] = useState("quarters");
   const [venue, setVenue] = useState("");
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
-  const [search, setSearch] = useState("");
 
-  const canStart = setupHome && setupAway && setupHome.id !== setupAway?.id;
-  const filtered = search.trim() ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())) : teams;
-
-  const handleStart = () => {
-    if (!canStart) return;
-    onStart({ home: setupHome, away: setupAway, matchLength: parseInt(matchLength) || 60, breakFormat, venue: venue.trim(), date: matchDate });
-  };
+  const canStart = setupHome && setupAway && setupHome.id !== setupAway?.id && parseInt(matchLength) > 0;
+  const ml = parseInt(matchLength) || 60;
 
   if (teams.length < 2) {
     return (
@@ -75,57 +92,53 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
     );
   }
 
-  const TeamList = ({ label, selected, onSelect, other }) => (
-    <div style={{ marginBottom: 12 }}>
-      <label style={S.label}>{label}</label>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto" }}>
-        {filtered.map(t => {
-          const isSel = selected?.id === t.id, isOth = other?.id === t.id;
-          return (
-            <button key={t.id} onClick={() => !isOth && onSelect(t)} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
-              border: isSel ? `2px solid ${t.color}` : `1px solid ${theme.border}44`,
-              background: isSel ? t.color + "22" : theme.surface,
-              cursor: isOth ? "not-allowed" : "pointer", opacity: isOth ? 0.3 : 1,
-            }}>
-              <div style={{ width: 22, height: 22, borderRadius: 4, background: t.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{t.name.charAt(0)}</div>
-              <div style={{ fontWeight: 600, fontSize: 12, color: theme.text }}>{t.name}</div>
-              {isSel && <div style={{ marginLeft: "auto", fontSize: 12 }}>✓</div>}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   return (
     <div style={S.app}>
       <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Full Match</div></div>
       <div style={S.page}>
-        <input style={{ ...S.input, fontSize: 12, marginBottom: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search teams..." />
-        <TeamList label="Home Team" selected={setupHome} onSelect={setSetupHome} other={setupAway} />
-        <TeamList label="Away Team" selected={setupAway} onSelect={setSetupAway} other={setupHome} />
+        <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
+        <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
+
         <div style={{ background: theme.surface, borderRadius: 12, padding: 14, marginBottom: 16, border: `1px solid ${theme.border}` }}>
           <label style={{ ...S.label, marginBottom: 10 }}>Match Settings</label>
+
+          {/* Match Length — free text input with quick buttons */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Length (minutes)</div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="number" style={{ ...S.input, width: 70, textAlign: "center", fontSize: 16, fontWeight: 700, padding: "8px" }}
+                value={matchLength} onChange={e => setMatchLength(e.target.value)} min="1" max="120" />
               {[40, 50, 60, 70].map(m => (
-                <button key={m} onClick={() => setMatchLength(m)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 13, fontWeight: 700, border: matchLength === m ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, background: matchLength === m ? theme.accent + "22" : theme.bg, color: matchLength === m ? theme.accent : theme.textMuted, cursor: "pointer" }}>{m}</button>
+                <button key={m} onClick={() => setMatchLength(String(m))} style={{
+                  flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: ml === m ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: ml === m ? theme.accent + "22" : theme.bg,
+                  color: ml === m ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{m}</button>
               ))}
             </div>
           </div>
+
+          {/* Break Format */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Break Format</div>
             <div style={{ display: "flex", gap: 6 }}>
               {BREAK_FORMATS.map(bf => (
-                <button key={bf.id} onClick={() => setBreakFormat(bf.id)} style={{ flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700, border: breakFormat === bf.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, background: breakFormat === bf.id ? theme.accent + "22" : theme.bg, color: breakFormat === bf.id ? theme.accent : theme.textMuted, cursor: "pointer" }}>{bf.label}</button>
+                <button key={bf.id} onClick={() => setBreakFormat(bf.id)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: breakFormat === bf.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: breakFormat === bf.id ? theme.accent + "22" : theme.bg,
+                  color: breakFormat === bf.id ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{bf.label}</button>
               ))}
             </div>
             <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
-              {breakFormat === "quarters" ? `4 × ${Math.floor(matchLength / 4)} min periods` : breakFormat === "halves" ? `2 × ${Math.floor(matchLength / 2)} min halves` : `${matchLength} min continuous`}
+              {breakFormat === "quarters" ? `4 × ${Math.floor(ml / 4)} min periods`
+                : breakFormat === "halves" ? `2 × ${Math.floor(ml / 2)} min halves`
+                : `${ml} min continuous`}
             </div>
           </div>
+
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Venue</div>
             <input style={{ ...S.input, fontSize: 12 }} value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Paarl Girls High" />
@@ -135,7 +148,11 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
             <input type="date" style={{ ...S.input, fontSize: 12 }} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
           </div>
         </div>
-        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart ? 1 : 0.4 }} onClick={handleStart}>🏑 Start Match</button>
+
+        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart ? 1 : 0.4 }}
+          onClick={() => canStart && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, venue: venue.trim(), date: matchDate })}>
+          🏑 Start Match
+        </button>
       </div>
     </div>
   );
@@ -149,15 +166,8 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
   const [awayScore, setAwayScore] = useState(0);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [venue, setVenue] = useState("");
-  const [search, setSearch] = useState("");
 
   const canSave = setupHome && setupAway && setupHome.id !== setupAway?.id;
-  const filtered = search.trim() ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())) : teams;
-
-  const handleSave = () => {
-    if (!canSave) return;
-    onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), quickScore: true });
-  };
 
   if (teams.length < 2) {
     return (
@@ -172,52 +182,30 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
     );
   }
 
-  const MiniPicker = ({ label, selected, onSelect, other }) => (
-    <div style={{ marginBottom: 12 }}>
-      <label style={S.label}>{label}</label>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 130, overflowY: "auto" }}>
-        {filtered.map(t => {
-          const isSel = selected?.id === t.id, isOth = other?.id === t.id;
-          return (
-            <button key={t.id} onClick={() => !isOth && onSelect(t)} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8,
-              border: isSel ? `2px solid ${t.color}` : `1px solid ${theme.border}44`,
-              background: isSel ? t.color + "22" : theme.surface,
-              cursor: isOth ? "not-allowed" : "pointer", opacity: isOth ? 0.3 : 1,
-            }}>
-              <div style={{ width: 18, height: 18, borderRadius: 4, background: t.color, flexShrink: 0 }} />
-              <div style={{ fontWeight: 600, fontSize: 12, color: theme.text }}>{t.name}</div>
-              {isSel && <div style={{ marginLeft: "auto", fontSize: 11 }}>✓</div>}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   return (
     <div style={S.app}>
       <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div></div>
       <div style={S.page}>
-        <input style={{ ...S.input, fontSize: 12, marginBottom: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search teams..." />
-        <MiniPicker label="Home Team" selected={setupHome} onSelect={setSetupHome} other={setupAway} />
-        <MiniPicker label="Away Team" selected={setupAway} onSelect={setSetupAway} other={setupHome} />
+        <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
+        <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
+
         {canSave && (
           <div style={{ background: theme.surface, borderRadius: 12, padding: 16, marginBottom: 16, border: `1px solid ${theme.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
-              {[["home", setupHome, homeScore, setHomeScore], ["away", setupAway, awayScore, setAwayScore]].map(([key, team, score, setScore]) => (
+              {[["home", setupHome, homeScore, setHomeScore], ["away", setupAway, awayScore, setAwayScore]].map(([key, t, sc, setSc]) => (
                 <div key={key} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: team.color, marginBottom: 6 }}>{team.name}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: t.color, marginBottom: 6 }}>{t.name}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => setScore(Math.max(0, score - 1))} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>−</button>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: team.color, minWidth: 36, textAlign: "center" }}>{score}</div>
-                    <button onClick={() => setScore(score + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>+</button>
+                    <button onClick={() => setSc(Math.max(0, sc - 1))} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>−</button>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: t.color, minWidth: 36, textAlign: "center" }}>{sc}</div>
+                    <button onClick={() => setSc(sc + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>+</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Venue</div>
           <input style={{ ...S.input, fontSize: 12 }} value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Paarl Girls High" />
@@ -226,7 +214,11 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
           <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Date</div>
           <input type="date" style={{ ...S.input, fontSize: 12 }} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
         </div>
-        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canSave ? 1 : 0.4 }} onClick={handleSave}>💾 Save Match</button>
+
+        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canSave ? 1 : 0.4 }}
+          onClick={() => canSave && onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), quickScore: true })}>
+          💾 Save Match
+        </button>
       </div>
     </div>
   );
@@ -263,14 +255,10 @@ function JsonImportSetup({ onImport, onBack }) {
         home: { name: imported.teams.home.name, color: imported.teams.home.color || "#1D4ED8" },
         away: { name: imported.teams.away.name, color: imported.teams.away.color || "#DC2626" },
       },
-      events: imported.events || [],
-      duration: imported.duration || 0,
-      homeScore: imported.score?.home ?? 0,
-      awayScore: imported.score?.away ?? 0,
-      matchLength: imported.matchLength || null,
-      breakFormat: imported.breakFormat || null,
-      venue: imported.venue || null,
-      imported: true,
+      events: imported.events || [], duration: imported.duration || 0,
+      homeScore: imported.score?.home ?? 0, awayScore: imported.score?.away ?? 0,
+      matchLength: imported.matchLength || null, breakFormat: imported.breakFormat || null,
+      venue: imported.venue || null, imported: true,
     });
   };
 
@@ -321,12 +309,7 @@ function DemoSetup({ onStart, onBack }) {
           <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 4 }}>Demo Lions 🔵 vs Demo Eagles 🔴</div>
           <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 24 }}>10 minute match · No breaks · Data discarded on exit</div>
           <button style={S.btn(theme.accent, theme.bg)} onClick={() => {
-            onStart({
-              home: { name: "Demo Lions", color: "#1D4ED8", id: "demo-home" },
-              away: { name: "Demo Eagles", color: "#DC2626", id: "demo-away" },
-              matchLength: 10, breakFormat: "none", venue: "Demo Pitch",
-              date: new Date().toISOString().slice(0, 10), isDemo: true,
-            });
+            onStart({ home: { name: "Demo Lions", color: "#1D4ED8", id: "demo-home" }, away: { name: "Demo Eagles", color: "#DC2626", id: "demo-away" }, matchLength: 10, breakFormat: "none", venue: "Demo Pitch", date: new Date().toISOString().slice(0, 10), isDemo: true });
           }}>🏑 Start Demo</button>
         </div>
       </div>
