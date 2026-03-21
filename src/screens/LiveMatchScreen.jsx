@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { ZONES } from '../utils/constants.js';
 import { otherTeam, exportMatchJSON } from '../utils/helpers.js';
 import { generateInsight } from '../utils/commentary.js';
 import { S, theme } from '../utils/styles.js';
@@ -15,7 +14,6 @@ import TeamPicker from '../components/TeamPicker.jsx';
 export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate }) {
   const { home, away, matchLength, breakFormat, venue, date } = matchConfig;
   const teams = { home, away };
-
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
 
@@ -23,7 +21,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const [possession, setPossession] = useState(null);
   const [ballPos, setBallPos] = useState(null);
   const [prevBallPos, setPrevBallPos] = useState(null);
-  const [tapCount, setTapCount] = useState(1);
+  const [score, setScore] = useState({ home: 0, away: 0 });
   const [showDPopup, setShowDPopup] = useState(null);
   const [showRestart, setShowRestart] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
@@ -32,27 +30,20 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [pauseReason, setPauseReason] = useState(null);
 
   const topTeam = flipped ? "home" : "away";
   const bottomTeam = flipped ? "away" : "home";
 
-  const homeGoals = events.filter(e => e.team === "home" && e.event?.startsWith("Goal!")).length;
-  const awayGoals = events.filter(e => e.team === "away" && e.event?.startsWith("Goal!")).length;
-
-  // Auto-save every 30s
-  const getAutoSaveState = useCallback(() => ({
+  // Auto-save
+  const getState = useCallback(() => ({
     teams, events, matchTime: timer.matchTime, matchState: timer.matchState,
-    possession, ballPos, prevBallPos, tapCount, flipped, sidelineOut,
+    possession, ballPos, prevBallPos, score, flipped, sidelineOut,
     matchLength, breakFormat, venue, date,
-    homeGoals, awayGoals,
-  }), [teams, events, timer.matchTime, timer.matchState, possession, ballPos, prevBallPos, tapCount, flipped, sidelineOut]);
+  }), [teams, events, timer.matchTime, timer.matchState, possession, ballPos, prevBallPos, score, flipped, sidelineOut]);
+  const { clearAutoSave } = useAutoSave(getState, matchState !== "idle" && matchState !== "ended");
 
-  const { saveNow, clearAutoSave } = useAutoSave(
-    getAutoSaveState,
-    matchState !== "idle" && matchState !== "ended"
-  );
-
-  // Add log entry with optional commentary
+  // Add log with optional commentary
   const addLog = useCallback((team, event, zone, detail) => {
     setEvents(prev => {
       const entry = { id: Date.now(), team, event, zone, detail, time: timer.matchTime };
@@ -60,51 +51,46 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       const triggers = ["D Entry", "Goal!", "Goal! (SC)", "Turnover Won", "Short Corner", "Penalty"];
       if (triggers.includes(event)) {
         const ins = generateInsight(team, event, upd, teams);
-        if (ins) {
-          return [{ id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }, entry, ...prev];
-        }
+        if (ins) return [{ id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }, entry, ...prev];
       }
       return upd;
     });
   }, [timer.matchTime, teams]);
 
-  // Handle D popup selection
+  // Ball tap = swap possession (except in D → show popup)
+  const handleBallTap = () => {
+    if (!running || showRestart || !possession) return;
+    if (ballPos?.type === "d") { setShowDPopup({ end: ballPos.end }); return; }
+    const other = otherTeam(possession);
+    addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teams[other].name} won possession`);
+    setPossession(other);
+  };
+
+  // D option
   const handleDOption = (opt) => {
     if (!showDPopup) return;
     const { end } = showDPopup;
-    const def = end === "top" ? topTeam : bottomTeam;
-    const atk = otherTeam(def);
-    const dLbl = `${teams[def].name} D`;
-    const adjQ = end === "top" ? "opp_quarter" : "own_quarter";
-    setTapCount(1);
+    const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
+    const defendingTeam = otherTeam(attackingTeam);
+    const dLabel = `${teams[defendingTeam].name} D`;
 
     if (opt.id === "goal") {
+      // Check if from short corner
       const real = events.filter(e => e.team !== "commentary" && e.team !== "meta");
-      const lastSC = real.find(e => e.event === "Short Corner" && e.team === atk);
+      const lastSC = real.find(e => e.event === "Short Corner" && e.team === attackingTeam);
       const btw = lastSC ? real.slice(0, real.indexOf(lastSC)) : [];
-      const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === def));
-      addLog(atk, fromSC ? "Goal! (SC)" : "Goal!", dLbl,
-        fromSC ? `${teams[atk].name} scored from short corner! 🎯` : `${teams[atk].name} scored in ${dLbl}`);
+      const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === defendingTeam));
+      addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
+      setScore(prev => ({ ...prev, [attackingTeam]: prev[attackingTeam] + 1 }));
       setPossession(null); setBallPos(null); setPrevBallPos(null); setShowRestart(true);
-    } else if (opt.id === "shot_on" || opt.id === "shot_off" || opt.id === "penalty") {
-      addLog(atk, opt.label, dLbl, `${teams[atk].name}: ${opt.label} in ${dLbl}`);
-      setPossession(atk);
-      setPrevBallPos(ballPos); setBallPos({ zoneId: adjQ, pos: "centre" });
     } else if (opt.id === "lost_poss") {
-      addLog(def, "Turnover Won", dLbl, `${teams[atk].name} lost possession. ${teams[def].name} ball.`);
-      setPossession(def);
-      setPrevBallPos(ballPos); setBallPos({ zoneId: adjQ, pos: "centre" });
-    } else if (opt.id === "long_corner") {
-      addLog(atk, opt.label, dLbl, `${teams[atk].name}: ${opt.label}`);
-      setPossession(atk);
-      setPrevBallPos(ballPos); setBallPos({ zoneId: end === "top" ? "opp_mid" : "own_mid", pos: "centre" });
-    } else if (opt.id === "dead_ball") {
-      addLog(def, "Ball Dead", dLbl, `Dead in ${dLbl}. ${teams[def].name} restart.`);
-      setPossession(def);
-      setPrevBallPos(ballPos); setBallPos({ zoneId: adjQ, pos: "centre" });
+      addLog(attackingTeam, "Poss Conceded", dLabel, `${teams[attackingTeam].name} lost possession in ${dLabel}`);
+      setPossession(defendingTeam);
+    } else if (opt.id === "short_corner") {
+      addLog(attackingTeam, "Short Corner", dLabel, `${teams[attackingTeam].name}: Short Corner in ${dLabel}`);
+      setPrevBallPos(ballPos); setBallPos({ type: "sc", end });
     } else {
-      addLog(atk, opt.label, dLbl, `${teams[atk].name}: ${opt.label} in ${dLbl}`);
-      setPrevBallPos(ballPos); setBallPos({ type: "d", end });
+      addLog(attackingTeam, opt.label, dLabel, `${teams[attackingTeam].name}: ${opt.label} in ${dLabel}`);
     }
     setShowDPopup(null);
   };
@@ -113,26 +99,32 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const handleRestart = (team) => {
     setSidelineOut(null);
     addLog(team, "Start", "Centre", `${teams[team].name} takes centre pass`);
-    setPossession(team); setTapCount(1); setPrevBallPos(null);
+    setPossession(team); setPrevBallPos(null);
     setBallPos({ type: "centre", team }); setShowRestart(false); setShowTeamPicker(false);
-    if (!running) { timer.start(); }
-  };
-
-  // Resume after pause — ball goes to centre, pick team
-  const handleResume = () => {
-    setShowRestart(true);
-    setBallPos(null); setPrevBallPos(null); setPossession(null);
-    // Timer stays paused until team is picked and handleRestart fires
+    if (!running) timer.start();
   };
 
   // Pause
   const handlePause = (reason) => {
     timer.pause();
     setShowPauseReason(false);
-    setEvents(prev => [{
-      id: Date.now(), team: "meta", event: `Pause: ${reason}`,
-      zone: null, detail: reason, time: timer.matchTime,
-    }, ...prev]);
+    setPauseReason(reason);
+    setEvents(prev => [{ id: Date.now(), team: "meta", event: `Pause: ${reason}`, zone: null, detail: reason, time: timer.matchTime }, ...prev]);
+    // Quarter Break / Half Time → ball to centre for restart
+    if (reason === "Quarter Break" || reason === "Half Time") {
+      setBallPos(null); setPrevBallPos(null); setShowRestart(true); setPossession(null);
+    }
+  };
+
+  // Resume
+  const handleResume = () => {
+    if (pauseReason === "Quarter Break" || pauseReason === "Half Time") {
+      // Ball already at centre with restart showing — timer resumes when team is picked
+      setPauseReason(null);
+    } else {
+      timer.resume();
+      setPauseReason(null);
+    }
   };
 
   // End match
@@ -143,14 +135,9 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     const game = {
       id: Date.now().toString(),
       date: date ? new Date(date).toISOString() : new Date().toISOString(),
-      teams,
-      events,
-      duration: timer.matchTime,
-      matchLength,
-      breakFormat,
-      venue,
-      homeScore: homeGoals,
-      awayScore: awayGoals,
+      teams, events, duration: timer.matchTime,
+      matchLength, breakFormat, venue,
+      homeScore: score.home, awayScore: score.away,
     };
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);
@@ -163,47 +150,39 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     if (events[0].team === "commentary" && events.length > 1) rc = 2;
     const removed = events.slice(0, rc);
     const rest = events.slice(rc);
-    setEvents(rest); setTapCount(1); setPrevBallPos(null);
-
-    const goalE = removed.find(e => e.event?.startsWith("Goal!"));
-    if (goalE) {
+    setEvents(rest); setPrevBallPos(null);
+    const hadGoal = removed.some(e => e.event?.startsWith("Goal!"));
+    if (hadGoal) {
+      const goalEntry = removed.find(e => e.event?.startsWith("Goal!"));
+      if (goalEntry) setScore(prev => ({ ...prev, [goalEntry.team]: Math.max(0, prev[goalEntry.team] - 1) }));
       setShowRestart(false);
-      setPossession(goalE.team);
-      setBallPos({ type: "d", end: "top" }); // Return ball to D
-      return;
     }
-
+    if (removed.some(e => e.event?.startsWith("Sideline"))) setSidelineOut(null);
     const prev = rest.find(e => e.team !== "commentary" && e.team !== "meta");
     if (prev) {
       setPossession(prev.team);
       if (prev.zone === "Centre") setBallPos({ type: "centre", team: prev.team });
-      else if (prev.zone?.includes("D") || prev.zone?.includes("Backline")) {
-        setBallPos({ type: "d", end: prev.zone.includes(teams[topTeam]?.name) ? "top" : "bottom" });
-      } else {
+      else if (prev.zone?.includes(" D")) setBallPos({ type: "d", end: "top" });
+      else {
+        const ZONES = [{ id: "z1", label: "Opp Quarter" }, { id: "z2", label: "Opp Midfield" }, { id: "z3", label: "Own Midfield" }, { id: "z4", label: "Own Quarter" }];
         const z = ZONES.find(zn => prev.zone?.startsWith(zn.label));
-        const pm = prev.zone?.match(/(Left|Centre|Right)/);
-        setBallPos(z ? { zoneId: z.id, pos: pm ? pm[1].toLowerCase() : "centre" } : null);
+        const pm = prev.zone?.match(/\((left|right|centre)\)/);
+        setBallPos(z ? { zoneId: z.id, pos: pm ? pm[1] : "centre" } : null);
       }
-    } else {
-      setPossession(null); setBallPos(null); setShowRestart(true);
-    }
+    } else { setPossession(null); setBallPos(null); setShowRestart(true); }
   };
 
   return (
     <div style={S.app}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      <Scoreboard teams={teams} homeGoals={homeGoals} awayGoals={awayGoals}
+      <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
         matchTime={matchTime} matchState={matchState} running={running} />
 
       {/* Possession + Flip */}
       <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
         {possession ? (
-          <div style={{
-            fontSize: 9, fontWeight: 700, color: teams[possession].color,
-            background: teams[possession].color + "22", padding: "2px 10px", borderRadius: 99,
-            display: "flex", alignItems: "center", gap: 4,
-          }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: teams[possession].color, background: teams[possession].color + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: teams[possession].color }} />
             {teams[possession].name}
           </div>
@@ -213,12 +192,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
           </div>
         )}
         {matchState !== "ended" && (
-          <button onClick={() => setFlipped(f => !f)} style={{
-            padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`,
-            background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer",
-          }}>
-            🔄
-          </button>
+          <button onClick={() => setFlipped(f => !f)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
         )}
       </div>
 
@@ -227,53 +201,61 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
         teams={teams} possession={possession} setPossession={setPossession}
         ballPos={ballPos} setBallPos={setBallPos}
         prevBallPos={prevBallPos} setPrevBallPos={setPrevBallPos}
-        tapCount={tapCount} setTapCount={setTapCount}
-        running={running} showRestart={showRestart} setShowRestart={setShowRestart}
-        flipped={flipped} matchState={matchState}
-        onAddLog={addLog} onShowDPopup={setShowDPopup}
-        onShowTeamPicker={setShowTeamPicker}
+        running={running} matchState={matchState}
+        showRestart={showRestart} setShowRestart={setShowRestart}
+        flipped={flipped}
         sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
+        score={score} setScore={setScore}
+        onAddLog={addLog}
+        onShowDPopup={setShowDPopup} showDPopup={showDPopup}
+        onShowTeamPicker={setShowTeamPicker}
+        onBallTap={handleBallTap}
       />
 
-      {/* Popups */}
-      <DPopup show={showDPopup} teams={teams} topTeam={topTeam}
-        onSelect={handleDOption} onClose={() => setShowDPopup(null)} />
-      <PausePopup show={showPauseReason}
-        onSelect={handlePause} onClose={() => setShowPauseReason(false)} />
-      <TeamPicker show={showTeamPicker} teams={teams}
-        topTeam={topTeam} bottomTeam={bottomTeam}
+      {/* D Popup */}
+      {showDPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowDPopup(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 12, padding: 16, width: 280, border: `1px solid ${theme.border}` }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: theme.text, marginBottom: 10, textAlign: "center" }}>In the D — What happened?</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                { id: "goal", label: "Goal!", icon: "⚽", color: "#F59E0B" },
+                { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
+                { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
+                { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
+                { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
+              ].map(opt => (
+                <button key={opt.id} onClick={() => handleDOption(opt)} style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                  borderRadius: 8, border: `1px solid ${opt.color}33`, background: `${opt.color}11`,
+                  color: theme.text, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                }}>
+                  <span style={{ fontSize: 16 }}>{opt.icon}</span> {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Picker */}
+      <TeamPicker show={showTeamPicker} teams={teams} topTeam={topTeam} bottomTeam={bottomTeam}
         onSelect={handleRestart} onClose={() => setShowTeamPicker(false)} />
 
-      {/* End match confirmation */}
+      {/* Pause Picker */}
+      <PausePopup show={showPauseReason} onSelect={handlePause} onClose={() => setShowPauseReason(false)} />
+
+      {/* End Confirm */}
       {showEndConfirm && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 100,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)",
-        }} onClick={() => setShowEndConfirm(false)}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 280,
-          }}>
-            <div style={{ textAlign: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>⏹ End Match?</div>
-              <div style={{ fontSize: 12, color: theme.textDim, marginTop: 4 }}>
-                {teams.home.name} {homeGoals} - {awayGoals} {teams.away.name}
-              </div>
-              <div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>
-                {events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events recorded
-              </div>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }} onClick={() => setShowEndConfirm(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 280, textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>End Match?</div>
+            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teams.home.name} {score.home} – {score.away} {teams.away.name}</div>
+            <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 14 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
+              <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>End & Save</button>
             </div>
-            <button onClick={handleEndMatch} style={{
-              ...S.btn(theme.danger, "#fff"), marginBottom: 6,
-            }}>
-              End Match & Save
-            </button>
-            <button onClick={() => setShowEndConfirm(false)} style={{
-              ...S.btn("transparent", theme.textDim),
-              border: `1px solid ${theme.border}`,
-            }}>
-              Continue Playing
-            </button>
           </div>
         </div>
       )}
@@ -282,43 +264,29 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "6px 14px 4px", flexWrap: "wrap" }}>
         {matchState !== "ended" ? (
           <>
-            {running && (
-              <button onClick={() => setShowPauseReason(true)} style={S.btnSm(theme.accent, theme.bg)}>
-                ⏸ Pause
-              </button>
-            )}
-            {matchState === "paused" && (
-              <button onClick={handleResume} style={S.btnSm(theme.success, theme.bg)}>
-                ▶ Resume
-              </button>
-            )}
-            {(running || matchState === "paused") && (
-              <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, "#FFF")}>
-                ⏹ End
-              </button>
-            )}
-            {events.length > 0 && (
-              <button onClick={undoLast} style={{
-                ...S.btnSm(theme.surface, theme.textMuted),
-                border: `1px solid ${theme.border}`,
-              }}>
-                ↩ Undo
-              </button>
-            )}
+            {running && <button onClick={() => setShowPauseReason(true)} style={S.btnSm(theme.accent, theme.bg)}>⏸ Pause</button>}
+            {matchState === "paused" && <button onClick={handleResume} style={S.btnSm(theme.success, theme.bg)}>▶ Resume</button>}
+            {(running || matchState === "paused") && <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, "#FFF")}>⏹ End</button>}
+            {events.length > 0 && <button onClick={undoLast} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>↩ Undo</button>}
           </>
         ) : (
           <>
-            <button onClick={() => lastSavedGame && exportMatchJSON(lastSavedGame)}
-              style={S.btnSm(theme.info, "#FFF")}>📦 JSON</button>
-            <button onClick={() => onNavigate("game_review", lastSavedGame)}
-              style={S.btnSm(theme.success, "#FFF")}>📊 Dashboard</button>
-            <button onClick={() => onNavigate("home")}
-              style={S.btnSm(theme.accent, theme.bg)}>🏠 Home</button>
+            <button onClick={() => lastSavedGame && exportMatchJSON(lastSavedGame)} style={S.btnSm(theme.info, "#FFF")}>📦 JSON</button>
+            <button onClick={() => onNavigate("game_review", lastSavedGame)} style={S.btnSm(theme.success, "#FFF")}>📊 Review</button>
+            <button onClick={() => onNavigate("home")} style={S.btnSm(theme.accent, theme.bg)}>🏠 Home</button>
           </>
         )}
       </div>
 
       <EventLog events={events} teams={teams} />
+
+      {/* Fixed possession indicator */}
+      {possession && (
+        <div style={{ position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, background: "#0F172Aee", padding: "6px 16px", borderRadius: 99, border: `1px solid ${teams[possession].color}44` }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: teams[possession].color }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: theme.text }}>{teams[possession].name}</span>
+        </div>
+      )}
     </div>
   );
 }

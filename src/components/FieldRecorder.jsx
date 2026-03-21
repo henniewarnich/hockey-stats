@@ -1,409 +1,390 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ZONES, POSITIONS, GRASS_A, GRASS_B } from '../utils/constants.js';
-import { posLabel, otherTeam } from '../utils/helpers.js';
-import { theme } from '../utils/styles.js';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
-const ZONE_H = 68;
-const D_BAR_H = 48;
+// Zones: top=opp attack, bottom=own defense (when flipped=false)
+const ZONES = [
+  { id: "z1", label: "Opp Quarter", side: "attack" },
+  { id: "z2", label: "Opp Midfield", side: "opp_mid" },
+  { id: "z3", label: "Own Midfield", side: "own_mid" },
+  { id: "z4", label: "Own Quarter", side: "defense" },
+];
+
+const D_OPTIONS = [
+  { id: "goal", label: "Goal!", icon: "⚽", color: "#F59E0B" },
+  { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
+  { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
+  { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
+  { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
+];
+
+const grassA = "#2D8B4E", grassB = "#258043";
 
 export default function FieldRecorder({
-  teams, // { home: { name, color }, away: { name, color } }
-  possession,
-  setPossession,
-  ballPos,
-  setBallPos,
-  prevBallPos,
-  setPrevBallPos,
-  tapCount,
-  setTapCount,
-  running,
-  showRestart,
-  setShowRestart,
+  teams,         // { home: { name, color, short }, away: { ... } }
+  possession, setPossession,
+  ballPos, setBallPos,
+  prevBallPos, setPrevBallPos,
+  running, matchState,
+  showRestart, setShowRestart,
   flipped,
-  matchState,
+  sidelineOut, setSidelineOut,
+  score, setScore,
   onAddLog,
-  onShowDPopup,
+  onShowDPopup, showDPopup, onDOptionSelect, onCloseDPopup,
   onShowTeamPicker,
-  sidelineOut,
-  setSidelineOut,
+  onBallTap,
 }) {
   const [flash, setFlash] = useState(null);
-  const [lineCoords, setLineCoords] = useState(null);
   const fieldRef = useRef(null);
   const longPressRef = useRef(null);
-  const longPressTriggered = useRef(false);
 
-  const topTeam = flipped ? "home" : "away";
-  const bottomTeam = flipped ? "away" : "home";
-
-  const doFlash = (k) => { setFlash(k); setTimeout(() => setFlash(null), 250); };
+  const doFlash = (id) => { setFlash(id); setTimeout(() => setFlash(null), 200); };
   const moveBall = (np) => { setPrevBallPos(ballPos); setBallPos(np); };
-  const clearSO = () => { if (sidelineOut) setSidelineOut(null); };
 
-  // Ghost ball detection
-  const isGhostAt = (type, zoneId, pos, end) => {
-    if (!prevBallPos || !ballPos) return false;
-    const same = !ballPos.type && !prevBallPos.type && ballPos.zoneId === prevBallPos.zoneId && ballPos.pos === prevBallPos.pos;
-    const sameD = ballPos.type && prevBallPos.type && ballPos.type === prevBallPos.type && ballPos.end === prevBallPos.end;
-    if (same || sameD) return false;
-    if (type === "zone") return !prevBallPos.type && prevBallPos.zoneId === zoneId && prevBallPos.pos === pos;
+  const zones = flipped ? [...ZONES].reverse() : ZONES;
+  const topTeam = flipped ? "away" : "home";
+  const botTeam = flipped ? "home" : "away";
+  const otherTeam = (t) => t === "home" ? "away" : "home";
+
+  // Ghost ball check
+  const isGhostAt = (type, zoneId, pos) => {
+    if (!prevBallPos) return false;
     if (type === "centre") return prevBallPos.type === "centre";
-    if (type === "d") return prevBallPos.type === "d" && prevBallPos.end === end;
+    if (type === "zone") return prevBallPos.zoneId === zoneId && prevBallPos.pos === pos;
+    if (type === "d") return prevBallPos.type === "d" && prevBallPos.end === pos;
+    if (type === "sc") return prevBallPos.type === "sc" && prevBallPos.end === pos;
     return false;
   };
 
-  // Ghost trail line
-  useEffect(() => {
-    if (!fieldRef.current || !ballPos || !prevBallPos) { setLineCoords(null); return; }
-    const same = !ballPos.type && !prevBallPos.type && ballPos.zoneId === prevBallPos.zoneId && ballPos.pos === prevBallPos.pos;
-    const sameD = ballPos.type && prevBallPos.type && ballPos.type === prevBallPos.type && ballPos.end === prevBallPos.end;
-    if (same || sameD) { setLineCoords(null); return; }
-    requestAnimationFrame(() => {
-      const f = fieldRef.current; if (!f) return;
-      const c = f.querySelector('[data-ball="current"]');
-      const g = f.querySelector('[data-ball="ghost"]');
-      if (!c || !g) { setLineCoords(null); return; }
-      const fr = f.getBoundingClientRect(), cr = c.getBoundingClientRect(), gr = g.getBoundingClientRect();
-      setLineCoords({
-        x1: gr.left + gr.width / 2 - fr.left,
-        y1: gr.top + gr.height / 2 - fr.top,
-        x2: cr.left + cr.width / 2 - fr.left,
-        y2: cr.top + cr.height / 2 - fr.top,
-        fw: fr.width, fh: fr.height,
-      });
-    });
-  }, [ballPos, prevBallPos]);
-
-  // Long press = swap possession
-  const startLP = useCallback((zoneId, pos) => {
-    longPressTriggered.current = false;
-    longPressRef.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      if (possession && running) {
-        const nt = otherTeam(possession);
-        const z = ZONES.find(z => z.id === zoneId);
-        onAddLog(nt, "Poss Conceded", `${z?.label || ""} ${posLabel(pos)}`,
-          `${teams[possession].name} lost to ${teams[nt].name} in ${z?.label} (${posLabel(pos)})`);
-        setPossession(nt);
-        setSidelineOut(null);
-        doFlash(`${zoneId}-${pos}`);
-      }
-    }, 500);
-  }, [possession, running, teams]);
-
-  const endLP = useCallback(() => { clearTimeout(longPressRef.current); }, []);
+  // Ball with halo
+  const makeBall = (isGhost) => {
+    const teamColor = possession ? teams[possession].color : "#94A3B8";
+    if (isGhost) {
+      return <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#94A3B8", border: "2px solid #64748B", opacity: 0.4 }} />;
+    }
+    return (
+      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{
+          position: "absolute", width: 60, height: 60, borderRadius: "50%",
+          background: `${teamColor}55`, boxShadow: `0 0 20px ${teamColor}99, 0 0 40px ${teamColor}66`,
+          animation: "halo-pulse 1.8s ease-in-out infinite",
+        }} />
+        <div style={{
+          width: 24, height: 24, borderRadius: "50%", background: "#F8FAFC",
+          border: `3px solid ${teamColor}`, boxShadow: `0 0 8px ${teamColor}88`, zIndex: 2,
+        }} />
+      </div>
+    );
+  };
 
   // Zone tap
-  const handleBlockTap = (zoneId, pos) => {
-    if (longPressTriggered.current) return;
+  const handleZoneTap = (zoneId, pos) => {
     if (!running || showRestart || !possession) return;
-    clearSO(); doFlash(`${zoneId}-${pos}`);
-
-    const z = ZONES.find(z => z.id === zoneId);
-    const prev = ballPos;
-
-    // Same block = retained possession
-    if (prev && prev.zoneId === zoneId && prev.pos === pos && !prev.type) {
-      const nc = tapCount + 1;
-      setTapCount(nc);
-      onAddLog(possession, "Pass in zone", `${z.label} ${posLabel(pos)}`,
-        `${teams[possession].name} retained (${nc} touches)`);
-      setBallPos({ zoneId, pos });
-      return;
+    if (sidelineOut) setSidelineOut(null);
+    const zone = ZONES.find(z => z.id === zoneId);
+    const fromZone = ballPos?.zoneId ? ZONES.find(z => z.id === ballPos.zoneId) : null;
+    const fromIdx = fromZone ? ZONES.indexOf(fromZone) : -1;
+    const toIdx = ZONES.indexOf(zone);
+    let event = "Ball in play";
+    if (fromIdx >= 0) {
+      if (toIdx < fromIdx) event = "Ball forward";
+      else if (toIdx > fromIdx) event = "Ball back";
+      else event = "Ball across";
     }
-    setTapCount(1);
-
-    let ev = "", det = "";
-    if (!prev || prev.type === "centre") {
-      ev = "Ball in play"; det = `${teams[possession].name} → ${z.label} (${posLabel(pos)})`;
-    } else if (prev.type === "d") {
-      ev = "Ball out of D"; det = `${teams[possession].name} cleared to ${z.label}`;
-    } else if (prev.zoneId === zoneId) {
-      ev = "Ball across"; det = `${teams[possession].name} ${posLabel(prev.pos)} → ${posLabel(pos)} in ${z.label}`;
-    } else {
-      const pz = ZONES.find(z => z.id === prev.zoneId);
-      const pi = ZONES.findIndex(z => z.id === prev.zoneId);
-      const ni = ZONES.findIndex(z => z.id === zoneId);
-      if (zoneId === "own_mid" && prev.zoneId === "own_quarter") {
-        ev = "Defensive Exit"; det = `${teams[possession].name} ${pz.label} → ${z.label}`;
-      } else if (ni < pi) {
-        ev = "Ball forward"; det = `${teams[possession].name} ${pz.label} → ${z.label} (${posLabel(pos)})`;
-      } else {
-        ev = "Ball back"; det = `${teams[possession].name} back ${pz.label} → ${z.label}`;
-      }
-    }
-    onAddLog(possession, ev, `${z.label} ${posLabel(pos)}`, det);
+    doFlash(`${zoneId}-${pos}`);
+    onAddLog(possession, event, `${zone.label} (${pos})`, `${teams[possession].name}: ${event} → ${zone.label} (${pos})`);
     moveBall({ zoneId, pos });
   };
 
+  // Long press = possession conceded
+  const startLP = (zoneId, pos) => {
+    longPressRef.current = setTimeout(() => {
+      if (!running || !possession) return;
+      const other = otherTeam(possession);
+      const zone = ZONES.find(z => z.id === zoneId);
+      onAddLog(possession, "Poss Conceded", `${zone.label} (${pos})`, `${teams[possession].name} lost to ${teams[other].name} in ${zone.label}`);
+      setPossession(other);
+      moveBall({ zoneId, pos });
+    }, 600);
+  };
+  const cancelLP = () => clearTimeout(longPressRef.current);
+
   // D tap
-  const handleDCentreTap = (end) => {
+  const handleDTap = (end) => {
     if (!running || showRestart || !possession) return;
-    clearSO(); doFlash(`d-${end}-centre`);
-    const def = end === "top" ? topTeam : bottomTeam;
-    const dLbl = `${teams[def].name} D`;
-    onAddLog(possession, "D Entry", dLbl, `${teams[possession].name} entered ${dLbl}`);
+    if (sidelineOut) setSidelineOut(null);
+    const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
+    const defendingTeam = otherTeam(attackingTeam);
+    if (ballPos?.type === "d" && ballPos?.end === end) {
+      onShowDPopup({ end }); return;
+    }
+    onAddLog(attackingTeam, "D Entry", `${teams[defendingTeam].name} D`, `${teams[attackingTeam].name} entered ${teams[defendingTeam].name}'s D`);
     moveBall({ type: "d", end });
     onShowDPopup({ end });
   };
 
-  // Dead ball
-  const handleDeadBall = (end, side) => {
-    if (!running || showRestart) return;
-    clearSO(); doFlash(`d-${end}-${side}`);
-    const def = end === "top" ? topTeam : bottomTeam;
-    onAddLog(possession || def, "Ball Dead", `Backline ${side}`,
-      `Ball over ${teams[def].name} backline (${side}). ${teams[def].name} restart.`);
-    setPossession(def); setTapCount(1);
-    moveBall({ zoneId: end === "top" ? "opp_quarter" : "own_quarter", pos: side });
+  // Dead ball on backline
+  const handleDead = (end, side) => {
+    if (!running || showRestart || !possession) return;
+    if (sidelineOut) setSidelineOut(null);
+    const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
+    onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teams[defendingTeam].name}'s backline (${side}). ${teams[defendingTeam].name} restart.`);
+    setPossession(defendingTeam);
+    const defZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
+    moveBall({ zoneId: defZone, pos: side });
   };
 
-  // Sideline out
+  // Long corner
+  const handleLongCorner = (end, side) => {
+    if (!running || showRestart || !possession) return;
+    if (sidelineOut) setSidelineOut(null);
+    const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
+    const defendingTeam = otherTeam(attackingTeam);
+    onAddLog(possession, "Ball Dead (backline)", `${teams[defendingTeam].name} Backline (${side})`, `${teams[possession].name} put ball over ${teams[defendingTeam].name}'s backline (${side})`);
+    onAddLog(defendingTeam, "Poss Conceded (LC)", `${teams[defendingTeam].name} Qtr (${side})`, `${teams[defendingTeam].name} concedes long corner on ${side}`);
+    onAddLog(attackingTeam, "Long Corner", `${teams[defendingTeam].name} Qtr (${side})`, `${teams[attackingTeam].name} wins long corner on ${side}`);
+    const atkZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
+    setPossession(attackingTeam);
+    moveBall({ zoneId: atkZone, pos: side });
+  };
+
+  // Sideline out with reversal
   const handleSidelineOut = (side, zoneId) => {
-    if (!running || showRestart) return;
-    if (sidelineOut?.side === side && sidelineOut?.zoneId === zoneId) {
-      const old = sidelineOut.blamedTeam, nb = otherTeam(old);
-      const z = ZONES.find(z => z.id === zoneId);
-      setSidelineOut({ side, zoneId, blamedTeam: nb });
-      onAddLog(nb, "Sideline Out (Reversed)", `${z?.label || ""} (${side})`,
-        `Reversed — ${teams[nb].name} put it out. ${teams[old].name} free hit.`);
-      setPossession(old); setTapCount(1); moveBall({ zoneId, pos: side });
+    if (!running || showRestart || !possession) return;
+    const zone = ZONES.find(z => z.id === zoneId);
+    if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
+      const newTeamOut = otherTeam(sidelineOut.team);
+      const newTeamGets = sidelineOut.team;
+      onAddLog(newTeamOut, `Sideline Out (Reversed)`, zone.label, `Reversed — ${teams[newTeamOut].name} put ball out. ${teams[newTeamGets].name} free hit.`);
+      setPossession(newTeamGets);
+      setSidelineOut({ side, zoneId, team: newTeamOut, canReverse: false });
       return;
     }
-    if (!possession) return;
-    const z = ZONES.find(z => z.id === zoneId);
-    const losing = possession, gaining = otherTeam(possession);
-    setSidelineOut({ side, zoneId, blamedTeam: losing });
-    onAddLog(losing, "Sideline Out", `${z?.label || ""} (${side})`,
-      `${teams[losing].name} out on ${side}. ${teams[gaining].name} free hit.`);
-    setPossession(gaining); setTapCount(1); moveBall({ zoneId, pos: side });
+    const teamOut = possession;
+    const teamGets = otherTeam(possession);
+    onAddLog(teamOut, `Sideline Out (${side})`, zone.label, `${teams[teamOut].name} out on ${side} in ${zone.label}. ${teams[teamGets].name} free hit.`);
+    setPossession(teamGets);
+    setSidelineOut({ side, zoneId, team: teamOut, canReverse: true });
   };
 
-  // Ball rendering
-  const makeBall = (ghost, db) => (
-    <div data-ball={db} style={{
-      width: 22, height: 22, borderRadius: "50%",
-      background: ghost ? "#94A3B8" : "#F8FAFC",
-      boxShadow: ghost ? "none" : `0 0 10px #fff8, 0 0 16px ${possession ? teams[possession].color + "66" : "#fff4"}`,
-      border: `3px solid ${ghost ? "#64748B" : (possession ? teams[possession].color : "#94A3B8")}`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: ghost ? 8 : 10, opacity: ghost ? 0.4 : 1, position: "relative",
-    }}>
-      {!ghost && tapCount > 1 && (
-        <span style={{ fontSize: 9, fontWeight: 900, color: possession ? teams[possession].color : theme.bg }}>
-          {tapCount}
-        </span>
-      )}
-    </div>
-  );
+  const getOutStripBg = (side, zoneId) => {
+    if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId) return teams[sidelineOut.team].color;
+    return "#334155";
+  };
 
-  // D-bar render
-  const renderDBar = (end) => {
-    const def = end === "top" ? topTeam : bottomTeam;
-    const tc = teams[def].color;
-    const active = running && !showRestart;
-    const hasBall = ballPos?.type === "d" && ballPos.end === end;
-    const hasGhost = isGhostAt("d", null, null, end);
+  // Ghost line coords
+  const getBallCoords = (bp) => {
+    if (!bp || !fieldRef.current) return null;
+    const fw = fieldRef.current.offsetWidth;
+    const greenW = fw - 56;
+    const xMap = { left: 28 + greenW / 6, centre: 28 + greenW / 2, right: 28 + 5 * greenW / 6 };
+    if (bp.type === "centre") return { x: fw / 2, y: 174 };
+    if (bp.type === "d") return { x: fw / 2, y: bp.end === "top" ? 42 : 318 };
+    if (bp.type === "sc") return { x: fw / 2 + 65, y: bp.end === "top" ? 15 : 345 };
+    if (bp.zoneId) {
+      const ri = zones.findIndex(z => z.id === bp.zoneId);
+      if (ri < 0) return null;
+      const y = ri < 2 ? 30 + ri * 72 + 36 : 30 + ri * 72 + 1 + 36;
+      return { x: xMap[bp.pos] || xMap.centre, y };
+    }
+    return null;
+  };
 
+  const ghostCoords = getBallCoords(prevBallPos);
+  const ballCoords = getBallCoords(ballPos);
+
+  if (matchState === "ended") return null;
+
+  // Render backline (top or bottom)
+  const renderBackline = (end) => {
+    const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
+    const dColor = teams[defendingTeam].color;
     return (
-      <div style={{ display: "flex", height: D_BAR_H }}>
-        {/* Dead ball left */}
-        <div onClick={() => handleDeadBall(end, "left")} style={{
-          width: 48, background: tc + "88",
-          cursor: active ? "pointer" : "default", opacity: active ? 0.8 : 0.4,
-          display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
-        }}>
-          {flash === `d-${end}-left` && <div style={{ position: "absolute", inset: 0, background: "#fff3" }} />}
-          <div style={{ fontSize: 7, fontWeight: 700, color: "#fffa", textTransform: "uppercase" }}>DEAD</div>
+      <div style={{ display: "flex", height: 30, background: "#1a3a2a" }}>
+        <div onClick={() => handleDead(end, "left")} style={{ width: 56, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#162D22", borderRight: "1px solid #0f1f18" }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Dead</span>
         </div>
-
-        {/* D centre */}
-        <div onClick={() => handleDCentreTap(end)} style={{
-          flex: 1, background: tc,
-          cursor: active ? "pointer" : "default", opacity: active ? 1 : 0.5,
-          display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
-        }}>
-          {/* D arc */}
-          {end === "top" && <div style={{
-            position: "absolute", bottom: -1, left: "50%", transform: "translateX(-50%)",
-            width: 90, height: 24, borderRadius: "0 0 45px 45px",
-            border: "1.5px solid #fff3", borderTop: "none", pointerEvents: "none",
-          }} />}
-          {end === "bottom" && <div style={{
-            position: "absolute", top: -1, left: "50%", transform: "translateX(-50%)",
-            width: 90, height: 24, borderRadius: "45px 45px 0 0",
-            border: "1.5px solid #fff3", borderBottom: "none", pointerEvents: "none",
-          }} />}
-          {flash === `d-${end}-centre` && <div style={{ position: "absolute", inset: 0, background: "#fff2" }} />}
-          {hasBall && <div style={{ zIndex: 11 }}>{makeBall(false, "current")}</div>}
-          {hasGhost && <div style={{ position: "absolute", zIndex: 8 }}>{makeBall(true, "ghost")}</div>}
-          <div style={{
-            fontSize: 10, fontWeight: 800, color: "#fffd", textTransform: "uppercase",
-            letterSpacing: "0.1em", zIndex: 2, pointerEvents: "none",
-          }}>
-            🧤 {teams[def].name}
-          </div>
+        <div onClick={() => handleLongCorner(end, "left")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderRight: "1px solid #0f1f18" }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>◁ LC</span>
         </div>
-
-        {/* Dead ball right */}
-        <div onClick={() => handleDeadBall(end, "right")} style={{
-          width: 48, background: tc + "88",
-          cursor: active ? "pointer" : "default", opacity: active ? 0.8 : 0.4,
-          display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
-        }}>
-          {flash === `d-${end}-right` && <div style={{ position: "absolute", inset: 0, background: "#fff3" }} />}
-          <div style={{ fontSize: 7, fontWeight: 700, color: "#fffa", textTransform: "uppercase" }}>DEAD</div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#1a3a2a", position: "relative" }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: dColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>{teams[defendingTeam].name}</span>
+          {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
+            <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
+          )}
+          {isGhostAt("sc", null, end) && (
+            <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+          )}
+        </div>
+        <div onClick={() => handleLongCorner(end, "right")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderLeft: "1px solid #0f1f18" }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>LC ▷</span>
+        </div>
+        <div onClick={() => handleDead(end, "right")} style={{ width: 56, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#162D22", borderLeft: "1px solid #0f1f18" }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Dead</span>
         </div>
       </div>
     );
   };
 
-  if (matchState === "ended") return null;
+  // Render D arc overlay
+  const renderDArc = (end) => {
+    const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
+    const dColor = teams[defendingTeam].color;
+    const isTop = end === "top";
+    const hasBall = ballPos?.type === "d" && ballPos?.end === end;
+    const hasGhost = isGhostAt("d", null, end);
+
+    return (
+      <div onClick={() => handleDTap(end)} style={{
+        position: "absolute", [isTop ? "top" : "bottom"]: 30, left: "50%", transform: "translateX(-50%)",
+        width: 80, height: 24, zIndex: 15, cursor: running && !showRestart ? "pointer" : "default",
+      }}>
+        <div style={{
+          width: 80, height: 24,
+          [isTop ? "borderBottomLeftRadius" : "borderTopLeftRadius"]: 40,
+          [isTop ? "borderBottomRightRadius" : "borderTopRightRadius"]: 40,
+          border: `3px solid ${dColor}`,
+          [isTop ? "borderTop" : "borderBottom"]: "none",
+          background: hasBall ? `${dColor}88` : `${dColor}55`,
+        }} />
+        {hasBall && !showRestart && (
+          <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{
+            position: "absolute", left: "50%", [isTop ? "bottom" : "top"]: 2, transform: "translateX(-50%)", zIndex: 16, cursor: "pointer",
+          }}>{makeBall(false)}</div>
+        )}
+        {hasGhost && (
+          <div style={{ position: "absolute", left: "50%", [isTop ? "bottom" : "top"]: 2, transform: "translateX(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div style={{ padding: "0 8px" }}>
-      <div ref={fieldRef} style={{ borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c30", position: "relative" }}>
+    <div style={{ padding: "0 6px" }}>
+      <div ref={fieldRef} style={{ borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative" }}>
+
+        {/* Pause overlay */}
+        {matchState === "paused" && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 25, pointerEvents: "none",
+            display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)",
+          }}>
+            <div style={{
+              fontSize: 16, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em",
+              background: "rgba(15,23,42,0.85)", padding: "8px 24px", borderRadius: 10, border: "1px solid #F59E0B44",
+            }}>⏸ Paused</div>
+          </div>
+        )}
+
         {/* Ghost trail line */}
-        {lineCoords && (
-          <svg width={lineCoords.fw} height={lineCoords.fh} style={{ position: "absolute", top: 0, left: 0, zIndex: 9, pointerEvents: "none" }}>
-            <line x1={lineCoords.x1} y1={lineCoords.y1} x2={lineCoords.x2} y2={lineCoords.y2}
-              stroke="#94A3B8" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.55" />
+        {ghostCoords && ballCoords && prevBallPos && ballPos && (
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 6, pointerEvents: "none" }}>
+            <line x1={ghostCoords.x} y1={ghostCoords.y} x2={ballCoords.x} y2={ballCoords.y}
+              stroke="#94A3B8" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
           </svg>
         )}
 
-        {renderDBar("top")}
+        {/* D arc overlays */}
+        {renderDArc("top")}
+        {renderDArc("bottom")}
 
-        {ZONES.map((zone, zi) => {
-          const isCentreLine = zi === 1;
-          const grass = zi % 2 === 0 ? GRASS_A : GRASS_B;
+        {/* Top backline */}
+        {renderBackline("top")}
 
-          return (
-            <div key={zone.id}>
-              <div style={{ display: "flex" }}>
-                {/* Left OUT strip */}
-                {(() => {
-                  const isActive = sidelineOut?.side === "left" && sidelineOut?.zoneId === zone.id;
-                  return (
-                    <div onClick={() => handleSidelineOut("left", zone.id)} style={{
-                      width: 30, background: isActive ? teams[sidelineOut.blamedTeam].color + "99" : "#334155",
-                      cursor: running && !showRestart ? "pointer" : "default",
-                      opacity: running && !showRestart ? (isActive ? 1 : 0.7) : 0.25,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      position: "relative", borderRight: "1.5px solid #1a5c30", transition: "background 0.3s",
-                    }}>
-                      <div style={{ fontSize: 7, fontWeight: 800, color: isActive ? "#fff" : "#94A3B8", writingMode: "vertical-rl", textOrientation: "mixed" }}>OUT</div>
-                    </div>
-                  );
-                })()}
+        {/* Zone rows */}
+        {zones.map((zone, zi) => (
+          <div key={zone.id}>
+            {/* Centre line between z2 and z3 */}
+            {zi === 2 && (
+              <div style={{ height: 1, background: "rgba(255,255,255,0.15)", position: "relative" }}>
+                <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 22, height: 22, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.18)" }} />
+                {showRestart && (
+                  <div onClick={() => onShowTeamPicker?.(true)} style={{
+                    position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
+                    zIndex: 20, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                  }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: "50%", background: "#F8FAFC",
+                      border: "3px solid #94A3B8", boxShadow: "0 0 16px rgba(255,255,255,0.6), 0 0 32px rgba(255,255,255,0.3)",
+                      animation: "pulse-ball 2s infinite",
+                    }} />
+                    <div style={{
+                      fontSize: 8, fontWeight: 700, color: "#F8FAFC", textTransform: "uppercase",
+                      letterSpacing: "0.08em", whiteSpace: "nowrap", background: "rgba(15,23,42,0.85)",
+                      padding: "3px 10px", borderRadius: 6,
+                    }}>Tap ball to start</div>
+                  </div>
+                )}
+                {!showRestart && ballPos?.type === "centre" && (
+                  <div onClick={onBallTap} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 15, cursor: "pointer" }}>
+                    {makeBall(false)}
+                  </div>
+                )}
+                {isGhostAt("centre") && (
+                  <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 8 }}>{makeBall(true)}</div>
+                )}
+              </div>
+            )}
 
-                {/* Zone blocks */}
-                {POSITIONS.map((pos, pi) => {
-                  const key = `${zone.id}-${pos}`;
-                  const isFlash = flash === key;
-                  const isBall = ballPos?.zoneId === zone.id && ballPos?.pos === pos && !ballPos?.type;
-                  const isGhost = isGhostAt("zone", zone.id, pos, null);
-
-                  return (
-                    <div key={pos}
-                      onClick={() => handleBlockTap(zone.id, pos)}
-                      onTouchStart={() => startLP(zone.id, pos)}
-                      onTouchEnd={endLP}
-                      onMouseDown={() => startLP(zone.id, pos)}
-                      onMouseUp={endLP}
-                      onMouseLeave={endLP}
-                      style={{
-                        flex: 1, height: ZONE_H, background: grass,
-                        cursor: running && !showRestart ? "pointer" : "default",
-                        opacity: running && !showRestart ? 1 : 0.5,
-                        borderRight: pi < 2 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                        position: "relative",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        userSelect: "none",
-                      }}
-                    >
-                      {isFlash && <div style={{ position: "absolute", inset: 0, background: "#fff2", pointerEvents: "none" }} />}
-                      {isGhost && makeBall(true, "ghost")}
-                      {isBall && makeBall(false, "current")}
-                    </div>
-                  );
-                })}
-
-                {/* Right OUT strip */}
-                {(() => {
-                  const isActive = sidelineOut?.side === "right" && sidelineOut?.zoneId === zone.id;
-                  return (
-                    <div onClick={() => handleSidelineOut("right", zone.id)} style={{
-                      width: 30, background: isActive ? teams[sidelineOut.blamedTeam].color + "99" : "#334155",
-                      cursor: running && !showRestart ? "pointer" : "default",
-                      opacity: running && !showRestart ? (isActive ? 1 : 0.7) : 0.25,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      position: "relative", borderLeft: "1.5px solid #1a5c30", transition: "background 0.3s",
-                    }}>
-                      <div style={{ fontSize: 7, fontWeight: 800, color: isActive ? "#fff" : "#94A3B8", writingMode: "vertical-rl", textOrientation: "mixed" }}>OUT</div>
-                    </div>
-                  );
-                })()}
+            {/* Zone row */}
+            <div style={{ display: "flex", height: 72 }}>
+              {/* Left OUT */}
+              <div onClick={() => handleSidelineOut("left", zone.id)} style={{
+                width: 28, background: getOutStripBg("left", zone.id),
+                cursor: running && !showRestart ? "pointer" : "default",
+                opacity: running && !showRestart ? (sidelineOut?.side === "left" && sidelineOut?.zoneId === zone.id ? 1 : 0.6) : 0.25,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.3s, opacity 0.3s", borderRight: "1px solid rgba(0,0,0,0.3)",
+              }}>
+                <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
               </div>
 
-              {/* Centre line */}
-              {isCentreLine && (
-                <div style={{ height: 2, background: "rgba(255,255,255,0.25)", position: "relative" }}>
-                  <div style={{
-                    position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-                    width: 20, height: 20, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.18)",
-                  }} />
-                  {showRestart && (
-                    <div onClick={() => onShowTeamPicker(true)} style={{
-                      position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-                      zIndex: 20, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+              {/* 3 green blocks */}
+              {["left", "centre", "right"].map((pos, pi) => {
+                const hasBall = ballPos?.zoneId === zone.id && ballPos?.pos === pos;
+                const hasGhost = isGhostAt("zone", zone.id, pos);
+                return (
+                  <div key={pos}
+                    onClick={() => handleZoneTap(zone.id, pos)}
+                    onTouchStart={() => startLP(zone.id, pos)} onTouchEnd={cancelLP}
+                    onMouseDown={() => startLP(zone.id, pos)} onMouseUp={cancelLP} onMouseLeave={cancelLP}
+                    style={{
+                      flex: 1, background: zi % 2 === 0 ? grassA : grassB, position: "relative",
+                      cursor: running && !showRestart ? "pointer" : "default",
+                      borderRight: pi < 2 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "background 0.15s",
                     }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: "50%",
-                        background: "#F8FAFC", border: "3px solid #94A3B8",
-                        boxShadow: "0 0 16px rgba(255,255,255,0.6)",
-                        animation: "pulse-ball 2s infinite",
-                      }} />
-                      <div style={{
-                        fontSize: 8, fontWeight: 700, color: "#F8FAFC", textTransform: "uppercase",
-                        whiteSpace: "nowrap", background: "rgba(15,23,42,0.8)", padding: "2px 8px", borderRadius: 5,
-                      }}>
-                        Tap to start
-                      </div>
-                    </div>
-                  )}
-                  {!showRestart && ballPos?.type === "centre" && (
-                    <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 15 }}>
-                      {makeBall(false, "current")}
-                    </div>
-                  )}
-                  {isGhostAt("centre", null, null, null) && (
-                    <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 8 }}>
-                      {makeBall(true, "ghost")}
-                    </div>
-                  )}
-                </div>
-              )}
+                    {flash === `${zone.id}-${pos}` && <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.15)" }} />}
+                    {hasBall && !showRestart && (
+                      <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{ zIndex: 10, cursor: "pointer" }}>{makeBall(false)}</div>
+                    )}
+                    {hasGhost && <div style={{ position: "absolute", zIndex: 5 }}>{makeBall(true)}</div>}
+                  </div>
+                );
+              })}
 
-              {zi !== 1 && zi < 3 && <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />}
+              {/* Right OUT */}
+              <div onClick={() => handleSidelineOut("right", zone.id)} style={{
+                width: 28, background: getOutStripBg("right", zone.id),
+                cursor: running && !showRestart ? "pointer" : "default",
+                opacity: running && !showRestart ? (sidelineOut?.side === "right" && sidelineOut?.zoneId === zone.id ? 1 : 0.6) : 0.25,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.3s, opacity 0.3s", borderLeft: "1px solid rgba(0,0,0,0.3)",
+              }}>
+                <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
+              </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
 
-        {renderDBar("bottom")}
+        {/* Bottom backline */}
+        {renderBackline("bottom")}
       </div>
 
-      {/* Pause overlay */}
-      {matchState === "paused" && (
-        <div style={{
-          position: "absolute", inset: 0, background: "rgba(15,23,42,0.7)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          borderRadius: 10, zIndex: 30, pointerEvents: "none",
-        }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: theme.accent }}>⏸ Paused</div>
-        </div>
-      )}
-
-      <style>{`@keyframes pulse-ball{0%,100%{box-shadow:0 0 16px rgba(255,255,255,0.6),0 0 32px rgba(255,255,255,0.3);transform:scale(1)}50%{box-shadow:0 0 24px rgba(255,255,255,0.8),0 0 48px rgba(255,255,255,0.4);transform:scale(1.1)}}`}</style>
+      <style>{`
+        @keyframes pulse-ball { 0%,100% { box-shadow: 0 0 16px rgba(255,255,255,0.6), 0 0 32px rgba(255,255,255,0.3); transform: scale(1); } 50% { box-shadow: 0 0 24px rgba(255,255,255,0.8), 0 0 48px rgba(255,255,255,0.4); transform: scale(1.1); } }
+        @keyframes halo-pulse { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+      `}</style>
     </div>
   );
 }
