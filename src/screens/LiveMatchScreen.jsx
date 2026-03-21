@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { otherTeam, exportMatchJSON } from '../utils/helpers.js';
 import { generateInsight } from '../utils/commentary.js';
 import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
+import { createLiveMatch, pushLiveEvent, updateLiveScore, endLiveMatch } from '../utils/sync.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import FieldRecorder from '../components/FieldRecorder.jsx';
 import EventLog from '../components/EventLog.jsx';
@@ -13,7 +14,7 @@ import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 
 export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate }) {
-  const { home, away, matchLength, breakFormat, venue, date } = matchConfig;
+  const { home, away, matchLength, breakFormat, venue, date, isDemo } = matchConfig;
   const teams = { home, away };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
@@ -32,9 +33,22 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [pauseReason, setPauseReason] = useState(null);
+  const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
+  const eventSeqRef = useRef(0);
 
   const topTeam = flipped ? "home" : "away";
   const bottomTeam = flipped ? "away" : "home";
+
+  // Create live match in Supabase on mount (unless demo)
+  useEffect(() => {
+    if (isDemo) return;
+    createLiveMatch(matchConfig).then(result => {
+      if (result) {
+        setLiveMatchId(result.id);
+        console.log('Live match created:', result.id);
+      }
+    }).catch(err => console.warn('Could not create live match:', err));
+  }, []);
 
   // Auto-save
   const getState = useCallback(() => ({
@@ -44,10 +58,11 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   }), [teams, events, timer.matchTime, timer.matchState, possession, ballPos, prevBallPos, score, flipped, sidelineOut]);
   const { clearAutoSave } = useAutoSave(getState, matchState !== "idle" && matchState !== "ended");
 
-  // Add log with optional commentary
+  // Add log with optional commentary + push to Supabase
   const addLog = useCallback((team, event, zone, detail) => {
+    const entry = { id: Date.now(), team, event, zone, detail, time: timer.matchTime };
+
     setEvents(prev => {
-      const entry = { id: Date.now(), team, event, zone, detail, time: timer.matchTime };
       const upd = [entry, ...prev];
       const triggers = ["D Entry", "Goal!", "Goal! (SC)", "Turnover Won", "Short Corner", "Penalty"];
       if (triggers.includes(event)) {
@@ -56,7 +71,13 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       }
       return upd;
     });
-  }, [timer.matchTime, teams]);
+
+    // Push to Supabase (fire-and-forget)
+    if (liveMatchId && !isDemo) {
+      eventSeqRef.current += 1;
+      pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
+    }
+  }, [timer.matchTime, teams, liveMatchId, isDemo]);
 
   // Ball tap = swap possession (except in D → show popup)
   const handleBallTap = () => {
@@ -82,7 +103,12 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       const btw = lastSC ? real.slice(0, real.indexOf(lastSC)) : [];
       const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === defendingTeam));
       addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
-      setScore(prev => ({ ...prev, [attackingTeam]: prev[attackingTeam] + 1 }));
+      setScore(prev => {
+        const newScore = { ...prev, [attackingTeam]: prev[attackingTeam] + 1 };
+        // Push score to Supabase
+        if (liveMatchId && !isDemo) updateLiveScore(liveMatchId, newScore.home, newScore.away).catch(() => {});
+        return newScore;
+      });
       setPossession(null); setBallPos(null); setPrevBallPos(null); setShowRestart(true);
     } else if (opt.id === "lost_poss") {
       addLog(attackingTeam, "Poss Conceded", dLabel, `${teams[attackingTeam].name} lost possession in ${dLabel}`);
@@ -134,12 +160,17 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     timer.end();
     clearAutoSave();
     const game = {
-      id: Date.now().toString(),
+      id: liveMatchId || Date.now().toString(),
+      supabase_id: liveMatchId || null,
       date: date ? new Date(date).toISOString() : new Date().toISOString(),
       teams, events, duration: timer.matchTime,
       matchLength, breakFormat, venue,
       homeScore: score.home, awayScore: score.away,
     };
+    // Mark live match as ended in Supabase
+    if (liveMatchId && !isDemo) {
+      endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime).catch(() => {});
+    }
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);
   };

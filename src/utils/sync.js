@@ -244,6 +244,15 @@ export async function updateLiveScore(matchId, homeScore, awayScore) {
   return !error;
 }
 
+export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
+  const { error } = await supabase
+    .from('matches')
+    .update({ home_score: homeScore, away_score: awayScore, status: 'ended', duration })
+    .eq('id', matchId);
+  if (error) console.error('End live match error:', error);
+  return !error;
+}
+
 export async function pushLiveEvent(matchId, event, seq) {
   const { error } = await supabase
     .from('match_events')

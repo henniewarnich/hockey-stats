@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hockey-stats-v3.0.0';
+const CACHE_NAME = 'hockey-stats-v3.7.0';
 const urlsToCache = ['/', '/index.html', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

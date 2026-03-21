@@ -89,6 +89,17 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
             ))}
           </div>
         </div>
+        {/* Coach PIN */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={S.label}>Coach PIN (optional)</label>
+          <input style={{ ...S.input, letterSpacing: "0.2em", fontSize: 16 }}
+            value={editing?.coach_pin || ""}
+            onChange={e => setEditing(p => ({ ...p, coach_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+            placeholder="e.g. 1234" type="tel" maxLength={6} />
+          <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
+            Share this PIN with coaches to unlock detailed stats on the team page
+          </div>
+        </div>
         {/* Preview */}
         <div style={{
           background: theme.surface, borderRadius: 12, padding: 16, marginBottom: 20,
