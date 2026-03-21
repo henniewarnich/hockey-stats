@@ -120,6 +120,48 @@ export async function fetchMatches() {
   return data;
 }
 
+// Fetch all matches with events, converted to local app format
+export async function fetchMatchesForLocal() {
+  const matches = await fetchMatches();
+  if (!matches) return null;
+
+  const results = [];
+  for (const m of matches) {
+    // Fetch events for this match
+    const { data: events } = await supabase
+      .from('match_events')
+      .select('*')
+      .eq('match_id', m.id)
+      .order('seq', { ascending: false });
+
+    results.push({
+      id: m.id, // use Supabase UUID as local id
+      supabase_id: m.id,
+      date: m.match_date ? new Date(m.match_date).toISOString() : new Date(m.created_at).toISOString(),
+      teams: {
+        home: { name: m.home_team?.name || "Home", color: m.home_team?.color || "#1D4ED8", id: m.home_team?.id },
+        away: { name: m.away_team?.name || "Away", color: m.away_team?.color || "#DC2626", id: m.away_team?.id },
+      },
+      events: (events || []).map(e => ({
+        id: e.id,
+        team: e.team,
+        event: e.event,
+        zone: e.zone,
+        detail: e.detail,
+        time: e.match_time,
+      })),
+      duration: m.duration || 0,
+      homeScore: m.home_score || 0,
+      awayScore: m.away_score || 0,
+      matchLength: m.match_length,
+      breakFormat: m.break_format,
+      venue: m.venue,
+      status: m.status,
+    });
+  }
+  return results;
+}
+
 export async function fetchMatchEvents(matchId) {
   const { data, error } = await supabase
     .from('match_events')

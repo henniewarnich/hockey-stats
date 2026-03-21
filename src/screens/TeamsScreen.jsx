@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
-export default function TeamsScreen({ teams, onSave, onDelete, onBack }) {
+export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareLink }) {
   const [editing, setEditing] = useState(null); // null = list view, object = edit view
 
   // ── LIST VIEW ──
@@ -34,6 +34,12 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
                   </div>
+                  {getShareLink && (
+                    <button onClick={e => { e.stopPropagation(); const link = getShareLink(t.name); navigator.clipboard?.writeText(link).then(() => alert("Link copied!\n" + link)).catch(() => prompt("Copy this link:", link)); }}
+                      style={{ ...S.btnSm("transparent", "#10B981"), border: "1px solid #10B98144", fontSize: 10 }}>
+                      🔗
+                    </button>
+                  )}
                   <button onClick={e => { e.stopPropagation(); onDelete(t.id); }}
                     style={{ ...S.btnSm("transparent", theme.danger), border: `1px solid ${theme.danger}44` }}>
                     ✕

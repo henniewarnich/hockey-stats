@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { theme } from '../utils/styles.js';
 import { PUBLIC_EVENTS } from '../utils/constants.js';
 
-const fmt = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+const fmt = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
+const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 
 // Filter events to only show public-safe ones
 function filterPublicEvents(events) {
@@ -76,7 +77,7 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "0 10px" }}>
               <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "monospace", color: isEnded ? theme.danger : "#F59E0B" }}>
-                {isEnded ? "FT" : fmt(matchTime)}
+                {isEnded ? "FT" : fmtClock(matchTime)}
               </div>
               {!isEnded && (
                 <div style={{ fontSize: 8, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: running ? "#10B98122" : "#F59E0B22", color: running ? "#10B981" : "#F59E0B" }}>
@@ -118,7 +119,7 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
                 animation: isLatest && !isEnded ? "slide-in 0.3s ease-out" : "none",
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <div style={{ fontSize: 8, fontFamily: "monospace", color: "#475569", minWidth: 30, paddingTop: 1 }}>
+                  <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 34, paddingTop: 1, fontWeight: 600 }}>
                     {fmt(entry.time)}
                   </div>
                   <div style={{

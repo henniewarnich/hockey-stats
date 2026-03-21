@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { loadData, saveData } from '../utils/helpers.js';
-import { upsertTeam as upsertTeamRemote, deleteTeamRemote, fetchTeams, saveMatchToSupabase, deleteMatchRemote } from '../utils/sync.js';
+import { upsertTeam as upsertTeamRemote, deleteTeamRemote, fetchTeams, saveMatchToSupabase, deleteMatchRemote, fetchMatchesForLocal } from '../utils/sync.js';
 
 const TEAMS_KEY = 'hockey-teams';
 const GAMES_KEY = 'hockey-games';
@@ -14,13 +14,23 @@ export function useMatchStore() {
   // On mount: try to pull teams from Supabase (merge with local)
   useEffect(() => {
     fetchTeams().then(remote => {
-      if (!remote) return; // offline or error
+      if (!remote) return;
       setTeams(prev => {
         const merged = mergeTeams(prev, remote);
         saveData(TEAMS_KEY, merged);
         return merged;
       });
-    }).catch(() => {}); // silent fail if offline
+    }).catch(() => {});
+
+    // Also pull games from Supabase (merge with local)
+    fetchMatchesForLocal().then(remote => {
+      if (!remote || remote.length === 0) return;
+      setGames(prev => {
+        const merged = mergeGames(prev, remote);
+        saveData(GAMES_KEY, merged);
+        return merged;
+      });
+    }).catch(() => {});
   }, []);
 
   // Team CRUD — local first, then sync
@@ -138,5 +148,38 @@ function mergeTeams(local, remote) {
       });
     }
   }
+  return merged;
+}
+
+// Merge local and remote games (remote wins, matched by supabase_id or matching teams+date)
+function mergeGames(local, remote) {
+  const merged = [...local];
+  for (const rg of remote) {
+    const existing = merged.find(g =>
+      g.supabase_id === rg.supabase_id ||
+      g.id === rg.id ||
+      (g.teams?.home?.name === rg.teams?.home?.name &&
+       g.teams?.away?.name === rg.teams?.away?.name &&
+       g.date?.slice(0, 10) === rg.date?.slice(0, 10))
+    );
+    if (existing) {
+      // Update local with supabase data but keep local events if richer
+      existing.supabase_id = rg.supabase_id;
+      existing.homeScore = rg.homeScore;
+      existing.awayScore = rg.awayScore;
+      existing.venue = rg.venue || existing.venue;
+      existing.matchLength = rg.matchLength || existing.matchLength;
+      existing.breakFormat = rg.breakFormat || existing.breakFormat;
+      // Use remote events if local has none
+      if ((!existing.events || existing.events.length === 0) && rg.events?.length > 0) {
+        existing.events = rg.events;
+        existing.duration = rg.duration;
+      }
+    } else {
+      merged.push(rg);
+    }
+  }
+  // Sort newest first
+  merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   return merged;
 }

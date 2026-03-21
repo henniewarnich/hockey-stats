@@ -102,10 +102,11 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 6, padding: "0 16px 10px", justifyContent: "center", flexWrap: "wrap" }}>
         <button onClick={() => exportMatchJSON(G)} style={S.btnSm(theme.info, "#FFF")}>📦 JSON</button>
-        {onNavigate && G.events?.length > 0 && (
+        {onNavigate && (
           <>
-            <button onClick={() => onNavigate("public_view", G)} style={S.btnSm("#10B981", "#FFF")}>📺 Public</button>
-            <button onClick={() => onNavigate("coach_view", G)} style={S.btnSm("#8B5CF6", "#FFF")}>🔒 Coach</button>
+            {G.events?.length > 0 && <button onClick={() => onNavigate("public_view", G)} style={S.btnSm("#10B981", "#FFF")}>📺 Public</button>}
+            {G.events?.length > 0 && <button onClick={() => onNavigate("coach_view", G)} style={S.btnSm("#8B5CF6", "#FFF")}>🔒 Coach</button>}
+            <button onClick={() => onNavigate("match_edit", G)} style={S.btnSm(theme.surface, theme.textMuted)}>✏️ Edit</button>
           </>
         )}
         <button onClick={() => { if (confirm("Delete this match?")) onDelete(G.id); }}

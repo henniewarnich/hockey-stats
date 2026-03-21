@@ -7,6 +7,7 @@ import { useAutoSave } from '../hooks/useAutoSave.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import FieldRecorder from '../components/FieldRecorder.jsx';
 import EventLog from '../components/EventLog.jsx';
+import CoachLiveScreen from './CoachLiveScreen.jsx';
 import DPopup from '../components/DPopup.jsx';
 import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
@@ -172,6 +173,8 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     } else { setPossession(null); setBallPos(null); setShowRestart(true); }
   };
 
+  const [liveTab, setLiveTab] = useState("field"); // field | log | coach | share
+
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -196,21 +199,23 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
         )}
       </div>
 
-      {/* Field */}
-      <FieldRecorder
-        teams={teams} possession={possession} setPossession={setPossession}
-        ballPos={ballPos} setBallPos={setBallPos}
-        prevBallPos={prevBallPos} setPrevBallPos={setPrevBallPos}
-        running={running} matchState={matchState}
-        showRestart={showRestart} setShowRestart={setShowRestart}
-        flipped={flipped}
-        sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
-        score={score} setScore={setScore}
-        onAddLog={addLog}
-        onShowDPopup={setShowDPopup} showDPopup={showDPopup}
-        onShowTeamPicker={setShowTeamPicker}
-        onBallTap={handleBallTap}
-      />
+      {/* Field — visible on field tab */}
+      {(liveTab === "field" || liveTab === "share") && (
+        <FieldRecorder
+          teams={teams} possession={possession} setPossession={setPossession}
+          ballPos={ballPos} setBallPos={setBallPos}
+          prevBallPos={prevBallPos} setPrevBallPos={setPrevBallPos}
+          running={running} matchState={matchState}
+          showRestart={showRestart} setShowRestart={setShowRestart}
+          flipped={flipped}
+          sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
+          score={score} setScore={setScore}
+          onAddLog={addLog}
+          onShowDPopup={setShowDPopup} showDPopup={showDPopup}
+          onShowTeamPicker={setShowTeamPicker}
+          onBallTap={handleBallTap}
+        />
+      )}
 
       {/* D Popup */}
       {showDPopup && (
@@ -278,7 +283,43 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
         )}
       </div>
 
-      <EventLog events={events} teams={teams} />
+      {/* View tabs */}
+      <div style={{ display: "flex", margin: "4px 10px 0", borderRadius: 6, overflow: "hidden", border: `1px solid ${theme.border}` }}>
+        {[["field", "🏑 Field"], ["log", "☰ Log"], ["coach", "🔒 Coach"], ["share", "📺 Share"]].map(([k, l]) => (
+          <button key={k} onClick={() => setLiveTab(k)} style={{
+            flex: 1, padding: "5px 0", textAlign: "center", fontSize: 8, fontWeight: 700,
+            background: liveTab === k ? theme.border : theme.surface,
+            color: liveTab === k ? theme.text : theme.textDim,
+            border: "none", cursor: "pointer",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {liveTab === "field" && null /* field is always visible above */}
+      {liveTab === "log" && <EventLog events={events} teams={teams} />}
+      {liveTab === "coach" && (
+        <CoachLiveScreen
+          match={{ teams, breakFormat, homeScore: score.home, awayScore: score.away, status: matchState === "ended" ? "ended" : "live" }}
+          events={events}
+          matchTime={matchTime}
+          running={running}
+        />
+      )}
+      {liveTab === "share" && (
+        <div style={{ padding: "16px 14px" }}>
+          <div style={{ background: theme.surface, borderRadius: 12, padding: 16, border: `1px solid ${theme.border}`, textAlign: "center" }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📺</div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Share Live Match</div>
+            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 12 }}>
+              Share this link with spectators for a live score + commentary feed. They won't see tactical stats.
+            </div>
+            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 12 }}>
+              Coming soon — requires Supabase real-time to be fully wired. For now, use the 📺 Public button on the Game Review screen after the match ends.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fixed possession indicator */}
       {possession && (
