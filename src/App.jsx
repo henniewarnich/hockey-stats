@@ -7,6 +7,8 @@ import MatchSetupScreen from './screens/MatchSetupScreen.jsx';
 import LiveMatchScreen from './screens/LiveMatchScreen.jsx';
 import HistoryScreen from './screens/HistoryScreen.jsx';
 import GameReviewScreen from './screens/GameReviewScreen.jsx';
+import PublicLiveScreen from './screens/PublicLiveScreen.jsx';
+import CoachLiveScreen from './screens/CoachLiveScreen.jsx';
 
 export default function App() {
   const [screen, setScreen] = useState("home");
@@ -15,7 +17,7 @@ export default function App() {
   const store = useMatchStore();
 
   const navigate = (target, data) => {
-    if (target === "game_review" && data) {
+    if ((target === "game_review" || target === "public_view" || target === "coach_view") && data) {
       setReviewGame(data);
     }
     setScreen(target);
@@ -107,6 +109,31 @@ export default function App() {
           game={reviewGame}
           onDelete={handleDeleteGame}
           onBack={() => navigate("history")}
+          onNavigate={navigate}
+        />
+      );
+
+    case "public_view":
+      if (!reviewGame) { navigate("history"); return null; }
+      return (
+        <PublicLiveScreen
+          match={{ ...reviewGame, status: "ended" }}
+          events={reviewGame.events || []}
+          matchTime={reviewGame.duration || 0}
+          running={false}
+          onBack={() => navigate("game_review", reviewGame)}
+        />
+      );
+
+    case "coach_view":
+      if (!reviewGame) { navigate("history"); return null; }
+      return (
+        <CoachLiveScreen
+          match={{ ...reviewGame, status: "ended" }}
+          events={reviewGame.events || []}
+          matchTime={reviewGame.duration || 0}
+          running={false}
+          onBack={() => navigate("game_review", reviewGame)}
         />
       );
 
