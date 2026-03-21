@@ -31,6 +31,12 @@ export default function App() {
     return game;
   };
 
+  const handleImportGame = (game) => {
+    const saved = store.saveGame(game);
+    setReviewGame(saved || game);
+    setScreen("game_review");
+  };
+
   const handleDeleteGame = (id) => {
     store.deleteGame(id);
     setScreen("history");
@@ -69,6 +75,7 @@ export default function App() {
         <MatchSetupScreen
           teams={store.teams}
           onStart={handleStartMatch}
+          onImportGame={handleImportGame}
           onBack={() => navigate("home")}
           onManageTeams={() => navigate("teams")}
         />
