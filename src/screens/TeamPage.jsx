@@ -139,7 +139,7 @@ const StatRow = ({ hVal, label, aVal, hColor, aColor, inverted }) => {
   );
 };
 
-export default function TeamPage({ teamSlug, onBack }) {
+export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [team, setTeam] = useState(null);
   const [matches, setMatches] = useState([]);
   const [liveMatch, setLiveMatch] = useState(null);
@@ -225,6 +225,20 @@ export default function TeamPage({ teamSlug, onBack }) {
           const live = allMatches.find(m => m.status === 'live');
           const ended = allMatches.filter(m => m.status === 'ended');
           setMatches(ended);
+
+          // Auto-open a specific match if navigated from landing page
+          if (initialMatchId) {
+            const target = ended.find(m => m.id === initialMatchId);
+            if (target) {
+              setSelectedMatch(target);
+              setLoadingEvents(true);
+              try {
+                const { data: evts } = await supabase.from('match_events').select('*').eq('match_id', target.id).order('seq', { ascending: false });
+                setSelectedEvents(evts || []);
+              } catch { setSelectedEvents([]); }
+              setLoadingEvents(false);
+            }
+          }
 
           if (live) {
             setLiveMatch(live);

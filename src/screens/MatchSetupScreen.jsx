@@ -16,7 +16,7 @@ function isDuplicateMatch(games, homeId, awayId, date) {
 }
 
 const MODES = [
-  { id: "full", icon: "🏑", title: "Full Match", desc: "Field recorder with full stats" },
+  { id: "full", icon: "🏑", title: "Live Match", desc: "Record live with full stats" },
   { id: "quick", icon: "⚡", title: "Quick Score", desc: "Just teams, date & final score" },
   { id: "import", icon: "📦", title: "JSON Import", desc: "Load an exported match file" },
   { id: "demo", icon: "🎮", title: "Demo Match", desc: "Try the recorder, data discarded" },
@@ -97,7 +97,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Full Match</div></div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -109,7 +109,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Full Match</div></div>
+      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
@@ -123,7 +123,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <input type="number" style={{ ...S.input, width: 70, textAlign: "center", fontSize: 16, fontWeight: 700, padding: "8px" }}
                 value={matchLength} onChange={e => setMatchLength(e.target.value)} min="1" max="120" />
-              {[40, 50, 60, 70].map(m => (
+              {[20, 25, 30, 40, 60].map(m => (
                 <button key={m} onClick={() => setMatchLength(String(m))} style={{
                   flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 700,
                   border: ml === m ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,

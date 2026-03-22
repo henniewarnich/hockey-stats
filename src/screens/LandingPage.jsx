@@ -236,7 +236,7 @@ export default function LandingPage() {
                 const d = new Date(m.match_date);
                 const homeSlug = teamSlug(m.home_team?.name || "");
                 return (
-                  <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
+                  <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
                     style={{ ...styles.scoreCard, cursor: "pointer" }}>
                     <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>

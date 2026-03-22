@@ -23,7 +23,12 @@ const ADMIN_PIN_VERIFIED_KEY = 'hockey-admin-verified';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
-  if (hash.startsWith('team/')) return { type: 'team', slug: hash.replace('team/', '') };
+  if (hash.startsWith('team/')) {
+    const rest = hash.replace('team/', '');
+    const [slug, query] = rest.split('?');
+    const matchId = query?.match(/match=([^&]+)/)?.[1] || null;
+    return { type: 'team', slug, matchId };
+  }
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
   if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
@@ -143,7 +148,7 @@ export default function App() {
 
   // Team pages are PUBLIC — no PIN needed
   if (route.type === 'team') {
-    return <TeamPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
+    return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
   }
 
   // Commentator recorder — needs commentator PIN

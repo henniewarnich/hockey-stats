@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
+import { saveMatchToSupabase } from '../utils/sync.js';
 import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
 import { logLoginAttempt } from '../utils/audit.js';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
@@ -41,6 +42,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
   const [tab, setTab] = useState("record");
+  const [recordMode, setRecordMode] = useState("live"); // "live" or "quick"
 
   // Match setup
   const [awayTeam, setAwayTeam] = useState(null);
@@ -51,6 +53,9 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [venue, setVenue] = useState("");
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [matchConfig, setMatchConfig] = useState(null);
+  const [homeScore, setHomeScore] = useState(0);
+  const [awayScore, setAwayScore] = useState(0);
+  const [quickSaved, setQuickSaved] = useState(false);
 
   // Live/Results data
   const [liveMatch, setLiveMatch] = useState(null);
@@ -74,7 +79,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
           const found = teams.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
           if (found) {
             setTeam(found);
-            setVenue(found.name);
+            setVenue("");
             const stored = sessionStorage.getItem(`commentator-${found.id}`);
             if (stored === 'true') setVerified(true);
           }
@@ -228,7 +233,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             {teamSearch && <button onClick={() => setTeamSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>}
           </div>
           {filtered.map(t => (
-            <div key={t.id} onClick={() => { setTeam(t); setVenue(t.name); }}
+            <div key={t.id} onClick={() => { setTeam(t); setVenue(""); }}
               style={{ display: "flex", alignItems: "center", gap: 10, background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4, border: "1px solid #1E293B", cursor: "pointer" }}>
               <div style={{ width: 28, height: 28, borderRadius: 7, background: t.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{t.name.charAt(0)}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>{t.name}</div>
@@ -278,7 +283,15 @@ export default function CommentatorPage({ teamSlug, onBack }) {
       {/* ═══ RECORD TAB ═══ */}
       {tab === "record" && (
         <div style={{ padding: "0 14px 20px", flex: 1, overflowY: "auto" }}>
-          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#F8FAFC" }}>New Match</div>
+          {/* Mode toggle */}
+          <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", marginBottom: 12 }}>
+            {[["live", "🏑 Live Match"], ["quick", "💾 Quick Score"]].map(([k, l]) => (
+              <button key={k} onClick={() => setRecordMode(k)} style={{
+                flex: 1, padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                background: recordMode === k ? "#F59E0B22" : "#1E293B", color: recordMode === k ? "#F59E0B" : "#64748B",
+              }}>{l}</button>
+            ))}
+          </div>
 
           {/* Home — locked */}
           <div style={{ marginBottom: 12 }}>
@@ -311,34 +324,56 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             </div>
           </div>
 
-          {/* Settings */}
+          {/* Quick Score: score input */}
+          {recordMode === "quick" && canStart && (
+            <div style={{ background: "#1E293B", borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #334155" }}>
+              <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+                {[[team, homeScore, setHomeScore], [awayTeam, awayScore, setAwayScore]].map(([t, sc, setSc], i) => (
+                  <div key={i} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: t?.color, marginBottom: 6 }}>{t?.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button onClick={() => setSc(Math.max(0, sc - 1))} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, fontWeight: 700, cursor: "pointer" }}>−</button>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: t?.color, minWidth: 36, textAlign: "center" }}>{sc}</div>
+                      <button onClick={() => setSc(sc + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, fontWeight: 700, cursor: "pointer" }}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Settings (Live Match only shows length/break, Quick Score skips them) */}
           <div style={{ background: "#1E293B", borderRadius: 12, padding: 14, marginBottom: 16, border: "1px solid #334155" }}>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Match Length (minutes)</div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input type="number" style={{ width: 70, padding: 8, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 16, fontWeight: 700, textAlign: "center", outline: "none" }}
-                  value={matchLength} onChange={e => setMatchLength(e.target.value)} />
-                {[40, 50, 60, 70].map(m => (
-                  <button key={m} onClick={() => setMatchLength(String(m))} style={{
-                    flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                    border: ml === m ? "2px solid #F59E0B" : "1px solid #334155",
-                    background: ml === m ? "#F59E0B22" : "#0B0F1A", color: ml === m ? "#F59E0B" : "#94A3B8", cursor: "pointer",
-                  }}>{m}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Break Format</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {BREAK_FORMATS.map(bf => (
-                  <button key={bf.id} onClick={() => setBreakFormat(bf.id)} style={{
-                    flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                    border: breakFormat === bf.id ? "2px solid #F59E0B" : "1px solid #334155",
-                    background: breakFormat === bf.id ? "#F59E0B22" : "#0B0F1A", color: breakFormat === bf.id ? "#F59E0B" : "#94A3B8", cursor: "pointer",
-                  }}>{bf.label}</button>
-                ))}
-              </div>
-            </div>
+            {recordMode === "live" && (
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Match Length (minutes)</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input type="number" style={{ width: 70, padding: 8, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 16, fontWeight: 700, textAlign: "center", outline: "none" }}
+                      value={matchLength} onChange={e => setMatchLength(e.target.value)} />
+                    {[20, 25, 30, 40, 60].map(m => (
+                      <button key={m} onClick={() => setMatchLength(String(m))} style={{
+                        flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        border: ml === m ? "2px solid #F59E0B" : "1px solid #334155",
+                        background: ml === m ? "#F59E0B22" : "#0B0F1A", color: ml === m ? "#F59E0B" : "#94A3B8", cursor: "pointer",
+                      }}>{m}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Break Format</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {BREAK_FORMATS.map(bf => (
+                      <button key={bf.id} onClick={() => setBreakFormat(bf.id)} style={{
+                        flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        border: breakFormat === bf.id ? "2px solid #F59E0B" : "1px solid #334155",
+                        background: breakFormat === bf.id ? "#F59E0B22" : "#0B0F1A", color: breakFormat === bf.id ? "#F59E0B" : "#94A3B8", cursor: "pointer",
+                      }}>{bf.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Match Type</div>
               <div style={{ display: "flex", gap: 6 }}>
@@ -353,7 +388,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             </div>
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Venue</div>
-              <input style={inputStyle} value={venue} onChange={e => setVenue(e.target.value)} />
+              <input style={inputStyle} value={venue} onChange={e => setVenue(e.target.value)} placeholder="Enter venue" />
             </div>
             <div>
               <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Date</div>
@@ -361,15 +396,37 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             </div>
           </div>
 
-          <button disabled={!canStart} onClick={() => setMatchConfig({
-            home: { name: team.name, color: team.color, id: team.id },
-            away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id },
-            matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate,
-          })} style={{
-            width: "100%", padding: 14, borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700,
-            cursor: canStart ? "pointer" : "not-allowed",
-            background: canStart ? "#F59E0B" : "#334155", color: canStart ? "#0B0F1A" : "#64748B",
-          }}>🏑 Start Match</button>
+          {recordMode === "live" ? (
+            <button disabled={!canStart} onClick={() => setMatchConfig({
+              home: { name: team.name, color: team.color, id: team.id },
+              away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id },
+              matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate,
+            })} style={{
+              width: "100%", padding: 14, borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700,
+              cursor: canStart ? "pointer" : "not-allowed",
+              background: canStart ? "#F59E0B" : "#334155", color: canStart ? "#0B0F1A" : "#64748B",
+            }}>🏑 Start Live Match</button>
+          ) : (
+            <>
+              {quickSaved && <div style={{ textAlign: "center", padding: 8, color: "#10B981", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>✓ Match saved!</div>}
+              <button disabled={!canStart} onClick={async () => {
+                const game = {
+                  id: Date.now().toString(),
+                  date: new Date(matchDate).toISOString(),
+                  teams: { home: { name: team.name, color: team.color, id: team.id }, away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id } },
+                  events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), matchType, quickScore: true,
+                };
+                try { await saveMatchToSupabase(game); } catch {}
+                setQuickSaved(true);
+                setHomeScore(0); setAwayScore(0); setAwayTeam(null); setAwaySearch("");
+                setTimeout(() => setQuickSaved(false), 3000);
+              }} style={{
+                width: "100%", padding: 14, borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700,
+                cursor: canStart ? "pointer" : "not-allowed",
+                background: canStart ? "#F59E0B" : "#334155", color: canStart ? "#0B0F1A" : "#64748B",
+              }}>💾 Save Quick Score</button>
+            </>
+          )}
         </div>
       )}
 
