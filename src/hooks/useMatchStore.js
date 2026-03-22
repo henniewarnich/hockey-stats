@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { loadData, saveData } from '../utils/helpers.js';
+import { supabase } from '../utils/supabase.js';
 import { upsertTeam as upsertTeamRemote, deleteTeamRemote, fetchTeams, saveMatchToSupabase, deleteMatchRemote, fetchMatchesForLocal } from '../utils/sync.js';
 
 const TEAMS_KEY = 'hockey-teams';
@@ -110,16 +111,29 @@ export function useMatchStore() {
     return game;
   }, []);
 
-  const deleteGame = useCallback((id) => {
+  const deleteGame = useCallback(async (id) => {
     const game = games.find(g => g.id === id);
     setGames(prev => {
       const updated = prev.filter(g => g.id !== id);
       saveData(GAMES_KEY, updated);
       return updated;
     });
-    // Sync delete
-    if (game?.supabase_id) {
-      deleteMatchRemote(game.supabase_id).catch(() => {});
+
+    // Try to delete from Supabase using all possible IDs
+    const idsToTry = [game?.supabase_id, game?.id].filter(Boolean);
+    let deleted = false;
+    for (const tryId of idsToTry) {
+      try {
+        const { error } = await supabase.from('matches').delete().eq('id', tryId);
+        if (!error) { deleted = true; break; }
+        console.warn(`Delete by id=${tryId} failed:`, error.message);
+      } catch (err) {
+        console.warn(`Delete by id=${tryId} threw:`, err);
+      }
+    }
+    if (!deleted && idsToTry.length > 0) {
+      setLastSyncError(`Failed to delete match from cloud. You may need to delete it manually in Supabase.`);
+      console.error('All delete attempts failed for game:', game);
     }
   }, [games]);
 

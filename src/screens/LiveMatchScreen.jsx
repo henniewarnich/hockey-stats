@@ -110,10 +110,11 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       const lastSC = real.find(e => e.event === "Short Corner" && e.team === attackingTeam);
       const btw = lastSC ? real.slice(0, real.indexOf(lastSC)) : [];
       const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === defendingTeam));
+      // Auto-log a shot on goal before the goal (fixes conversion stats)
+      addLog(attackingTeam, "Shot on Goal", dLabel, `${teams[attackingTeam].name} shot on goal`);
       addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
       setScore(prev => {
         const newScore = { ...prev, [attackingTeam]: prev[attackingTeam] + 1 };
-        // Push score to Supabase
         if (liveMatchId && !isDemo) updateLiveScore(liveMatchId, newScore.home, newScore.away).catch(() => {});
         return newScore;
       });

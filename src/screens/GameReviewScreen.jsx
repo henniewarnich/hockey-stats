@@ -99,6 +99,11 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
         </div>
       </div>
 
+      {/* Sync status */}
+      <div style={{ textAlign: "center", padding: "0 16px 6px", fontSize: 10, color: G.supabase_id ? "#10B981" : "#F59E0B" }}>
+        {G.supabase_id ? "☁️ Synced to cloud" : "📱 Local only — not synced"}
+      </div>
+
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 6, padding: "0 16px 10px", justifyContent: "center", flexWrap: "wrap" }}>
         <button onClick={() => exportMatchJSON(G)} style={S.btnSm(theme.info, "#FFF")}>📦 JSON</button>

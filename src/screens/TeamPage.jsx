@@ -387,7 +387,7 @@ export default function TeamPage({ teamSlug, onBack }) {
             </div>
           </div>
 
-          {/* Coach: Stats */}
+          {/* Coach: Rich Stats */}
           {isCoach ? (
             <div style={{ flex: 1, padding: "0 14px 20px", overflowY: "auto" }}>
               <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #334155", marginBottom: 8 }}>
@@ -399,36 +399,85 @@ export default function TeamPage({ teamSlug, onBack }) {
                 ))}
               </div>
 
-              {liveView === "totals" && (
-                <div style={{ background: "#1E293B", borderRadius: 10, padding: "8px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", padding: "0 0 6px", borderBottom: "1px solid #334155" }}>
-                    <div style={{ width: 40, textAlign: "right", fontSize: 10, fontWeight: 800, color: liveMatch.home_team?.color }}>{liveMatch.home_team?.name?.slice(0, 3).toUpperCase()}</div>
-                    <div style={{ flex: 1 }} />
-                    <div style={{ width: 40, textAlign: "left", fontSize: 10, fontWeight: 800, color: liveMatch.away_team?.color }}>{liveMatch.away_team?.name?.slice(0, 3).toUpperCase()}</div>
-                  </div>
-                  {/* Basic stats */}
-                  {STATS_DEF.map(({ key, label }) => (
-                    <StatRow key={key} hVal={homeStats[key]} label={label} aVal={awayStats[key]}
-                      hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"}
-                      inverted={INVERTED.includes(key)} />
-                  ))}
-                  {/* Turnovers Won — with zone breakdown */}
-                  <ZoneRow label="Turnovers Won"
-                    hAtk={homeStats.turnoversWonAtk} hMid={homeStats.turnoversWonMid} hDef={homeStats.turnoversWonDef} hTotal={homeStats.turnoversWon}
-                    aAtk={awayStats.turnoversWonAtk} aMid={awayStats.turnoversWonMid} aDef={awayStats.turnoversWonDef} aTotal={awayStats.turnoversWon}
-                    hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={false} />
-                  {/* Poss Lost — with zone breakdown */}
-                  <ZoneRow label="Poss Lost"
-                    hAtk={homeStats.possLostAtk} hMid={homeStats.possLostMid} hDef={homeStats.possLostDef} hTotal={homeStats.possLost}
-                    aAtk={awayStats.possLostAtk} aMid={awayStats.possLostMid} aDef={awayStats.possLostDef} aTotal={awayStats.possLost}
-                    hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={true} />
-                  {/* Territory — with zone breakdown */}
-                  <ZoneRow label="Territory %"
-                    hAtk={homeStats.terrAtk} hMid={homeStats.terrMid} hDef={homeStats.terrDef} hTotal={homeStats.territory}
-                    aAtk={awayStats.terrAtk} aMid={awayStats.terrMid} aDef={awayStats.terrDef} aTotal={awayStats.territory}
-                    hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={false} />
-                </div>
-              )}
+              {liveView === "totals" && (() => {
+                const hColor = liveMatch.home_team?.color || "#3B82F6";
+                const aColor = liveMatch.away_team?.color || "#EF4444";
+                const hShort = liveMatch.home_team?.name?.slice(0, 3).toUpperCase();
+                const aShort = liveMatch.away_team?.name?.slice(0, 3).toUpperCase();
+                const convRate = (t) => { const s = t === "home" ? homeStats.shotsOn : awayStats.shotsOn; const g = t === "home" ? liveMatch.home_score : liveMatch.away_score; return s > 0 ? Math.round(g / s * 100) : 0; };
+                const dConv = (t) => { const st = t === "home" ? homeStats : awayStats; const shots = st.shotsOn + st.shotsOff; return st.dEntries > 0 ? Math.round(shots / st.dEntries * 100) : 0; };
+
+                const CoachStatBar = ({ hVal, aVal, label, suffix = "" }) => {
+                  const max = Math.max(hVal, aVal, 1);
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0" }}>
+                      <div style={{ width: 28, fontSize: 13, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? hColor : "#64748B" }}>{hVal}{suffix}</div>
+                      <div style={{ flex: 1, display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "#0B0F1A", gap: 1 }}>
+                        <div style={{ width: `${(hVal / max) * 50}%`, background: hColor, borderRadius: 3, marginLeft: "auto", transition: "width 0.5s" }} />
+                        <div style={{ width: `${(aVal / max) * 50}%`, background: aColor, borderRadius: 3, transition: "width 0.5s" }} />
+                      </div>
+                      <div style={{ width: 28, fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? aColor : "#64748B" }}>{aVal}{suffix}</div>
+                      <div style={{ width: 90, fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {/* Stat bars */}
+                    <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: 6 }}>Stats Comparison</div>
+                      <CoachStatBar hVal={homeStats.dEntries} aVal={awayStats.dEntries} label="D Entries" />
+                      <CoachStatBar hVal={homeStats.shotsOn} aVal={awayStats.shotsOn} label="Shots On" />
+                      <CoachStatBar hVal={homeStats.shotsOff} aVal={awayStats.shotsOff} label="Shots Off" />
+                      <CoachStatBar hVal={homeStats.shortCorners} aVal={awayStats.shortCorners} label="Short Corners" />
+                      <CoachStatBar hVal={homeStats.longCorners} aVal={awayStats.longCorners} label="Long Corners" />
+                      <CoachStatBar hVal={homeStats.turnoversWon} aVal={awayStats.turnoversWon} label="Turnovers Won" />
+                      <CoachStatBar hVal={homeStats.possLost} aVal={awayStats.possLost} label="Poss Lost" />
+                      <CoachStatBar hVal={homeStats.territory} aVal={awayStats.territory} label="Territory" suffix="%" />
+                    </div>
+
+                    {/* Zone breakdowns */}
+                    <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: 6 }}>Zone Breakdown</div>
+                      <ZoneRow label="Turnovers Won"
+                        hAtk={homeStats.turnoversWonAtk} hMid={homeStats.turnoversWonMid} hDef={homeStats.turnoversWonDef} hTotal={homeStats.turnoversWon}
+                        aAtk={awayStats.turnoversWonAtk} aMid={awayStats.turnoversWonMid} aDef={awayStats.turnoversWonDef} aTotal={awayStats.turnoversWon}
+                        hColor={hColor} aColor={aColor} inverted={false} />
+                      <ZoneRow label="Poss Lost"
+                        hAtk={homeStats.possLostAtk} hMid={homeStats.possLostMid} hDef={homeStats.possLostDef} hTotal={homeStats.possLost}
+                        aAtk={awayStats.possLostAtk} aMid={awayStats.possLostMid} aDef={awayStats.possLostDef} aTotal={awayStats.possLost}
+                        hColor={hColor} aColor={aColor} inverted={true} />
+                      <ZoneRow label="Territory %"
+                        hAtk={homeStats.terrAtk} hMid={homeStats.terrMid} hDef={homeStats.terrDef} hTotal={homeStats.territory}
+                        aAtk={awayStats.terrAtk} aMid={awayStats.terrMid} aDef={awayStats.terrDef} aTotal={awayStats.territory}
+                        hColor={hColor} aColor={aColor} inverted={false} />
+                    </div>
+
+                    {/* Conversion rates */}
+                    <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: 8 }}>Conversion Rates</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {["home", "away"].map(t => (
+                          <div key={t} style={{ flex: 1, textAlign: "center" }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: t === "home" ? hColor : aColor, marginBottom: 8 }}>
+                              {t === "home" ? hShort : aShort}
+                            </div>
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: "#F8FAFC" }}>{convRate(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#94A3B8" }}>Shot → Goal</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: "#F8FAFC" }}>{dConv(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#94A3B8" }}>D Entry → Shot</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {liveView === "events" && (
                 <div>
