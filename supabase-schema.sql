@@ -130,6 +130,12 @@ CREATE TRIGGER matches_updated_at BEFORE UPDATE ON matches
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ─── DONE ────────────────────────────────────────────
--- Tables: teams, ranking_sets, rankings, matches, match_events
+-- Tables: teams, ranking_sets, rankings, matches, match_events, app_settings
 -- Realtime: enabled on matches + match_events
 -- RLS: public read, open write (to be tightened later)
+
+-- ─── APP SETTINGS ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

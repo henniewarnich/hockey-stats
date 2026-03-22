@@ -3,6 +3,7 @@ import { useMatchStore } from './hooks/useMatchStore.js';
 import { S, theme } from './utils/styles.js';
 import { saveData, loadData } from './utils/helpers.js';
 import { saveMatchToSupabase } from './utils/sync.js';
+import { supabase } from './utils/supabase.js';
 import { APP_VERSION } from './utils/constants.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
@@ -17,7 +18,6 @@ import CommentatorPage from './screens/CommentatorPage.jsx';
 import LandingPage from './screens/LandingPage.jsx';
 import MatchEditScreen from './screens/MatchEditScreen.jsx';
 
-const ADMIN_PIN_KEY = 'hockey-admin-pin';
 const ADMIN_PIN_VERIFIED_KEY = 'hockey-admin-verified';
 
 function getHashRoute() {
@@ -31,24 +31,35 @@ function getHashRoute() {
 // Admin PIN gate component
 function AdminGate({ children }) {
   const [verified, setVerified] = useState(() => {
-    // Check session — remains unlocked until browser tab closes
     return sessionStorage.getItem(ADMIN_PIN_VERIFIED_KEY) === 'true';
   });
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
-  const [settingUp, setSettingUp] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [serverPin, setServerPin] = useState(null); // null = not loaded, "" = not set
 
-  const storedPin = localStorage.getItem(ADMIN_PIN_KEY);
+  // Load admin PIN from Supabase on mount
+  useEffect(() => {
+    supabase.from('app_settings').select('value').eq('key', 'admin_pin').single()
+      .then(({ data }) => {
+        setServerPin(data?.value || "");
+        setLoading(false);
+      })
+      .catch(() => { setServerPin(""); setLoading(false); });
+  }, []);
 
-  const handleSubmit = () => {
-    if (!storedPin) {
-      // First time — set the PIN
-      if (pin.length >= 4) {
-        localStorage.setItem(ADMIN_PIN_KEY, pin);
+  const handleSubmit = async () => {
+    if (pin.length < 4) return;
+
+    if (!serverPin) {
+      // First time — save PIN to Supabase
+      const { error: err } = await supabase.from('app_settings').upsert({ key: 'admin_pin', value: pin });
+      if (!err) {
+        setServerPin(pin);
         sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
         setVerified(true);
       }
-    } else if (pin === storedPin) {
+    } else if (pin === serverPin) {
       sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
       setVerified(true);
     } else {
@@ -57,6 +68,13 @@ function AdminGate({ children }) {
   };
 
   if (verified) return children;
+  if (loading) return (
+    <div style={{ fontFamily: "'DM Sans','Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0F172A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      Loading...
+    </div>
+  );
+
+  const isFirstTime = !serverPin;
 
   return (
     <div style={{
@@ -69,14 +87,14 @@ function AdminGate({ children }) {
       <div style={{ fontSize: 40, marginBottom: 12 }}>🏑</div>
       <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Hockey Stats</div>
       <div style={{ fontSize: 12, color: "#64748B", marginBottom: 24 }}>
-        {!storedPin ? "Set an Admin PIN to protect this app" : "Enter Admin PIN"}
+        {isFirstTime ? "Set an Admin PIN to protect this app" : "Enter Admin PIN"}
       </div>
 
       <input
         value={pin}
         onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(false); }}
         type="password"
-        placeholder={!storedPin ? "Choose a PIN (4-6 digits)" : "PIN"}
+        placeholder={isFirstTime ? "Choose a PIN (4-6 digits)" : "PIN"}
         style={{
           width: 220, padding: 14, borderRadius: 10,
           border: error ? "2px solid #EF4444" : "1px solid #334155",
@@ -87,16 +105,20 @@ function AdminGate({ children }) {
         onKeyDown={e => e.key === "Enter" && handleSubmit()}
       />
       {error && <div style={{ fontSize: 12, color: "#EF4444", marginTop: 8 }}>Incorrect PIN</div>}
-      {!storedPin && <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, textAlign: "center" }}>This PIN protects the recorder and admin features. You'll need it each time you open the app.</div>}
+      {isFirstTime && <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, textAlign: "center" }}>This PIN protects the recorder and admin features. You'll need it each time you open the app.</div>}
 
       <button onClick={handleSubmit} style={{
         marginTop: 16, padding: "12px 40px", borderRadius: 10, border: "none",
         background: "#F59E0B", color: "#0F172A", fontSize: 14, fontWeight: 700, cursor: "pointer",
       }}>
-        {!storedPin ? "Set PIN & Enter" : "Unlock"}
+        {isFirstTime ? "Set PIN & Enter" : "Unlock"}
       </button>
 
-      <div style={{ marginTop: 24, fontSize: 9, color: "#475569" }}>v{APP_VERSION}</div>
+      <button onClick={() => { window.location.hash = ''; }} style={{
+        marginTop: 16, background: "none", border: "none", color: "#475569", fontSize: 10, cursor: "pointer", textDecoration: "underline",
+      }}>← Back to kykie.net</button>
+
+      <div style={{ marginTop: 16, fontSize: 9, color: "#475569" }}>v{APP_VERSION}</div>
     </div>
   );
 }
