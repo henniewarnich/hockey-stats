@@ -284,7 +284,6 @@ export default function TeamPage({ teamSlug, onBack }) {
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🏑</div>
         <div style={{ fontSize: 16, color: "#94A3B8" }}>Team not found</div>
-        {onBack && <button onClick={onBack} style={{ marginTop: 16, padding: "8px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Go Home</button>}
       </div>
     </div>
   );
@@ -332,7 +331,6 @@ export default function TeamPage({ teamSlug, onBack }) {
       {/* Team Header */}
       <div style={{ padding: "12px 14px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {onBack && <button onClick={onBack} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 20, cursor: "pointer", padding: 0 }}>←</button>}
           <div style={{ width: 40, height: 40, borderRadius: 10, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{team.name.charAt(0)}</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 900, display: "flex", alignItems: "center", gap: 6 }}>
@@ -501,18 +499,6 @@ export default function TeamPage({ teamSlug, onBack }) {
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
                   {isCoach && hasStats && <span style={{ fontSize: 12, color: "#334155" }}>›</span>}
                 </div>
-                {isCoach && (
-                  <button onClick={async (e) => {
-                    e.stopPropagation();
-                    if (!confirm(`Delete ${opp?.name} ${m.home_score}-${m.away_score} from cloud?`)) return;
-                    const { error } = await supabase.from('matches').delete().eq('id', m.id);
-                    if (error) { alert('Delete failed: ' + error.message); }
-                    else { setMatches(prev => prev.filter(x => x.id !== m.id)); }
-                  }} style={{
-                    background: "none", border: "1px solid #EF444433", borderRadius: 6,
-                    color: "#EF4444", fontSize: 10, padding: "4px 6px", cursor: "pointer", flexShrink: 0,
-                  }}>✕</button>
-                )}
               </div>
             );
           })}
@@ -521,9 +507,32 @@ export default function TeamPage({ teamSlug, onBack }) {
 
       {/* ═══ MATCH DETAIL (Coach) ═══ */}
       {selectedMatch && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 16, cursor: "pointer", padding: 0 }}>← Back to results</button>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+          <div style={{ padding: "6px 14px 0" }}>
+            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+          </div>
+          {/* Match scoreboard */}
+          <div style={{ padding: "8px 14px 10px" }}>
+            <div style={{ background: "#1E293B", borderRadius: 12, padding: "14px 12px", border: "1px solid #334155" }}>
+              <div style={{ textAlign: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#64748B" }}>FULL TIME</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: selectedMatch.home_team?.color }}>{selectedMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
+                </div>
+                <div style={{ fontSize: 14, color: "#64748B", padding: "0 8px" }}>–</div>
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: selectedMatch.away_team?.color }}>{selectedMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
+                </div>
+              </div>
+              <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "#64748B" }}>
+                {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                {selectedMatch.venue && ` · ${selectedMatch.venue}`}
+              </div>
+            </div>
           </div>
           {loadingEvents ? (
             <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading stats...</div>
@@ -531,6 +540,7 @@ export default function TeamPage({ teamSlug, onBack }) {
             <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No event data for this match</div>
           ) : (
             <CoachLiveScreen
+              embedded
               match={{
                 teams: {
                   home: { name: selectedMatch.home_team?.name, color: selectedMatch.home_team?.color, short: selectedMatch.home_team?.name?.slice(0, 3).toUpperCase() },

@@ -115,8 +115,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
     );
   };
 
-  const Wrapper = embedded ? ({ children }) => <div style={{ padding: "0" }}>{children}</div> : ({ children }) => (
-    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: embedded ? "auto" : "100vh", color: "#E2E8F0", userSelect: "none" }}>{children}</div>
+  const Wrapper = embedded ? ({ children }) => <div style={{ flex: 1 }}>{children}</div> : ({ children }) => (
+    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" }}>{children}</div>
   );
 
   return (
