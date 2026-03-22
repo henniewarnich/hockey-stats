@@ -101,16 +101,18 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
 
   const StatBar = ({ hVal, aVal, label, suffix = "" }) => {
-    const max = Math.max(hVal, aVal, 1);
+    const total = hVal + aVal;
+    const hPct = total > 0 ? (hVal / total) * 100 : 50;
+    const aPct = total > 0 ? (aVal / total) * 100 : 50;
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
-        <div style={{ width: 24, fontSize: 11, fontWeight: 800, textAlign: "right", color: hVal >= aVal ? teams.home.color : "#64748B" }}>{hVal}{suffix}</div>
-        <div style={{ flex: 1, display: "flex", height: 5, borderRadius: 3, overflow: "hidden", background: "#0B0F1A", gap: 1 }}>
-          <div style={{ width: `${(hVal / max) * 50}%`, background: teams.home.color, borderRadius: 3, marginLeft: "auto", transition: "width 0.5s" }} />
-          <div style={{ width: `${(aVal / max) * 50}%`, background: teams.away.color, borderRadius: 3, transition: "width 0.5s" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0" }}>
+        <div style={{ width: 28, fontSize: 12, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? teams.home.color : "#64748B" }}>{hVal}{suffix}</div>
+        <div style={{ flex: 1, display: "flex", height: 7, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ width: `${hPct}%`, background: teams.home.color, transition: "width 0.5s" }} />
+          <div style={{ width: `${aPct}%`, background: teams.away.color, transition: "width 0.5s" }} />
         </div>
-        <div style={{ width: 24, fontSize: 11, fontWeight: 800, color: aVal >= hVal ? teams.away.color : "#64748B" }}>{aVal}{suffix}</div>
-        <div style={{ width: 80, fontSize: 8, color: "#64748B", fontWeight: 600 }}>{label}</div>
+        <div style={{ width: 28, fontSize: 12, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? teams.away.color : "#64748B" }}>{aVal}{suffix}</div>
+        <div style={{ width: 90, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
       </div>
     );
   };
@@ -133,7 +135,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             {isEnded ? "FULL TIME — COACH VIEW" : "LIVE — COACH VIEW"}
           </div>
         </div>
-        <div style={{ fontSize: 8, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</div>
       </div>
 
       {/* Compact scoreboard */}
@@ -148,7 +150,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
           <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "monospace", color: isEnded ? theme.danger : "#F59E0B" }}>
             {isEnded ? "FT" : fmt(matchTime)}
           </div>
-          {!isEnded && <div style={{ fontSize: 7, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: "#10B98122", color: "#10B981" }}>
+          {!isEnded && <div style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: "#10B98122", color: "#10B981" }}>
             {quarters.find(q => q.status === "live")?.label || "—"}
           </div>}
         </div>
@@ -177,8 +179,33 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* Match Totals */}
       {viewTab === "totals" && (
         <div style={{ padding: "0 14px 20px" }}>
+          {/* Conversion rates */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Stats Comparison</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Conversion Rates</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["home", "away"].map(t => (
+                <div key={t} style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: teams[t].color, marginBottom: 6 }}>
+                    {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{convRate(t)}%</div>
+                      <div style={{ fontSize: 11, color: "#CBD5E1" }}>Shot → Goal</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{dConv(t)}%</div>
+                      <div style={{ fontSize: 11, color: "#CBD5E1" }}>D Entry → Shot</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats comparison */}
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Stats Comparison</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {STATS.map(({ key, label }) => (
                 <StatBar key={key} hVal={totalStat("home", key)} aVal={totalStat("away", key)} label={label} />
@@ -187,45 +214,60 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             </div>
           </div>
 
-          {/* Conversion rates */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Conversion Rates</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["home", "away"].map(t => (
-                <div key={t} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: teams[t].color, marginBottom: 6 }}>
-                    {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{convRate(t)}%</div>
-                      <div style={{ fontSize: 7, color: "#64748B" }}>Shot → Goal</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{dConv(t)}%</div>
-                      <div style={{ fontSize: 7, color: "#64748B" }}>D Entry → Shot</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Territory by quarter */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Territory by Period</div>
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Territory by Period</div>
             <div style={{ display: "flex", gap: 4 }}>
               {quarterData.map(q => {
                 const isLive = q.status === "live";
                 const isUpcoming = q.status === "upcoming";
                 return (
                   <div key={q.label} style={{ flex: 1, textAlign: "center", opacity: isUpcoming ? 0.25 : 1 }}>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: isLive ? "#10B981" : "#64748B", marginBottom: 4 }}>{q.label}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: isLive ? "#10B981" : "#94A3B8", marginBottom: 4 }}>{q.label}</div>
                     <div style={{ height: 60, borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", border: isLive ? "1px solid #10B98133" : "1px solid #334155" }}>
                       <div style={{ height: `${q.home.territory}%`, background: teams.home.color, transition: "height 0.5s" }} />
                       <div style={{ height: `${q.away.territory}%`, background: teams.away.color, transition: "height 0.5s" }} />
                     </div>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: "#F8FAFC", marginTop: 3 }}>{isUpcoming ? "–" : `${q.home.territory}%`}</div>
+                    {!isUpcoming && (
+                      <div style={{ marginTop: 3 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: teams.home.color }}>{q.home.territory}%</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: teams.away.color }}>{q.away.territory}%</div>
+                      </div>
+                    )}
+                    {isUpcoming && <div style={{ fontSize: 10, color: "#475569", marginTop: 3 }}>–</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Possession by quarter */}
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Possession by Period</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {quarterData.map(q => {
+                const isLive = q.status === "live";
+                const isUpcoming = q.status === "upcoming";
+                // Possession = proportion of all events by each team
+                const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
+                const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
+                const total = hEvents + aEvents || 1;
+                const hPoss = Math.round(hEvents / total * 100);
+                const aPoss = 100 - hPoss;
+                return (
+                  <div key={q.label} style={{ flex: 1, textAlign: "center", opacity: isUpcoming ? 0.25 : 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: isLive ? "#10B981" : "#94A3B8", marginBottom: 4 }}>{q.label}</div>
+                    <div style={{ height: 60, borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", border: isLive ? "1px solid #10B98133" : "1px solid #334155" }}>
+                      <div style={{ height: `${hPoss}%`, background: teams.home.color, transition: "height 0.5s" }} />
+                      <div style={{ height: `${aPoss}%`, background: teams.away.color, transition: "height 0.5s" }} />
+                    </div>
+                    {!isUpcoming && (
+                      <div style={{ marginTop: 3 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: teams.home.color }}>{hPoss}%</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: teams.away.color }}>{aPoss}%</div>
+                      </div>
+                    )}
+                    {isUpcoming && <div style={{ fontSize: 10, color: "#475569", marginTop: 3 }}>–</div>}
                   </div>
                 );
               })}
@@ -252,8 +294,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                       <div style={{ fontSize: 10, fontWeight: 800, color: isLive ? "#10B981" : "#F8FAFC", width: 22 }}>{q.label}</div>
-                      {isLive && !isEnded && <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122", color: "#10B981" }}>LIVE</span>}
-                      {isUpcoming && <span style={{ fontSize: 7, color: "#334155" }}>Upcoming</span>}
+                      {isLive && !isEnded && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122", color: "#10B981" }}>LIVE</span>}
+                      {isUpcoming && <span style={{ fontSize: 9, color: "#475569" }}>Upcoming</span>}
                     </div>
                     {!isUpcoming && (
                       <div style={{ fontSize: 12, fontWeight: 800 }}>
@@ -266,37 +308,80 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   </div>
 
                   {/* Expanded stats */}
-                  {isExp && !isUpcoming && (
-                    <div style={{ padding: "6px 12px 10px", background: "#0B0F1A" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {STATS.map(({ key, label }) => {
-                          const hVal = q.home[key], aVal = q.away[key];
-                          const inv = INVERTED.includes(key);
-                          const hWins = inv ? hVal < aVal : hVal > aVal;
-                          const aWins = inv ? aVal < hVal : aVal > hVal;
-                          return (
-                            <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
-                              <div style={{ width: 20, fontSize: 11, fontWeight: 800, textAlign: "right", color: hWins ? teams.home.color : "#64748B" }}>{hVal}</div>
-                              <div style={{ flex: 1, textAlign: "center", fontSize: 8, color: "#64748B", fontWeight: 600 }}>{label}</div>
-                              <div style={{ width: 20, fontSize: 11, fontWeight: 800, color: aWins ? teams.away.color : "#64748B" }}>{aVal}</div>
-                            </div>
-                          );
-                        })}
-                        {/* Territory bar */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0 2px" }}>
-                          <div style={{ width: 20, fontSize: 11, fontWeight: 800, textAlign: "right", color: q.home.territory > q.away.territory ? teams.home.color : "#64748B" }}>{q.home.territory}%</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", background: "#1E293B" }}>
-                              <div style={{ width: `${q.home.territory}%`, background: teams.home.color }} />
-                              <div style={{ width: `${q.away.territory}%`, background: teams.away.color }} />
-                            </div>
-                            <div style={{ textAlign: "center", fontSize: 8, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Territory</div>
+                  {isExp && !isUpcoming && (() => {
+                    const qConvRate = (t) => { const s = q[t].shotsOn; const g = q[t].goals; return s > 0 ? Math.round(g / s * 100) : 0; };
+                    const qDConv = (t) => { const d = q[t].dEntries; const s = q[t].shotsOn + q[t].shotsOff; return d > 0 ? Math.round(s / d * 100) : 0; };
+                    const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
+                    const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
+                    const possTotal = hEvents + aEvents || 1;
+                    const hPoss = Math.round(hEvents / possTotal * 100);
+                    const aPoss = 100 - hPoss;
+
+                    const QStatBar = ({ hVal, aVal, label }) => {
+                      const total = hVal + aVal;
+                      const hPct = total > 0 ? (hVal / total) * 100 : 50;
+                      const aPct = total > 0 ? (aVal / total) * 100 : 50;
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? teams.home.color : "#64748B" }}>{hVal}</div>
+                          <div style={{ flex: 1, display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${hPct}%`, background: teams.home.color }} />
+                            <div style={{ width: `${aPct}%`, background: teams.away.color }} />
                           </div>
-                          <div style={{ width: 20, fontSize: 11, fontWeight: 800, color: q.away.territory > q.home.territory ? teams.away.color : "#64748B" }}>{q.away.territory}%</div>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? teams.away.color : "#64748B" }}>{aVal}</div>
+                          <div style={{ width: 80, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div style={{ padding: "6px 12px 10px", background: "#0B0F1A" }}>
+                        {/* Conversion rates */}
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #1E293B" }}>
+                          {["home", "away"].map(t => (
+                            <div key={t} style={{ flex: 1, textAlign: "center" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: teams[t].color, marginBottom: 4 }}>
+                                {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                              </div>
+                              <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{qConvRate(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Shot → Goal</div>
+                              <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDConv(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>D Entry → Shot</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Stat bars */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {STATS.map(({ key, label }) => (
+                            <QStatBar key={key} hVal={q.home[key]} aVal={q.away[key]} label={label} />
+                          ))}
+                        </div>
+
+                        {/* Territory bar */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 0 2px" }}>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, textAlign: "right", color: q.home.territory > q.away.territory ? teams.home.color : "#64748B" }}>{q.home.territory}%</div>
+                          <div style={{ flex: 1, display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${q.home.territory}%`, background: teams.home.color }} />
+                            <div style={{ width: `${q.away.territory}%`, background: teams.away.color }} />
+                          </div>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, color: q.away.territory > q.home.territory ? teams.away.color : "#64748B" }}>{q.away.territory}%</div>
+                          <div style={{ width: 80, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>Territory</div>
+                        </div>
+
+                        {/* Possession bar */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, textAlign: "right", color: hPoss > aPoss ? teams.home.color : "#64748B" }}>{hPoss}%</div>
+                          <div style={{ flex: 1, display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${hPoss}%`, background: teams.home.color }} />
+                            <div style={{ width: `${aPoss}%`, background: teams.away.color }} />
+                          </div>
+                          <div style={{ width: 22, fontSize: 11, fontWeight: 800, color: aPoss > hPoss ? teams.away.color : "#64748B" }}>{aPoss}%</div>
+                          <div style={{ width: 80, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>Possession</div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
