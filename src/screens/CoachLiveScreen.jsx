@@ -15,6 +15,98 @@ const STATS = [
 
 const INVERTED = ["possLost", "shotsOff"];
 
+// Generate coach insights for a team in a period
+function generatePeriodInsights(stats, oppStats, teamName, oppName) {
+  const insights = [];
+  const { goals, dEntries, shotsOn, shotsOff, shortCorners, longCorners, turnoversWon, possLost, territory } = stats;
+  const totalShots = shotsOn + shotsOff;
+  const dConv = dEntries > 0 ? Math.round(totalShots / dEntries * 100) : 0;
+  const shotConv = shotsOn > 0 ? Math.round(goals / shotsOn * 100) : 0;
+
+  // Strengths
+  if (territory >= 65) insights.push({ type: "strength", text: `Dominant territory (${territory}%) — controlling the game` });
+  else if (territory >= 55) insights.push({ type: "strength", text: `Good territorial advantage (${territory}%)` });
+
+  if (dEntries >= 4 && dConv >= 60) insights.push({ type: "strength", text: `Efficient in the D — converting ${dConv}% of entries into shots` });
+  if (turnoversWon >= 3 && turnoversWon > possLost) insights.push({ type: "strength", text: `Winning the turnover battle (${turnoversWon} won vs ${possLost} lost)` });
+  if (goals >= 2) insights.push({ type: "strength", text: `Clinical finishing — ${goals} goals from ${shotsOn} shots on target` });
+  if (shortCorners >= 2 && goals > 0) insights.push({ type: "strength", text: `Set-piece threat — ${shortCorners} short corners earned` });
+  if (possLost <= 1 && dEntries >= 2) insights.push({ type: "strength", text: `Tidy possession — only ${possLost} ball lost` });
+
+  // Weaknesses
+  if (dEntries >= 3 && totalShots === 0) insights.push({ type: "weakness", text: `Getting into the D (${dEntries}×) but creating no shots` });
+  else if (dEntries >= 3 && dConv < 30) insights.push({ type: "weakness", text: `Poor D conversion — only ${dConv}% of entries producing shots` });
+
+  if (shotsOn >= 3 && goals === 0) insights.push({ type: "weakness", text: `${shotsOn} shots on target but can't find the net` });
+  if (shotsOff >= 2 && shotsOff > shotsOn) insights.push({ type: "weakness", text: `Accuracy issue — more shots off target (${shotsOff}) than on (${shotsOn})` });
+  if (possLost >= 3 && possLost > turnoversWon) insights.push({ type: "weakness", text: `Giving the ball away too often (${possLost} lost vs ${turnoversWon} won)` });
+  if (territory <= 35) insights.push({ type: "weakness", text: `Under pressure — only ${territory}% territory` });
+  else if (territory <= 45 && dEntries === 0) insights.push({ type: "weakness", text: `Can't get into the opposition half — 0 D entries` });
+
+  if (territory >= 55 && dEntries === 0) insights.push({ type: "weakness", text: `Territory without penetration — 0 D entries despite ${territory}% territory` });
+  if (oppStats.shortCorners >= 2) insights.push({ type: "weakness", text: `Conceding set pieces — ${oppStats.shortCorners} short corners against` });
+
+  // Limit to top 3 per type
+  const strengths = insights.filter(i => i.type === "strength").slice(0, 3);
+  const weaknesses = insights.filter(i => i.type === "weakness").slice(0, 3);
+  return [...strengths, ...weaknesses];
+}
+
+// Generate match-level insights by aggregating all periods
+function generateMatchInsights(quarterData, teams, homeScore, awayScore) {
+  const activeQs = quarterData.filter(q => q.status !== "upcoming");
+  if (activeQs.length === 0) return { home: [], away: [] };
+
+  const agg = (team, key) => activeQs.reduce((s, q) => s + q[team][key], 0);
+  const avgTerr = (team) => Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length);
+
+  const buildInsights = (t, opp, tScore, oScore) => {
+    const ins = [];
+    const terr = avgTerr(t);
+    const de = agg(t, "dEntries");
+    const son = agg(t, "shotsOn");
+    const soff = agg(t, "shotsOff");
+    const sc = agg(t, "shortCorners");
+    const tw = agg(t, "turnoversWon");
+    const pl = agg(t, "possLost");
+    const totalShots = son + soff;
+    const dConv = de > 0 ? Math.round(totalShots / de * 100) : 0;
+
+    // Momentum — which periods were strongest?
+    const bestQ = activeQs.reduce((best, q) => q[t].dEntries + q[t].goals * 3 > best[t].dEntries + best[t].goals * 3 ? q : best, activeQs[0]);
+    const worstQ = activeQs.reduce((worst, q) => q[t].territory < worst[t].territory ? q : worst, activeQs[0]);
+
+    if (activeQs.length >= 2) {
+      ins.push({ type: "info", text: `Strongest period: ${bestQ.label} — Weakest: ${worstQ.label}` });
+    }
+
+    // Overall strengths
+    if (terr >= 60) ins.push({ type: "strength", text: `Commanding ${terr}% avg territory across the match` });
+    if (dConv >= 50 && de >= 4) ins.push({ type: "strength", text: `Strong D conversion at ${dConv}% (${totalShots} shots from ${de} entries)` });
+    if (tw > pl + 2) ins.push({ type: "strength", text: `Dominant in turnovers — net +${tw - pl} (${tw} won, ${pl} lost)` });
+    if (tScore >= 2 && son <= tScore + 1) ins.push({ type: "strength", text: `Clinical — ${tScore} goals from ${son} shots on target` });
+    if (sc >= 4) ins.push({ type: "strength", text: `Set-piece machine — ${sc} short corners earned` });
+
+    // Overall weaknesses
+    if (de >= 6 && tScore === 0) ins.push({ type: "weakness", text: `${de} D entries but scoreless — final ball letting them down` });
+    if (soff > son && totalShots >= 4) ins.push({ type: "weakness", text: `Shot accuracy a concern — ${soff} off target vs ${son} on` });
+    if (pl > tw + 2) ins.push({ type: "weakness", text: `Possession leaking — net -${pl - tw} (${pl} lost, ${tw} won)` });
+    if (terr <= 40) ins.push({ type: "weakness", text: `Spending too much time in own half (${terr}% avg territory)` });
+    if (agg(opp, "shortCorners") >= 4) ins.push({ type: "weakness", text: `Defensive discipline — conceded ${agg(opp, "shortCorners")} short corners` });
+
+    // Score context
+    if (tScore > oScore && terr < 45) ins.push({ type: "info", text: `Winning despite less territory — counter-attacking effectively` });
+    if (tScore < oScore && terr >= 55) ins.push({ type: "info", text: `Losing despite territorial dominance — need to be more clinical` });
+
+    return ins.slice(0, 6);
+  };
+
+  return {
+    home: buildInsights("home", "away", homeScore, awayScore),
+    away: buildInsights("away", "home", awayScore, homeScore),
+  };
+}
+
 // Compute stats from events for a given time range
 function computeStats(events, team, startTime, endTime) {
   const real = events.filter(e =>
@@ -41,32 +133,38 @@ function computeStats(events, team, startTime, endTime) {
   };
 }
 
-// Find quarter boundaries from pause events
-function getQuarters(events, breakFormat) {
-  const pauses = events.filter(e => e.team === "meta" && e.detail).sort((a, b) => a.time - b.time);
-  const boundaries = [0];
-  pauses.forEach(p => {
-    if (p.detail === "Quarter Break" || p.detail === "Half Time") {
-      boundaries.push(p.time);
-    }
-  });
-  // Add a large end time
-  boundaries.push(999999);
-
+// Find quarter boundaries from pause events (real quarters) or time-based (halves/none)
+function getQuarters(events, breakFormat, matchLength, matchTime) {
+  // Real quarters: use actual pause events
   if (breakFormat === "quarters") {
+    const pauses = events.filter(e => e.team === "meta" && e.detail).sort((a, b) => a.time - b.time);
+    const boundaries = [0];
+    pauses.forEach(p => {
+      if (p.detail === "Quarter Break" || p.detail === "Half Time") {
+        boundaries.push(p.time);
+      }
+    });
+    boundaries.push(999999);
     return [
       { label: "Q1", start: boundaries[0], end: boundaries[1] || 999999, status: boundaries.length > 2 ? "complete" : "live" },
       { label: "Q2", start: boundaries[1] || 999999, end: boundaries[2] || 999999, status: boundaries.length > 3 ? "complete" : boundaries.length > 2 ? "live" : "upcoming" },
       { label: "Q3", start: boundaries[2] || 999999, end: boundaries[3] || 999999, status: boundaries.length > 4 ? "complete" : boundaries.length > 3 ? "live" : "upcoming" },
       { label: "Q4", start: boundaries[3] || 999999, end: boundaries[4] || 999999, status: boundaries.length > 5 ? "complete" : boundaries.length > 4 ? "live" : "upcoming" },
     ];
-  } else if (breakFormat === "halves") {
-    return [
-      { label: "H1", start: boundaries[0], end: boundaries[1] || 999999, status: boundaries.length > 2 ? "complete" : "live" },
-      { label: "H2", start: boundaries[1] || 999999, end: boundaries[2] || 999999, status: boundaries.length > 3 ? "complete" : boundaries.length > 2 ? "live" : "upcoming" },
-    ];
   }
-  return [{ label: "Match", start: 0, end: 999999, status: "live" }];
+
+  // Halves / No breaks: derive virtual quarters from matchLength
+  const totalSec = (matchLength || 60) * 60;
+  const qLen = totalSec / 4;
+  const labels = ["1st", "2nd", "3rd", "4th"];
+  const elapsed = matchTime || 0;
+
+  return labels.map((label, i) => {
+    const start = Math.round(qLen * i);
+    const end = i === 3 ? 999999 : Math.round(qLen * (i + 1));
+    const status = elapsed >= end ? "complete" : elapsed >= start ? "live" : "upcoming";
+    return { label, start, end, status };
+  });
 }
 
 export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded }) {
@@ -74,7 +172,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
 
-  const quarters = getQuarters(events, breakFormat);
+  const matchLength = match?.matchLength || 60;
+
+  const quarters = getQuarters(events, breakFormat, matchLength, matchTime);
   // Mark last active quarter as live if match not ended
   if (!isEnded) {
     const lastActive = [...quarters].reverse().find(q => q.status !== "upcoming");
@@ -99,6 +199,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const avgTerritory = (team) => activeQs.length ? Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length) : 0;
   const convRate = (team) => { const s = totalStat(team, "shotsOn"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
+  const matchInsights = generateMatchInsights(quarterData, teams, homeScore, awayScore);
 
   const StatBar = ({ hVal, aVal, label, suffix = "" }) => {
     const total = hVal + aVal;
@@ -166,7 +267,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* View toggle */}
       <div style={{ padding: "0 14px 8px" }}>
         <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }}>
-          {[["quarters", "By Quarter"], ["totals", "Match Totals"]].map(([k, l]) => (
+          {[["quarters", breakFormat === "quarters" ? "By Quarter" : "By Period"], ["totals", "Match Totals"], ["insights", "Match Insights"]].map(([k, l]) => (
             <button key={k} onClick={() => setViewTab(k)} style={{
               flex: 1, padding: "6px 0", textAlign: "center", fontSize: 9, fontWeight: 700,
               background: viewTab === k ? "#334155" : "#1E293B", color: viewTab === k ? "#F8FAFC" : "#64748B",
@@ -379,6 +480,35 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                           <div style={{ width: 22, fontSize: 11, fontWeight: 800, color: aPoss > hPoss ? teams.away.color : "#64748B" }}>{aPoss}%</div>
                           <div style={{ width: 80, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>Possession</div>
                         </div>
+
+                        {/* Period Insights */}
+                        {(() => {
+                          const hIns = generatePeriodInsights(q.home, q.away, teams.home.name, teams.away.name);
+                          const aIns = generatePeriodInsights(q.away, q.home, teams.away.name, teams.home.name);
+                          if (hIns.length === 0 && aIns.length === 0) return null;
+                          const InsightIcon = ({ type }) => (
+                            <span style={{ fontSize: 10, marginRight: 3 }}>{type === "strength" ? "💪" : type === "weakness" ? "⚠️" : "ℹ️"}</span>
+                          );
+                          return (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #1E293B" }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Coach Insights</div>
+                              <div style={{ display: "flex", gap: 8 }}>
+                                {[["home", hIns], ["away", aIns]].map(([t, ins]) => ins.length > 0 && (
+                                  <div key={t} style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: teams[t].color, marginBottom: 4 }}>
+                                      {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                                    </div>
+                                    {ins.map((i, idx) => (
+                                      <div key={idx} style={{ fontSize: 9, color: i.type === "strength" ? "#4ADE80" : i.type === "weakness" ? "#FBBF24" : "#94A3B8", lineHeight: 1.4, marginBottom: 2 }}>
+                                        <InsightIcon type={i.type} />{i.text}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
@@ -386,6 +516,77 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Match Insights Tab */}
+      {viewTab === "insights" && (
+        <div style={{ padding: "0 14px 14px" }}>
+          {activeQs.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 11 }}>No data yet — insights will appear as the match progresses</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Overall match insights */}
+              {["home", "away"].map(t => {
+                const ins = matchInsights[t];
+                if (!ins || ins.length === 0) return null;
+                return (
+                  <div key={t} style={{ borderRadius: 8, border: `1px solid ${teams[t].color}33`, overflow: "hidden" }}>
+                    <div style={{ padding: "8px 12px", background: `${teams[t].color}15`, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: teams[t].color }} />
+                      <div style={{ fontSize: 11, fontWeight: 800, color: teams[t].color }}>{teams[t].name}</div>
+                    </div>
+                    <div style={{ padding: "8px 12px" }}>
+                      {ins.map((i, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "4px 0", borderBottom: idx < ins.length - 1 ? "1px solid #1E293B" : "none" }}>
+                          <span style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }}>
+                            {i.type === "strength" ? "💪" : i.type === "weakness" ? "⚠️" : "📊"}
+                          </span>
+                          <span style={{ fontSize: 10, lineHeight: 1.5, color: i.type === "strength" ? "#4ADE80" : i.type === "weakness" ? "#FBBF24" : "#CBD5E1" }}>
+                            {i.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Per-period breakdown */}
+              <div style={{ fontSize: 9, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>Period Breakdown</div>
+              {activeQs.map(q => {
+                const hIns = generatePeriodInsights(q.home, q.away, teams.home.name, teams.away.name);
+                const aIns = generatePeriodInsights(q.away, q.home, teams.away.name, teams.home.name);
+                if (hIns.length === 0 && aIns.length === 0) return null;
+                return (
+                  <div key={q.label} style={{ borderRadius: 8, border: "1px solid #1E293B", overflow: "hidden" }}>
+                    <div style={{ padding: "6px 12px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "#F8FAFC" }}>{q.label}</div>
+                      <div style={{ fontSize: 11, fontWeight: 800 }}>
+                        <span style={{ color: teams.home.color }}>{q.home.goals}</span>
+                        <span style={{ color: "#475569", margin: "0 4px" }}>–</span>
+                        <span style={{ color: teams.away.color }}>{q.away.goals}</span>
+                      </div>
+                    </div>
+                    <div style={{ padding: "8px 12px", display: "flex", gap: 12 }}>
+                      {[["home", hIns], ["away", aIns]].map(([t, ins]) => ins.length > 0 && (
+                        <div key={t} style={{ flex: 1 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: teams[t].color, marginBottom: 4 }}>
+                            {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                          </div>
+                          {ins.map((i, idx) => (
+                            <div key={idx} style={{ fontSize: 9, color: i.type === "strength" ? "#4ADE80" : i.type === "weakness" ? "#FBBF24" : "#94A3B8", lineHeight: 1.4, marginBottom: 3 }}>
+                              {i.type === "strength" ? "💪 " : "⚠️ "}{i.text}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

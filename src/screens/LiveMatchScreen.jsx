@@ -366,7 +366,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       {liveTab === "log" && <EventLog events={events} teams={teams} />}
       {liveTab === "coach" && (
         <CoachLiveScreen
-          match={{ teams, breakFormat, homeScore: score.home, awayScore: score.away, status: matchState === "ended" ? "ended" : "live" }}
+          match={{ teams, breakFormat, matchLength, homeScore: score.home, awayScore: score.away, status: matchState === "ended" ? "ended" : "live" }}
           events={events}
           matchTime={matchTime}
           running={running}
