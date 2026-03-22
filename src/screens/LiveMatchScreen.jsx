@@ -67,12 +67,20 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       const triggers = ["D Entry", "Goal!", "Goal! (SC)", "Turnover Won", "Short Corner", "Penalty"];
       if (triggers.includes(event)) {
         const ins = generateInsight(team, event, upd, teams);
-        if (ins) return [{ id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }, entry, ...prev];
+        if (ins) {
+          const commentaryEntry = { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime };
+          // Push commentary to Supabase too
+          if (liveMatchId && !isDemo) {
+            eventSeqRef.current += 1;
+            pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
+          }
+          return [commentaryEntry, entry, ...prev];
+        }
       }
       return upd;
     });
 
-    // Push to Supabase (fire-and-forget)
+    // Push event to Supabase
     if (liveMatchId && !isDemo) {
       eventSeqRef.current += 1;
       pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
@@ -351,14 +359,43 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       )}
       {liveTab === "share" && (
         <div style={{ padding: "16px 14px" }}>
-          <div style={{ background: theme.surface, borderRadius: 12, padding: 16, border: `1px solid ${theme.border}`, textAlign: "center" }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>📺</div>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Share Live Match</div>
-            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 12 }}>
-              Share this link with spectators for a live score + commentary feed. They won't see tactical stats.
+          <div style={{ background: theme.surface, borderRadius: 12, padding: 16, border: `1px solid ${theme.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>📺 Share Live Match</div>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 14, textAlign: "center" }}>
+              Share these links with spectators. They'll see the live score and commentary.
             </div>
-            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 12 }}>
-              Coming soon — requires Supabase real-time to be fully wired. For now, use the 📺 Public button on the Game Review screen after the match ends.
+
+            {[teams.home, teams.away].map(t => {
+              const slug = t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+              const url = `${window.location.origin}${window.location.pathname}#/team/${slug}`;
+              return (
+                <div key={t.name} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, marginBottom: 4 }}>{t.name}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{
+                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
+                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{url}</div>
+                    <button onClick={() => {
+                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
+                    }} style={{
+                      padding: "8px 14px", borderRadius: 8, background: t.color + "22",
+                      border: `1px solid ${t.color}44`, color: t.color,
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                    }}>📋 Copy</button>
+                    <button onClick={() => window.open(url, '_blank')} style={{
+                      padding: "8px 10px", borderRadius: 8, background: "#10B98122",
+                      border: "1px solid #10B98144", color: "#10B981",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    }}>↗</button>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{ fontSize: 9, color: theme.textDim, textAlign: "center", marginTop: 8 }}>
+              Spectators see score + commentary only. Coaches can enter their team PIN for full stats.
             </div>
           </div>
         </div>
