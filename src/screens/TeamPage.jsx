@@ -154,6 +154,20 @@ export default function TeamPage({ teamSlug, onBack }) {
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [matchViewers, setMatchViewers] = useState(0);
+
+  // Track presence on live match
+  useEffect(() => {
+    if (!liveMatch) { setMatchViewers(0); return; }
+    const channel = supabase.channel(`match-viewers-${liveMatch.id}`, { config: { presence: { key: Math.random().toString(36).slice(2) } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      setMatchViewers(Object.keys(channel.presenceState()).length);
+    });
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await channel.track({ page: 'team', ts: Date.now() });
+    });
+    return () => { supabase.removeChannel(channel); };
+  }, [liveMatch?.id]);
 
   const refreshMatches = useCallback(async () => {
     if (!team) return;
@@ -413,10 +427,15 @@ export default function TeamPage({ teamSlug, onBack }) {
           {/* Scoreboard */}
           <div style={{ padding: "8px 14px 14px" }}>
             <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: "1px solid #10B98122" }}>
-              <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <div style={{ textAlign: "center", marginBottom: 8, display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "3px 12px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 4 }}>
                   <span style={{ animation: "pulse-dot 2s infinite" }}>●</span> LIVE
                 </span>
+                {matchViewers > 0 && (
+                  <span style={{ fontSize: 10, color: "#64748B", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    👁 {matchViewers} watching
+                  </span>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>

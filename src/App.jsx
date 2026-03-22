@@ -24,6 +24,7 @@ function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
   if (hash.startsWith('team/')) return { type: 'team', slug: hash.replace('team/', '') };
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
+  if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
 }

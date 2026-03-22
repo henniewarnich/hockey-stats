@@ -8,6 +8,36 @@ export default function LandingPage() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [visitorCount, setVisitorCount] = useState(0);
+  const [liveMatchViewers, setLiveMatchViewers] = useState({});
+
+  // Global presence tracking
+  useEffect(() => {
+    const channel = supabase.channel('site-presence', { config: { presence: { key: Math.random().toString(36).slice(2) } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      setVisitorCount(Object.keys(state).length);
+    });
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await channel.track({ page: 'landing', ts: Date.now() });
+    });
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Per-match viewer counts for live matches
+  useEffect(() => {
+    if (liveMatches.length === 0) return;
+    const channels = liveMatches.map(m => {
+      const ch = supabase.channel(`match-viewers-${m.id}`, { config: { presence: { key: Math.random().toString(36).slice(2) } } });
+      ch.on('presence', { event: 'sync' }, () => {
+        const state = ch.presenceState();
+        setLiveMatchViewers(prev => ({ ...prev, [m.id]: Object.keys(state).length }));
+      });
+      ch.subscribe();
+      return ch;
+    });
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+  }, [liveMatches.map(m => m.id).join()]);
 
   useEffect(() => {
     const load = async () => {
@@ -145,6 +175,9 @@ export default function LandingPage() {
                       <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
                       <div style={styles.matchMeta}>
                         {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
+                        {liveMatchViewers[m.id] > 0 && (
+                          <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
+                        )}
                       </div>
                     </div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
@@ -201,8 +234,10 @@ export default function LandingPage() {
               {matches.slice(0, 8).map(m => {
                 const homeR = resultBadge(m, m.home_team?.id);
                 const d = new Date(m.match_date);
+                const homeSlug = teamSlug(m.home_team?.name || "");
                 return (
-                  <div key={m.id} style={styles.scoreCard}>
+                  <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
+                    style={{ ...styles.scoreCard, cursor: "pointer" }}>
                     <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
@@ -222,6 +257,12 @@ export default function LandingPage() {
 
       {/* Footer */}
       <div style={styles.footer}>
+        {visitorCount > 0 && (
+          <div style={{ fontSize: 10, color: "#64748B", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+            {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"} online
+          </div>
+        )}
         <button onClick={() => { window.location.hash = "#/admin"; }} style={styles.adminBtn}>🔒 Admin login</button>
         <div style={{ fontSize: 10, color: "#334155" }}>kykie.net · v{APP_VERSION}</div>
       </div>

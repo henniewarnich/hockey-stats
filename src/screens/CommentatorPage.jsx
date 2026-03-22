@@ -56,6 +56,8 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [liveEvents, setLiveEvents] = useState([]);
   const [pastMatches, setPastMatches] = useState([]);
   const [globalCommPin, setGlobalCommPin] = useState(null);
+  const [isGlobalMode] = useState(!teamSlug);
+  const [teamSearch, setTeamSearch] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -67,11 +69,17 @@ export default function CommentatorPage({ teamSlug, onBack }) {
       if (settings?.value) setGlobalCommPin(settings.value);
       if (teams) {
         setAllTeams(teams);
-        const found = teams.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
-        if (found) {
-          setTeam(found);
-          setVenue(found.name);
-          const stored = sessionStorage.getItem(`commentator-${found.id}`);
+        if (teamSlug) {
+          const found = teams.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
+          if (found) {
+            setTeam(found);
+            setVenue(found.name);
+            const stored = sessionStorage.getItem(`commentator-${found.id}`);
+            if (stored === 'true') setVerified(true);
+          }
+        } else {
+          // Global mode — check if already verified this session
+          const stored = sessionStorage.getItem('commentator-global');
           if (stored === 'true') setVerified(true);
         }
       }
@@ -109,13 +117,20 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   }, [team, verified]);
 
   const handlePinSubmit = () => {
-    if (!team) return;
-    // Accept: team-specific commentator PIN, or global commentator PIN
-    if (team.commentator_pin && pin === team.commentator_pin) {
-      setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-    } else if (globalCommPin && pin === globalCommPin) {
-      setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-    } else { setPinError(true); }
+    if (isGlobalMode) {
+      // Global mode — only accept global PIN
+      if (globalCommPin && pin === globalCommPin) {
+        setVerified(true); sessionStorage.setItem('commentator-global', 'true'); setPinError(false);
+      } else { setPinError(true); }
+    } else {
+      if (!team) return;
+      // Accept: team-specific commentator PIN, or global commentator PIN
+      if (team.commentator_pin && pin === team.commentator_pin) {
+        setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
+      } else if (globalCommPin && pin === globalCommPin) {
+        setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
+      } else { setPinError(true); }
+    }
   };
 
   const handleSaveGame = (game) => { setMatchConfig(null); setAwayTeam(null); setTab("live"); return game; };
@@ -148,8 +163,8 @@ export default function CommentatorPage({ teamSlug, onBack }) {
     <div style={wrap}><link href={font} rel="stylesheet" /><div style={{ color: "#64748B", fontSize: 14 }}>Loading...</div></div>
   );
 
-  // ── NOT FOUND ──
-  if (!team) return (
+  // ── NOT FOUND (only for team-specific mode) ──
+  if (!isGlobalMode && !team) return (
     <div style={wrap}><link href={font} rel="stylesheet" />
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🏑</div>
@@ -162,18 +177,60 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   // ── PIN GATE ──
   if (!verified) return (
     <div style={{ ...wrap, flexDirection: "column", padding: 20 }}><link href={font} rel="stylesheet" />
-      <div style={{ width: 48, height: 48, borderRadius: 12, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, color: "#fff", marginBottom: 12 }}>{team.name.charAt(0)}</div>
-      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>{team.name}</div>
-      <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 20 }}>🎙 Commentator Login</div>
-      <input value={pin} onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinError(false); }}
+      {isGlobalMode ? (
+        <>
+          <div style={{ fontSize: 28, marginBottom: 12 }}>🎙</div>
+          <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>Commentator</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 20 }}>Enter global commentator PIN</div>
+        </>
+      ) : (
+        <>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, color: "#fff", marginBottom: 12 }}>{team.name.charAt(0)}</div>
+          <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>{team.name}</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 20 }}>🎙 Commentator Login</div>
+        </>
+      )}
+      <input value={pin} onChange={e => { setPin(e.target.value.slice(0, 20)); setPinError(false); }}
         type="password" placeholder="Commentator PIN"
-        style={{ width: 220, padding: 14, borderRadius: 10, border: pinError ? "2px solid #EF4444" : "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 20, textAlign: "center", letterSpacing: "0.3em", outline: "none" }}
+        style={{ width: 260, padding: 14, borderRadius: 10, border: pinError ? "2px solid #EF4444" : "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 16, textAlign: "center", letterSpacing: "0.1em", outline: "none" }}
         autoFocus onKeyDown={e => e.key === "Enter" && handlePinSubmit()} />
       {pinError && <div style={{ fontSize: 12, color: "#EF4444", marginTop: 8 }}>Incorrect PIN</div>}
       <button onClick={handlePinSubmit} style={{ marginTop: 16, padding: "12px 40px", borderRadius: 10, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Unlock</button>
       {onBack && <button onClick={onBack} style={{ marginTop: 12, background: "none", border: "none", color: "#64748B", fontSize: 11, cursor: "pointer" }}>← Back</button>}
     </div>
   );
+
+  // ── GLOBAL MODE: TEAM PICKER ──
+  if (isGlobalMode && !team) {
+    const filtered = teamSearch.trim()
+      ? allTeams.filter(t => t.name.toLowerCase().includes(teamSearch.toLowerCase()))
+      : allTeams;
+    return (
+      <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" }}>
+        <link href={font} rel="stylesheet" />
+        <div style={{ padding: "16px 14px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+          {onBack && <button onClick={onBack} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 20, cursor: "pointer", padding: 0 }}>←</button>}
+          <div style={{ fontSize: 15, fontWeight: 900 }}>🎙 Select a team to commentate</div>
+        </div>
+        <div style={{ padding: "0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+            <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+            <input style={{ flex: 1, background: "none", border: "none", color: "#E2E8F0", fontSize: 14, outline: "none", fontFamily: "'Outfit',sans-serif" }}
+              value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="Search teams..." autoFocus />
+            {teamSearch && <button onClick={() => setTeamSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>}
+          </div>
+          {filtered.map(t => (
+            <div key={t.id} onClick={() => { setTeam(t); setVenue(t.name); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4, border: "1px solid #1E293B", cursor: "pointer" }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: t.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{t.name.charAt(0)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>{t.name}</div>
+              <span style={{ color: "#334155", fontSize: 14, marginLeft: "auto" }}>›</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // ── LIVE MATCH RECORDING ──
   if (matchConfig) return <LiveMatchScreen matchConfig={matchConfig} onSaveGame={handleSaveGame} onNavigate={handleNavigate} />;
