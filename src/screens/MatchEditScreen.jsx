@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
 export default function MatchEditScreen({ game, teams, onSave, onBack }) {
@@ -8,6 +9,7 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [awayScore, setAwayScore] = useState(game.awayScore ?? 0);
   const [matchDate, setMatchDate] = useState(game.date ? new Date(game.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [venue, setVenue] = useState(game.venue || "");
+  const [matchType, setMatchType] = useState(game.matchType || "league");
   const [search, setSearch] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -29,6 +31,7 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
       awayScore,
       date: new Date(matchDate).toISOString(),
       venue: venue.trim(),
+      matchType,
     };
     onSave(updated);
     setSaved(true);
@@ -95,6 +98,19 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Date</div>
             <input type="date" style={{ ...S.input, fontSize: 12 }} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Type</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {MATCH_TYPES.map(mt => (
+                <button key={mt.id} onClick={() => setMatchType(mt.id)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: matchType === mt.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: matchType === mt.id ? theme.accent + "22" : theme.bg,
+                  color: matchType === mt.id ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{mt.label}</button>
+              ))}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Venue</div>

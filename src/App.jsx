@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMatchStore } from './hooks/useMatchStore.js';
 import { S, theme } from './utils/styles.js';
 import { saveData, loadData } from './utils/helpers.js';
+import { saveMatchToSupabase } from './utils/sync.js';
 import { APP_VERSION } from './utils/constants.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
@@ -145,10 +146,13 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleDeleteGame = (id) => { store.deleteGame(id); setScreen("history"); };
 
   const handleUpdateGame = (updatedGame) => {
+    // Update locally
     const GAMES_KEY = 'hockey-games';
     const games = loadData(GAMES_KEY, []);
     const updated = games.map(g => g.id === updatedGame.id ? updatedGame : g);
     saveData(GAMES_KEY, updated);
+    // Re-sync to Supabase
+    saveMatchToSupabase(updatedGame).catch(() => {});
     // Force store refresh
     window.location.reload();
   };
