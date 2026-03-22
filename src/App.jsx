@@ -200,7 +200,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
 
     case "match_setup":
-      return <MatchSetupScreen teams={store.teams} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
+      return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
 
     case "live":
       if (!matchConfig) { navigate("home"); return null; }

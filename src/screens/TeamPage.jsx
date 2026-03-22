@@ -350,6 +350,20 @@ export default function TeamPage({ teamSlug, onBack }) {
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none", display: "flex", flexDirection: "column" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
+      {/* Home link */}
+      <div style={{ padding: "8px 14px 0" }}>
+        <button onClick={() => { window.location.hash = ''; }} style={{
+          background: "none", border: "none", color: "#64748B", fontSize: 11, cursor: "pointer", padding: 0,
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 56 56" style={{ opacity: 0.6 }}>
+            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/>
+            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/>
+          </svg>
+          kykie.net
+        </button>
+      </div>
+
       {/* Team Header */}
       <div style={{ padding: "12px 14px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

@@ -2,6 +2,19 @@ import { useState, useRef } from 'react';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
+function isDuplicateMatch(games, homeId, awayId, date) {
+  const dateStr = new Date(date).toISOString().slice(0, 10);
+  return games?.some(g => {
+    const gDate = new Date(g.date || g.match_date || 0).toISOString().slice(0, 10);
+    const gHome = g.teams?.home?.id || g.home_team_id;
+    const gAway = g.teams?.away?.id || g.away_team_id;
+    return gDate === dateStr && (
+      (gHome === homeId && gAway === awayId) ||
+      (gHome === awayId && gAway === homeId)
+    );
+  });
+}
+
 const MODES = [
   { id: "full", icon: "🏑", title: "Full Match", desc: "Field recorder with full stats" },
   { id: "quick", icon: "⚡", title: "Quick Score", desc: "Just teams, date & final score" },
@@ -41,7 +54,7 @@ function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
   );
 }
 
-export default function MatchSetupScreen({ teams, onStart, onImportGame, onBack, onManageTeams }) {
+export default function MatchSetupScreen({ teams, games, onStart, onImportGame, onBack, onManageTeams }) {
   const [mode, setMode] = useState(null);
 
   if (!mode) {
@@ -61,14 +74,14 @@ export default function MatchSetupScreen({ teams, onStart, onImportGame, onBack,
     );
   }
 
-  if (mode === "full") return <FullMatchSetup teams={teams} onStart={onStart} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
-  if (mode === "quick") return <QuickScoreSetup teams={teams} onSave={onImportGame} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
+  if (mode === "full") return <FullMatchSetup teams={teams} games={games} onStart={onStart} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
+  if (mode === "quick") return <QuickScoreSetup teams={teams} games={games} onSave={onImportGame} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
   if (mode === "import") return <JsonImportSetup onImport={onImportGame} onBack={() => setMode(null)} />;
   if (mode === "demo") return <DemoSetup onStart={onStart} onBack={() => setMode(null)} />;
 }
 
 // ═══ FULL MATCH ═══
-function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
+function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
   const [setupHome, setSetupHome] = useState(null);
   const [setupAway, setSetupAway] = useState(null);
   const [matchLength, setMatchLength] = useState("60");
@@ -79,6 +92,7 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
 
   const canStart = setupHome && setupAway && setupHome.id !== setupAway?.id && parseInt(matchLength) > 0;
   const ml = parseInt(matchLength) || 60;
+  const duplicate = setupHome && setupAway ? isDuplicateMatch(games, setupHome.id, setupAway.id, matchDate) : false;
 
   if (teams.length < 2) {
     return (
@@ -165,8 +179,14 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
           </div>
         </div>
 
-        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart ? 1 : 0.4 }}
-          onClick={() => canStart && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate })}>
+        {duplicate && (
+          <div style={{ background: "#EF444422", border: "1px solid #EF444444", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 11, color: "#EF4444", fontWeight: 600, textAlign: "center" }}>
+            A match between these teams on this date already exists
+          </div>
+        )}
+
+        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart && !duplicate ? 1 : 0.4 }}
+          onClick={() => canStart && !duplicate && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate })}>
           🏑 Start Match
         </button>
       </div>
@@ -175,7 +195,7 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
 }
 
 // ═══ QUICK SCORE ═══
-function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
+function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
   const [setupHome, setSetupHome] = useState(null);
   const [setupAway, setSetupAway] = useState(null);
   const [homeScore, setHomeScore] = useState(0);
@@ -185,6 +205,7 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
   const [matchType, setMatchType] = useState("league");
 
   const canSave = setupHome && setupAway && setupHome.id !== setupAway?.id;
+  const duplicate = setupHome && setupAway ? isDuplicateMatch(games, setupHome.id, setupAway.id, matchDate) : false;
 
   if (teams.length < 2) {
     return (
@@ -246,8 +267,14 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
           <input type="date" style={{ ...S.input, fontSize: 12 }} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
         </div>
 
-        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canSave ? 1 : 0.4 }}
-          onClick={() => canSave && onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), matchType, quickScore: true })}>
+        {duplicate && (
+          <div style={{ background: "#EF444422", border: "1px solid #EF444444", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 11, color: "#EF4444", fontWeight: 600, textAlign: "center" }}>
+            A match between these teams on this date already exists
+          </div>
+        )}
+
+        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canSave && !duplicate ? 1 : 0.4 }}
+          onClick={() => canSave && !duplicate && onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), matchType, quickScore: true })}>
           💾 Save Match
         </button>
       </div>

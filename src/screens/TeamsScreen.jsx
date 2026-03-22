@@ -3,7 +3,9 @@ import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
 export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareLink }) {
-  const [editing, setEditing] = useState(null); // null = list view, object = edit view
+  const [editing, setEditing] = useState(null);
+  const [showCoachPin, setShowCoachPin] = useState(false);
+  const [showCommPin, setShowCommPin] = useState(false);
 
   // ── LIST VIEW ──
   if (!editing) {
@@ -58,6 +60,8 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
     if (!editing?.name?.trim()) return;
     onSave(editing);
     setEditing(null);
+    setShowCoachPin(false);
+    setShowCommPin(false);
   };
 
   return (
@@ -92,10 +96,15 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
         {/* Coach PIN */}
         <div style={{ marginBottom: 16 }}>
           <label style={S.label}>Coach PIN (optional)</label>
-          <input style={{ ...S.input, letterSpacing: "0.2em", fontSize: 16 }}
-            value={editing?.coach_pin || ""}
-            onChange={e => setEditing(p => ({ ...p, coach_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-            placeholder="e.g. 1234" type="tel" maxLength={6} />
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input style={{ ...S.input, flex: 1, letterSpacing: "0.2em", fontSize: 16 }}
+              value={editing?.coach_pin || ""}
+              onChange={e => setEditing(p => ({ ...p, coach_pin: e.target.value.slice(0, 20) }))}
+              placeholder="e.g. mypin123" type={showCoachPin ? "text" : "password"} />
+            <button onClick={() => setShowCoachPin(p => !p)} style={{ background: "none", border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: theme.textDim, fontSize: 14 }}>
+              {showCoachPin ? "🙈" : "👁"}
+            </button>
+          </div>
           <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
             Unlocks detailed stats on the team page
           </div>
@@ -103,10 +112,15 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
         {/* Commentator PIN */}
         <div style={{ marginBottom: 20 }}>
           <label style={S.label}>Commentator PIN (optional)</label>
-          <input style={{ ...S.input, letterSpacing: "0.2em", fontSize: 16 }}
-            value={editing?.commentator_pin || ""}
-            onChange={e => setEditing(p => ({ ...p, commentator_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-            placeholder="e.g. 5678" type="tel" maxLength={6} />
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input style={{ ...S.input, flex: 1, letterSpacing: "0.2em", fontSize: 16 }}
+              value={editing?.commentator_pin || ""}
+              onChange={e => setEditing(p => ({ ...p, commentator_pin: e.target.value.slice(0, 20) }))}
+              placeholder="e.g. comm456" type={showCommPin ? "text" : "password"} />
+            <button onClick={() => setShowCommPin(p => !p)} style={{ background: "none", border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: theme.textDim, fontSize: 14 }}>
+              {showCommPin ? "🙈" : "👁"}
+            </button>
+          </div>
           <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
             Allows recording matches for this team via the commentator link
           </div>

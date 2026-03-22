@@ -55,11 +55,16 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [liveMatch, setLiveMatch] = useState(null);
   const [liveEvents, setLiveEvents] = useState([]);
   const [pastMatches, setPastMatches] = useState([]);
+  const [globalCommPin, setGlobalCommPin] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data: teams } = await supabase.from('teams').select('*');
+      const [{ data: teams }, { data: settings }] = await Promise.all([
+        supabase.from('teams').select('*'),
+        supabase.from('app_settings').select('value').eq('key', 'commentator_pin').single(),
+      ]);
+      if (settings?.value) setGlobalCommPin(settings.value);
       if (teams) {
         setAllTeams(teams);
         const found = teams.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
@@ -105,9 +110,10 @@ export default function CommentatorPage({ teamSlug, onBack }) {
 
   const handlePinSubmit = () => {
     if (!team) return;
+    // Accept: team-specific commentator PIN, or global commentator PIN
     if (team.commentator_pin && pin === team.commentator_pin) {
       setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-    } else if (!team.commentator_pin && pin.length >= 4) {
+    } else if (globalCommPin && pin === globalCommPin) {
       setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
     } else { setPinError(true); }
   };
