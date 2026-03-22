@@ -117,23 +117,27 @@ export default function TeamPage({ teamSlug, onBack }) {
               .order('seq', { ascending: false });
             if (events) setLiveEvents(events);
 
-            // Subscribe to real-time
-            channel = supabase.channel(`team-page-${live.id}`);
+            // Subscribe to real-time — no column filters (not supported on all plans)
+            const liveId = live.id;
+            channel = supabase.channel(`team-live-${liveId}`);
             channel
-              .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${live.id}` },
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' },
                 (payload) => {
-                  const updated = payload.new;
-                  setLiveMatch(updated);
-                  // If match ended, move to results
-                  if (updated.status === 'ended') {
-                    setTab("results");
-                    setLiveMatch(null);
-                    // Reload to get updated match list
-                    load();
+                  if (payload.new?.id === liveId) {
+                    setLiveMatch(prev => ({ ...prev, ...payload.new }));
+                    if (payload.new.status === 'ended') {
+                      setTab("results");
+                      setLiveMatch(null);
+                      load();
+                    }
                   }
                 })
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_events', filter: `match_id=eq.${live.id}` },
-                (payload) => setLiveEvents(prev => [payload.new, ...prev]))
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_events' },
+                (payload) => {
+                  if (payload.new?.match_id === liveId) {
+                    setLiveEvents(prev => [payload.new, ...prev]);
+                  }
+                })
               .subscribe();
           }
         }
@@ -149,29 +153,46 @@ export default function TeamPage({ teamSlug, onBack }) {
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [teamSlug]);
 
-  // Also poll for live matches every 15s (backup if real-time misses)
+  // Poll every 5s — reliable fallback for score + events
   useEffect(() => {
     if (!team) return;
     const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('matches')
-        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-        .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
-        .eq('status', 'live')
-        .limit(1);
-      if (data?.length > 0 && !liveMatch) {
-        setLiveMatch(data[0]);
-        setTab("live");
-        // Load events
-        const { data: events } = await supabase.from('match_events').select('*').eq('match_id', data[0].id).order('seq', { ascending: false });
-        if (events) setLiveEvents(events);
-      } else if (data?.length === 0 && liveMatch) {
-        setLiveMatch(null);
-        setTab("results");
-      }
-    }, 15000);
+      try {
+        // Check for live match
+        const { data } = await supabase
+          .from('matches')
+          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
+          .eq('status', 'live')
+          .limit(1);
+
+        if (data?.length > 0) {
+          setLiveMatch(data[0]);
+          if (tab !== "live") setTab("live");
+          // Refresh events
+          const { data: events } = await supabase
+            .from('match_events')
+            .select('*')
+            .eq('match_id', data[0].id)
+            .order('seq', { ascending: false });
+          if (events) setLiveEvents(events);
+        } else if (liveMatch) {
+          // Match ended
+          setLiveMatch(null);
+          setTab("results");
+          // Reload full data
+          const { data: allMatches } = await supabase
+            .from('matches')
+            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
+            .eq('status', 'ended')
+            .order('match_date', { ascending: false });
+          if (allMatches) setMatches(allMatches);
+        }
+      } catch {}
+    }, 5000);
     return () => clearInterval(interval);
-  }, [team, liveMatch]);
+  }, [team, liveMatch, tab]);
 
   const handlePinSubmit = () => {
     if (!team) return;
