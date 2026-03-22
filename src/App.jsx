@@ -14,6 +14,7 @@ import PublicLiveScreen from './screens/PublicLiveScreen.jsx';
 import CoachLiveScreen from './screens/CoachLiveScreen.jsx';
 import TeamPage from './screens/TeamPage.jsx';
 import CommentatorPage from './screens/CommentatorPage.jsx';
+import LandingPage from './screens/LandingPage.jsx';
 import MatchEditScreen from './screens/MatchEditScreen.jsx';
 
 const ADMIN_PIN_KEY = 'hockey-admin-pin';
@@ -23,7 +24,8 @@ function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
   if (hash.startsWith('team/')) return { type: 'team', slug: hash.replace('team/', '') };
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
-  return { type: 'app' };
+  if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
+  return { type: 'landing' };
 }
 
 // Admin PIN gate component
@@ -114,15 +116,20 @@ export default function App() {
 
   // Team pages are PUBLIC — no PIN needed
   if (route.type === 'team') {
-    return <TeamPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'app' }); }} />;
+    return <TeamPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
   }
 
   // Commentator recorder — needs commentator PIN
   if (route.type === 'record') {
-    return <CommentatorPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'app' }); }} />;
+    return <CommentatorPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
   }
 
-  // Everything else requires Admin PIN
+  // Landing page — default public view
+  if (route.type === 'landing') {
+    return <LandingPage />;
+  }
+
+  // Admin — requires PIN
   return (
     <AdminGate>
       <AppContent store={store} screen={screen} setScreen={setScreen}

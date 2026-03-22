@@ -54,6 +54,9 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               {lastSyncError}
             </div>
           )}
+          <button onClick={() => { window.location.hash = ''; }} style={{
+            marginTop: 8, background: "none", border: "none", color: theme.textDim, fontSize: 10, cursor: "pointer", textDecoration: "underline",
+          }}>← Back to kykie.net</button>
         </div>
       </div>
     </div>

@@ -1,0 +1,197 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabase.js';
+import { APP_VERSION } from '../utils/constants.js';
+
+export default function LandingPage() {
+  const [teams, setTeams] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [{ data: allTeams }, { data: allMatches }] = await Promise.all([
+          supabase.from('teams').select('*').order('name'),
+          supabase.from('matches')
+            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .eq('status', 'ended')
+            .order('match_date', { ascending: false })
+            .limit(20),
+        ]);
+
+        if (allTeams) setTeams(allTeams);
+        if (allMatches) setMatches(allMatches);
+      } catch (err) { console.error('Landing load error:', err); }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  // Compute team records (exclude friendlies)
+  const teamRecords = {};
+  matches.filter(m => m.match_type !== 'friendly').forEach(m => {
+    [m.home_team, m.away_team].forEach((t, i) => {
+      if (!t) return;
+      if (!teamRecords[t.id]) teamRecords[t.id] = { p: 0, w: 0, d: 0, l: 0 };
+      const my = i === 0 ? m.home_score : m.away_score;
+      const their = i === 0 ? m.away_score : m.home_score;
+      teamRecords[t.id].p++;
+      if (my > their) teamRecords[t.id].w++;
+      else if (my === their) teamRecords[t.id].d++;
+      else teamRecords[t.id].l++;
+    });
+  });
+
+  const filteredTeams = search.trim()
+    ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    : teams;
+
+  const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+
+  const resultBadge = (m, teamId) => {
+    const isHome = m.home_team?.id === teamId;
+    const my = isHome ? m.home_score : m.away_score;
+    const their = isHome ? m.away_score : m.home_score;
+    if (my > their) return { label: "W", cls: "rb-w" };
+    if (my < their) return { label: "L", cls: "rb-l" };
+    return { label: "D", cls: "rb-d" };
+  };
+
+  const venueDisplay = (m) => {
+    if (!m.venue) return "";
+    const prefix = m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + " @ " : "";
+    return prefix + m.venue;
+  };
+
+  return (
+    <div style={styles.page}>
+      <style>{`
+        .rb-w { background: #10B98122; color: #10B981; border: 1.5px solid #10B98144; }
+        .rb-l { background: #EF444422; color: #EF4444; border: 1.5px solid #EF444444; }
+        .rb-d { background: #F59E0B22; color: #F59E0B; border: 1.5px solid #F59E0B44; }
+      `}</style>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+      {/* Hero */}
+      <div style={styles.hero}>
+        <div style={{ marginBottom: 8 }}>
+          <svg width="44" height="44" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
+        <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
+        <div style={styles.sportPills}>
+          <span style={{ ...styles.pill, borderColor: "#F59E0B44", color: "#F59E0B", background: "#F59E0B11" }}>Hockey</span>
+          <span style={styles.pill}>Rugby</span>
+          <span style={styles.pill}>Netball</span>
+          <span style={styles.pill}>Cricket</span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
+      ) : (
+        <>
+          {/* Teams */}
+          <div style={styles.section}>
+            <div style={styles.sectionTitle}>Teams</div>
+            <div style={styles.searchBox}>
+              <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+              <input
+                style={styles.searchInput}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Find a team..."
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+              )}
+            </div>
+            {filteredTeams.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
+            ) : (
+              filteredTeams.map(t => {
+                const r = teamRecords[t.id];
+                const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
+                return (
+                  <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
+                    <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={styles.teamName}>{t.name}</div>
+                      {r ? (
+                        <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
+                      ) : (
+                        <div style={styles.teamRecord}>No matches yet</div>
+                      )}
+                    </div>
+                    <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Recent Results */}
+          {matches.length > 0 && (
+            <div style={styles.section}>
+              <div style={styles.sectionTitle}>Recent results</div>
+              {matches.slice(0, 8).map(m => {
+                const homeR = resultBadge(m, m.home_team?.id);
+                const d = new Date(m.match_date);
+                return (
+                  <div key={m.id} style={styles.scoreCard}>
+                    <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                      <div style={styles.matchMeta}>
+                        {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                        {m.venue && ` · ${venueDisplay(m)}`}
+                      </div>
+                    </div>
+                    <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Footer */}
+      <div style={styles.footer}>
+        <button onClick={() => { window.location.hash = "#/admin"; }} style={styles.adminBtn}>🔒 Admin login</button>
+        <div style={{ fontSize: 10, color: "#334155" }}>kykie.net · v{APP_VERSION}</div>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  page: { fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" },
+  hero: { padding: "28px 20px 20px", textAlign: "center" },
+  logo: { fontSize: 38, fontWeight: 900, letterSpacing: -1, color: "#F59E0B" },
+  tagline: { fontSize: 13, color: "#94A3B8", fontWeight: 500, marginTop: 5 },
+  sportPills: { display: "flex", gap: 6, justifyContent: "center", marginTop: 12, flexWrap: "wrap" },
+  pill: { fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 99, border: "1px solid #334155", color: "#64748B" },
+  section: { padding: "0 16px 16px" },
+  sectionTitle: { fontSize: 11, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, padding: "0 2px" },
+  searchBox: { display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 10 },
+  searchInput: { flex: 1, background: "none", border: "none", color: "#E2E8F0", fontSize: 14, outline: "none", fontFamily: "'Outfit',sans-serif" },
+  teamRow: { display: "flex", alignItems: "center", gap: 10, background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4, border: "1px solid #1E293B", cursor: "pointer" },
+  teamDot: { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fff", flexShrink: 0 },
+  teamName: { fontSize: 13, fontWeight: 700, color: "#F8FAFC" },
+  teamRecord: { fontSize: 10, color: "#94A3B8", marginTop: 1 },
+  scoreCard: { display: "flex", alignItems: "center", background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4, gap: 10, border: "1px solid #1E293B" },
+  resultBadge: { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 },
+  matchTeams: { fontSize: 12, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  matchMeta: { fontSize: 10, color: "#64748B", marginTop: 2 },
+  matchScore: { fontSize: 18, fontWeight: 900, color: "#F8FAFC" },
+  footer: { textAlign: "center", padding: "20px 16px 24px" },
+  adminBtn: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: "#475569", background: "#1E293B", border: "1px solid #334155", borderRadius: 6, padding: "4px 12px", marginBottom: 8, cursor: "pointer" },
+};
