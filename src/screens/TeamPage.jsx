@@ -13,6 +13,7 @@ function classifyEvent(e) {
   if (["Short Corner", "Long Corner", "Penalty"].includes(e.event)) return "set_piece";
   if (e.event?.includes("Card")) return "card";
   if (e.team === "meta" && e.event?.includes("Pause")) return "pause";
+  if (e.team === "meta" && e.event === "Resume") return "resume";
   if (e.team === "meta") return "info";
   if (e.team === "commentary") return "narrative";
   if (e.event === "Start") return "start";
@@ -25,6 +26,7 @@ function eventIcon(type) {
     case "set_piece": return "🏑";
     case "card": return "🟨";
     case "pause": return "⏸";
+    case "resume": return "▶";
     case "start": return "▶";
     case "info": return "ℹ";
     case "narrative": return "💬";
@@ -45,28 +47,76 @@ function eventColor(type) {
   }
 }
 
-// Compute stats from events
+// Compute stats from events — with zone breakdowns
 function computeStats(events, team) {
   const real = events.filter(e => e.team === team);
   const all = events.filter(e => !COMMENTARY_TYPES.includes(e.team));
   const cnt = (ev) => real.filter(e => e.event === ev).length;
   const cntS = (ev) => real.filter(e => e.event?.startsWith(ev)).length;
   const total = all.length || 1;
+
+  // Zone helpers — zones contain "Own Quarter", "Opp Quarter", "Midfield", etc.
+  const zoneOf = (e) => {
+    const z = (e.zone || "").toLowerCase();
+    if (z.includes("opp") || z.includes("d") && !z.includes("mid")) return "attack";
+    if (z.includes("own")) return "defence";
+    return "midfield";
+  };
+  const cntZone = (ev, zone) => real.filter(e => e.event === ev && zoneOf(e) === zone).length;
+
+  const terrReal = real.filter(e => !COMMENTARY_TYPES.includes(e.team)).length;
+  const terrAll = all.length || 1;
+
+  // Zone-based territory — count events per zone
+  const atkEvents = real.filter(e => zoneOf(e) === "attack").length;
+  const midEvents = real.filter(e => zoneOf(e) === "midfield").length;
+  const defEvents = real.filter(e => zoneOf(e) === "defence").length;
+  const zoneTotal = atkEvents + midEvents + defEvents || 1;
+
   return {
     goals: cntS("Goal!"), dEntries: cnt("D Entry"), shotsOn: cnt("Shot on Goal"),
     shotsOff: cnt("Shot Off Target"), shortCorners: cnt("Short Corner"),
-    longCorners: cnt("Long Corner"), turnoversWon: cnt("Turnover Won"),
+    longCorners: cnt("Long Corner"),
+    turnoversWon: cnt("Turnover Won"),
+    turnoversWonAtk: cntZone("Turnover Won", "attack"),
+    turnoversWonMid: cntZone("Turnover Won", "midfield"),
+    turnoversWonDef: cntZone("Turnover Won", "defence"),
     possLost: cnt("Poss Conceded") + real.filter(e => e.event?.startsWith("Sideline Out")).length,
-    territory: Math.round(real.filter(e => !COMMENTARY_TYPES.includes(e.team)).length / total * 100),
+    possLostAtk: cntZone("Poss Conceded", "attack") + real.filter(e => e.event?.startsWith("Sideline Out") && zoneOf(e) === "attack").length,
+    possLostMid: cntZone("Poss Conceded", "midfield") + real.filter(e => e.event?.startsWith("Sideline Out") && zoneOf(e) === "midfield").length,
+    possLostDef: cntZone("Poss Conceded", "defence") + real.filter(e => e.event?.startsWith("Sideline Out") && zoneOf(e) === "defence").length,
+    territory: Math.round(terrReal / terrAll * 100),
+    terrAtk: Math.round(atkEvents / zoneTotal * 100),
+    terrMid: Math.round(midEvents / zoneTotal * 100),
+    terrDef: Math.round(defEvents / zoneTotal * 100),
   };
 }
 
 const STATS_DEF = [
   { key: "dEntries", label: "D Entries" }, { key: "shotsOn", label: "Shots On" },
   { key: "shotsOff", label: "Shots Off" }, { key: "shortCorners", label: "Short Corners" },
-  { key: "turnoversWon", label: "Turnovers Won" }, { key: "possLost", label: "Poss Lost" },
 ];
 const INVERTED = ["possLost", "shotsOff"];
+
+// Zone breakdown row
+const ZoneRow = ({ hAtk, hMid, hDef, hTotal, label, aAtk, aMid, aDef, aTotal, hColor, aColor, inverted }) => {
+  const hWins = inverted ? hTotal < aTotal : hTotal > aTotal;
+  const aWins = inverted ? aTotal < hTotal : aTotal > hTotal;
+  return (
+    <div style={{ padding: "4px 0", borderBottom: "1px solid #0F172A" }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ width: 40, textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: hWins ? hColor : hTotal === aTotal ? "#94A3B8" : "#4B5563" }}>{hTotal}</div>
+        <div style={{ flex: 1, textAlign: "center", fontSize: 10, fontWeight: 600, color: "#94A3B8", padding: "0 6px" }}>{label}</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: aWins ? aColor : aTotal === hTotal ? "#94A3B8" : "#4B5563" }}>{aTotal}</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
+        <div style={{ width: 40, textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#475569" }}>{hAtk}·{hMid}·{hDef}</div>
+        <div style={{ flex: 1, textAlign: "center", fontSize: 7, color: "#334155" }}>atk · mid · def</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 9, fontFamily: "monospace", color: "#475569" }}>{aAtk}·{aMid}·{aDef}</div>
+      </div>
+    </div>
+  );
+};
 
 const StatRow = ({ hVal, label, aVal, hColor, aColor, inverted }) => {
   const hWins = inverted ? hVal < aVal : hVal > aVal;
@@ -350,12 +400,26 @@ export default function TeamPage({ teamSlug, onBack }) {
                     <div style={{ flex: 1 }} />
                     <div style={{ width: 40, textAlign: "left", fontSize: 10, fontWeight: 800, color: liveMatch.away_team?.color }}>{liveMatch.away_team?.name?.slice(0, 3).toUpperCase()}</div>
                   </div>
+                  {/* Basic stats */}
                   {STATS_DEF.map(({ key, label }) => (
                     <StatRow key={key} hVal={homeStats[key]} label={label} aVal={awayStats[key]}
                       hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"}
                       inverted={INVERTED.includes(key)} />
                   ))}
-                  <StatRow hVal={homeStats.territory} label="Territory %" aVal={awayStats.territory}
+                  {/* Turnovers Won — with zone breakdown */}
+                  <ZoneRow label="Turnovers Won"
+                    hAtk={homeStats.turnoversWonAtk} hMid={homeStats.turnoversWonMid} hDef={homeStats.turnoversWonDef} hTotal={homeStats.turnoversWon}
+                    aAtk={awayStats.turnoversWonAtk} aMid={awayStats.turnoversWonMid} aDef={awayStats.turnoversWonDef} aTotal={awayStats.turnoversWon}
+                    hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={false} />
+                  {/* Poss Lost — with zone breakdown */}
+                  <ZoneRow label="Poss Lost"
+                    hAtk={homeStats.possLostAtk} hMid={homeStats.possLostMid} hDef={homeStats.possLostDef} hTotal={homeStats.possLost}
+                    aAtk={awayStats.possLostAtk} aMid={awayStats.possLostMid} aDef={awayStats.possLostDef} aTotal={awayStats.possLost}
+                    hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={true} />
+                  {/* Territory — with zone breakdown */}
+                  <ZoneRow label="Territory %"
+                    hAtk={homeStats.terrAtk} hMid={homeStats.terrMid} hDef={homeStats.terrDef} hTotal={homeStats.territory}
+                    aAtk={awayStats.terrAtk} aMid={awayStats.terrMid} aDef={awayStats.terrDef} aTotal={awayStats.territory}
                     hColor={liveMatch.home_team?.color || "#3B82F6"} aColor={liveMatch.away_team?.color || "#EF4444"} inverted={false} />
                 </div>
               )}

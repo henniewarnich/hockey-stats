@@ -144,8 +144,13 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     timer.pause();
     setShowPauseReason(false);
     setPauseReason(reason);
-    setEvents(prev => [{ id: Date.now(), team: "meta", event: `Pause: ${reason}`, zone: null, detail: reason, time: timer.matchTime }, ...prev]);
-    // Quarter Break / Half Time → ball to centre for restart
+    const entry = { id: Date.now(), team: "meta", event: `Pause: ${reason}`, zone: null, detail: reason, time: timer.matchTime };
+    setEvents(prev => [entry, ...prev]);
+    // Push to Supabase
+    if (liveMatchId && !isDemo) {
+      eventSeqRef.current += 1;
+      pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
+    }
     if (reason === "Quarter Break" || reason === "Half Time") {
       setBallPos(null); setPrevBallPos(null); setShowRestart(true); setPossession(null);
     }
@@ -153,8 +158,13 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
 
   // Resume
   const handleResume = () => {
+    const entry = { id: Date.now(), team: "meta", event: "Resume", zone: null, detail: `Play resumes${pauseReason ? ` after ${pauseReason}` : ""}`, time: timer.matchTime };
+    setEvents(prev => [entry, ...prev]);
+    if (liveMatchId && !isDemo) {
+      eventSeqRef.current += 1;
+      pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
+    }
     if (pauseReason === "Quarter Break" || pauseReason === "Half Time") {
-      // Ball already at centre with restart showing — timer resumes when team is picked
       setPauseReason(null);
     } else {
       timer.resume();
@@ -231,7 +241,11 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
 
       {/* Possession + Flip */}
       <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
-        {possession ? (
+        {pauseReason ? (
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#F59E0B", background: "#F59E0B22", padding: "4px 16px", borderRadius: 99, display: "flex", alignItems: "center", gap: 6 }}>
+            ⏸ {pauseReason}
+          </div>
+        ) : possession ? (
           <div style={{ fontSize: 9, fontWeight: 700, color: teams[possession].color, background: teams[possession].color + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: teams[possession].color }} />
             {teams[possession].name}
