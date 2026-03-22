@@ -184,13 +184,17 @@ function mergeTeams(local, remote) {
       existing.supabase_id = rt.id;
       existing.color = rt.color;
       existing.name = rt.name;
+      existing.coach_pin = rt.coach_pin || existing.coach_pin;
+      existing.commentator_pin = rt.commentator_pin || existing.commentator_pin;
     } else {
       merged.push({
-        id: rt.id, // use Supabase UUID as local ID too
+        id: rt.id,
         supabase_id: rt.id,
         name: rt.name,
         color: rt.color,
         school: rt.school,
+        coach_pin: rt.coach_pin,
+        commentator_pin: rt.commentator_pin,
       });
     }
   }

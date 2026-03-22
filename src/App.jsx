@@ -5,6 +5,7 @@ import { saveData, loadData } from './utils/helpers.js';
 import { saveMatchToSupabase } from './utils/sync.js';
 import { supabase } from './utils/supabase.js';
 import { APP_VERSION } from './utils/constants.js';
+import { logLoginAttempt } from './utils/audit.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
 import MatchSetupScreen from './screens/MatchSetupScreen.jsx';
@@ -59,12 +60,15 @@ function AdminGate({ children }) {
         setServerPin(pin);
         sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
         setVerified(true);
+        logLoginAttempt({ pinType: 'admin', success: true });
       }
     } else if (pin === serverPin) {
       sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
       setVerified(true);
+      logLoginAttempt({ pinType: 'admin', success: true });
     } else {
       setError(true);
+      logLoginAttempt({ pinType: 'admin', success: false });
     }
   };
 

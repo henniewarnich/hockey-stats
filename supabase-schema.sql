@@ -139,3 +139,16 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ─── LOGIN ATTEMPTS ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  pin_type    TEXT NOT NULL,          -- admin | coach | commentator | global_commentator
+  team_name   TEXT,                   -- null for admin/global
+  success     BOOLEAN NOT NULL,
+  ip_address  TEXT,
+  user_agent  TEXT,
+  screen_res  TEXT,
+  language    TEXT
+);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
+import { logLoginAttempt } from '../utils/audit.js';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -118,18 +119,25 @@ export default function CommentatorPage({ teamSlug, onBack }) {
 
   const handlePinSubmit = () => {
     if (isGlobalMode) {
-      // Global mode — only accept global PIN
       if (globalCommPin && pin === globalCommPin) {
         setVerified(true); sessionStorage.setItem('commentator-global', 'true'); setPinError(false);
-      } else { setPinError(true); }
+        logLoginAttempt({ pinType: 'global_commentator', success: true });
+      } else {
+        setPinError(true);
+        logLoginAttempt({ pinType: 'global_commentator', success: false });
+      }
     } else {
       if (!team) return;
-      // Accept: team-specific commentator PIN, or global commentator PIN
       if (team.commentator_pin && pin === team.commentator_pin) {
         setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
+        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: true });
       } else if (globalCommPin && pin === globalCommPin) {
         setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-      } else { setPinError(true); }
+        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: true });
+      } else {
+        setPinError(true);
+        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: false });
+      }
     }
   };
 

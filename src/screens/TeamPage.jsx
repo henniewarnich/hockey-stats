@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { logLoginAttempt } from '../utils/audit.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -190,7 +191,6 @@ export default function TeamPage({ teamSlug, onBack }) {
   }, [team]);
 
   const handleMatchTap = async (m) => {
-    if (!isCoach) return; // only coach can view stats
     setSelectedMatch(m);
     setLoadingEvents(true);
     try {
@@ -292,12 +292,15 @@ export default function TeamPage({ teamSlug, onBack }) {
       setIsCoach(true);
       localStorage.setItem(`coach-pin-${team.id}`, pinInput);
       setShowPinModal(false); setPinError(false);
+      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: true });
     } else if (!team.coach_pin && pinInput.length >= 4) {
       setIsCoach(true);
       localStorage.setItem(`coach-pin-${team.id}`, pinInput);
       setShowPinModal(false); setPinError(false);
+      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: true });
     } else {
       setPinError(true);
+      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: false });
     }
   };
 
@@ -552,7 +555,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                 display: "flex", alignItems: "center", padding: "12px 12px", gap: 10,
                 background: "#1E293B", borderRadius: 10, marginBottom: 4,
               }}>
-                <div onClick={() => isCoach && hasStats && handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: isCoach && hasStats ? "pointer" : "default" }}>
+                <div onClick={() => hasStats && handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: hasStats ? "pointer" : "default" }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
@@ -563,7 +566,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                     </div>
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
-                  {isCoach && hasStats && <span style={{ fontSize: 12, color: "#334155" }}>›</span>}
+                  {hasStats && <span style={{ fontSize: 12, color: "#334155" }}>›</span>}
                 </div>
               </div>
             );
@@ -601,10 +604,10 @@ export default function TeamPage({ teamSlug, onBack }) {
             </div>
           </div>
           {loadingEvents ? (
-            <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading stats...</div>
+            <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading...</div>
           ) : selectedEvents.length === 0 ? (
             <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No event data for this match</div>
-          ) : (
+          ) : isCoach ? (
             <CoachLiveScreen
               embedded
               match={{
@@ -622,6 +625,43 @@ export default function TeamPage({ teamSlug, onBack }) {
               matchTime={selectedMatch.duration || 0}
               running={false}
             />
+          ) : (
+            <div style={{ padding: "0 14px 20px" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
+              {selectedEvents
+                .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
+                .map((entry, i) => {
+                  const isMeta = entry.team === "meta";
+                  const isComm = entry.team === "commentary";
+                  const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedMatch.home_team?.color || "#3B82F6") : (selectedMatch.away_team?.color || "#EF4444");
+                  const mins = Math.floor((entry.match_time || 0) / 60);
+                  return (
+                    <div key={entry.id || i} style={{
+                      padding: "6px 10px", borderRadius: 8, marginBottom: 3,
+                      background: isComm ? "linear-gradient(135deg, #F59E0B12, #F59E0B08)" : tc + "08",
+                      borderLeft: isComm ? "3px solid #F59E0B55" : `3px solid ${tc}`,
+                    }}>
+                      {isComm ? (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
+                            <span style={{ fontSize: 11 }}>💬</span>
+                            <span style={{ fontSize: 8, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>Insight</span>
+                            <span style={{ fontSize: 8, fontFamily: "monospace", color: "#64748B", marginLeft: "auto" }}>{mins}'</span>
+                          </div>
+                          <div style={{ fontSize: 10, color: "#E2E8F0", lineHeight: 1.3, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail || entry.event}</div>
+                        </>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ fontSize: 8, fontFamily: "monospace", color: "#64748B", minWidth: 20 }}>{mins}'</div>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: entry.event?.startsWith("Goal") ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
+                          {entry.detail && !isMeta && <div style={{ fontSize: 9, color: "#64748B", marginLeft: "auto" }}>{entry.detail}</div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
           )}
         </div>
       )}
