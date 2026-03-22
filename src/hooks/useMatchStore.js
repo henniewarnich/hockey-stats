@@ -123,7 +123,39 @@ export function useMatchStore() {
     }
   }, [games]);
 
-  return { teams, games, saveTeam, deleteTeam, saveGame, deleteGame, syncing, lastSyncError };
+  // Force sync all unsynced games to Supabase
+  const syncAllGames = useCallback(async () => {
+    const unsynced = games.filter(g => !g.supabase_id);
+    if (unsynced.length === 0) return { synced: 0, failed: 0 };
+
+    setSyncing(true);
+    setLastSyncError(null);
+    let synced = 0, failed = 0;
+
+    for (const game of unsynced) {
+      try {
+        const remote = await saveMatchToSupabase(game);
+        if (remote) {
+          setGames(prev => {
+            const updated = prev.map(g => g.id === game.id ? { ...g, supabase_id: remote.id } : g);
+            saveData(GAMES_KEY, updated);
+            return updated;
+          });
+          synced++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+
+    setSyncing(false);
+    if (failed > 0) setLastSyncError(`${failed} game(s) failed to sync.`);
+    return { synced, failed };
+  }, [games]);
+
+  return { teams, games, saveTeam, deleteTeam, saveGame, deleteGame, syncAllGames, syncing, lastSyncError };
 }
 
 // Merge local and remote teams (remote wins for name conflicts)

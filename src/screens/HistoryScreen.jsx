@@ -2,14 +2,15 @@ import { useState, useMemo } from 'react';
 import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
 
-export default function HistoryScreen({ games, onSelect, onBack }) {
+export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing }) {
   const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState("desc"); // desc = newest first
+  const [sortDir, setSortDir] = useState("desc");
+  const [syncResult, setSyncResult] = useState(null);
+
+  const unsyncedCount = games.filter(g => !g.supabase_id).length;
 
   const filtered = useMemo(() => {
     let list = [...games];
-
-    // Filter by search term (team names, venue)
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(g => {
@@ -19,14 +20,11 @@ export default function HistoryScreen({ games, onSelect, onBack }) {
         return home.includes(q) || away.includes(q) || venue.includes(q);
       });
     }
-
-    // Sort by date
     list.sort((a, b) => {
       const da = new Date(a.date || 0).getTime();
       const db = new Date(b.date || 0).getTime();
       return sortDir === "desc" ? db - da : da - db;
     });
-
     return list;
   }, [games, search, sortDir]);
 
@@ -36,14 +34,60 @@ export default function HistoryScreen({ games, onSelect, onBack }) {
     return "#F59E0B";
   };
 
+  const handleSync = async () => {
+    if (!onSyncAll || syncing) return;
+    setSyncResult(null);
+    const result = await onSyncAll();
+    setSyncResult(result);
+    setTimeout(() => setSyncResult(null), 4000);
+  };
+
   return (
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
         <div style={S.navTitle}>Game History</div>
-        <div style={{ marginLeft: "auto", fontSize: 10, color: theme.textDim }}>{games.length} game{games.length !== 1 ? "s" : ""}</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{games.length} game{games.length !== 1 ? "s" : ""}</div>
       </div>
       <div style={S.page}>
+        {/* Sync banner */}
+        {unsyncedCount > 0 && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 8,
+            background: "#F59E0B11", borderRadius: 10, border: "1px solid #F59E0B33",
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>
+                📱 {unsyncedCount} game{unsyncedCount !== 1 ? "s" : ""} not synced to cloud
+              </div>
+              <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
+                These games are only on this device
+              </div>
+            </div>
+            <button onClick={handleSync} disabled={syncing} style={{
+              padding: "8px 14px", borderRadius: 8, border: "1px solid #F59E0B44",
+              background: syncing ? "#334155" : "#F59E0B22", color: "#F59E0B",
+              fontSize: 11, fontWeight: 700, cursor: syncing ? "wait" : "pointer",
+              whiteSpace: "nowrap",
+            }}>
+              {syncing ? "⏳ Syncing..." : "☁️ Sync All"}
+            </button>
+          </div>
+        )}
+
+        {syncResult && (
+          <div style={{
+            padding: "8px 12px", marginBottom: 8, borderRadius: 8,
+            background: syncResult.failed > 0 ? "#EF444422" : "#10B98122",
+            color: syncResult.failed > 0 ? "#EF4444" : "#10B981",
+            fontSize: 11, fontWeight: 600, textAlign: "center",
+          }}>
+            {syncResult.synced > 0 && `✓ ${syncResult.synced} game${syncResult.synced > 1 ? "s" : ""} synced`}
+            {syncResult.synced > 0 && syncResult.failed > 0 && " · "}
+            {syncResult.failed > 0 && `✗ ${syncResult.failed} failed`}
+          </div>
+        )}
+
         {/* Search + Sort */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
           <input style={{ ...S.input, fontSize: 12, flex: 1 }} value={search}
@@ -57,7 +101,7 @@ export default function HistoryScreen({ games, onSelect, onBack }) {
           </button>
         </div>
 
-        {/* Results */}
+        {/* Game list */}
         {filtered.length === 0 ? (
           <div style={S.empty}>
             {games.length === 0 ? "No games recorded yet." : "No matches found."}
@@ -66,10 +110,11 @@ export default function HistoryScreen({ games, onSelect, onBack }) {
           filtered.map(g => {
             const d = new Date(g.date);
             const rc = resultColor(g);
+            const isSynced = !!g.supabase_id;
             return (
               <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}
                 onClick={() => onSelect(g)}>
-                {/* Score with result colour accent */}
+                {/* Score */}
                 <div style={{ minWidth: 54, textAlign: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
                     <span style={{ fontSize: 18, fontWeight: 900, color: g.teams?.home?.color || theme.text }}>{g.homeScore}</span>
@@ -81,17 +126,21 @@ export default function HistoryScreen({ games, onSelect, onBack }) {
 
                 {/* Teams + Meta */}
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.text }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
                     <span style={{ color: g.teams?.home?.color }}>{g.teams?.home?.name}</span>
                     <span style={{ color: theme.textDim, margin: "0 4px" }}>vs</span>
                     <span style={{ color: g.teams?.away?.color }}>{g.teams?.away?.name}</span>
                   </div>
-                  <div style={{ fontSize: 9, color: theme.textDim, marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                     {g.duration ? ` · ${fmt(g.duration)}` : ""}
                     {g.venue && ` · ${g.venue}`}
                     {g.quickScore && " · Quick"}
                     {g.imported && " · Imported"}
+                    {/* Sync indicator */}
+                    <span style={{ fontSize: 10, marginLeft: 2 }} title={isSynced ? "Synced to cloud" : "Local only"}>
+                      {isSynced ? "☁️" : "📱"}
+                    </span>
                   </div>
                 </div>
 

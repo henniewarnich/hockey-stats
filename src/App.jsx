@@ -168,7 +168,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <LiveMatchScreen matchConfig={matchConfig} onSaveGame={handleSaveGame} onNavigate={navigate} />;
 
     case "history":
-      return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} />;
+      return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} />;
 
     case "game_review":
       if (!reviewGame) { navigate("history"); return null; }
