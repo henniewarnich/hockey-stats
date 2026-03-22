@@ -134,7 +134,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                   <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                     {g.duration ? ` · ${fmt(g.duration)}` : ""}
-                    {g.venue && ` · ${g.matchType && g.matchType !== 'league' ? (g.matchType.charAt(0).toUpperCase() + g.matchType.slice(1)) + ' @ ' : ''}${g.venue}`}
+                    {g.venue && ` · ${g.matchType ? (g.matchType.charAt(0).toUpperCase() + g.matchType.slice(1)) + ' @ ' : ''}${g.venue}`}
                     {g.quickScore && " · Quick"}
                     {g.imported && " · Imported"}
                     {/* Sync indicator */}

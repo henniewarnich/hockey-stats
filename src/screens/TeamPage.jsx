@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
@@ -153,6 +153,27 @@ export default function TeamPage({ teamSlug, onBack }) {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshMatches = useCallback(async () => {
+    if (!team) return;
+    setRefreshing(true);
+    try {
+      const { data } = await supabase
+        .from('matches')
+        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
+        .order('match_date', { ascending: false });
+      if (data) {
+        const live = data.find(m => m.status === 'live');
+        const ended = data.filter(m => m.status === 'ended');
+        setMatches(ended);
+        if (live) { setLiveMatch(live); setTab("live"); }
+        else { setLiveMatch(null); }
+      }
+    } catch {}
+    setRefreshing(false);
+  }, [team]);
 
   const handleMatchTap = async (m) => {
     if (!isCoach) return; // only coach can view stats
@@ -396,7 +417,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                 </div>
               </div>
-              {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type && liveMatch.match_type !== 'league' ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
+              {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
             </div>
           </div>
 
@@ -462,6 +483,13 @@ export default function TeamPage({ teamSlug, onBack }) {
       {/* ═══ RESULTS TAB ═══ */}
       {(tab === "results" || !liveMatch) && !selectedMatch && (
         <div style={{ padding: "8px 14px 20px", flex: 1, overflowY: "auto" }}>
+          {/* Refresh + Season stats */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button onClick={refreshMatches} disabled={refreshing} style={{
+              background: "none", border: "1px solid #334155", borderRadius: 6, padding: "3px 10px",
+              fontSize: 9, fontWeight: 700, color: refreshing ? "#475569" : "#94A3B8", cursor: "pointer",
+            }}>{refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}</button>
+          </div>
           {/* Season stats */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "12px 14px", marginBottom: 10, border: "1px solid #334155" }}>
             <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
@@ -497,7 +525,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                       {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                      {m.venue && ` · ${m.match_type && m.match_type !== 'league' ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
+                      {m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                       {isCoach && hasStats && <span style={{ color: "#8B5CF6", fontWeight: 700 }}>📊</span>}
                     </div>
                   </div>
@@ -535,7 +563,7 @@ export default function TeamPage({ teamSlug, onBack }) {
               </div>
               <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "#64748B" }}>
                 {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                {selectedMatch.venue && ` · ${selectedMatch.match_type && selectedMatch.match_type !== 'league' ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
+                {selectedMatch.venue && ` · ${selectedMatch.match_type ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
               </div>
             </div>
           </div>

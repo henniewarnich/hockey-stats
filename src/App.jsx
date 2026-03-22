@@ -145,15 +145,14 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleImportGame = (game) => { const saved = store.saveGame(game); setReviewGame(saved || game); setScreen("game_review"); };
   const handleDeleteGame = (id) => { store.deleteGame(id); setScreen("history"); };
 
-  const handleUpdateGame = (updatedGame) => {
+  const handleUpdateGame = async (updatedGame) => {
     // Update locally
     const GAMES_KEY = 'hockey-games';
     const games = loadData(GAMES_KEY, []);
     const updated = games.map(g => g.id === updatedGame.id ? updatedGame : g);
     saveData(GAMES_KEY, updated);
-    // Re-sync to Supabase
-    saveMatchToSupabase(updatedGame).catch(() => {});
-    // Force store refresh
+    // Re-sync to Supabase, then reload
+    try { await saveMatchToSupabase(updatedGame); } catch {}
     window.location.reload();
   };
 

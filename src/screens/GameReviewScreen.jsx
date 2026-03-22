@@ -47,7 +47,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
           <div style={S.navTitle}>{T.home.name} vs {T.away.name}</div>
           <div style={{ fontSize: 10, color: theme.textDim }}>
             {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-            {G.venue && ` · ${G.matchType && G.matchType !== 'league' ? (G.matchType.charAt(0).toUpperCase() + G.matchType.slice(1)) + ' @ ' : ''}${G.venue}`}
+            {G.venue && ` · ${G.matchType ? (G.matchType.charAt(0).toUpperCase() + G.matchType.slice(1)) + ' @ ' : ''}${G.venue}`}
           </div>
         </div>
       </div>

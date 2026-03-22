@@ -326,7 +326,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
                       <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                     </div>
                   </div>
-                  {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type && liveMatch.match_type !== 'league' ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
+                  {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
                 </div>
               </div>
 
@@ -385,7 +385,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
                   <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
-                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.match_type && m.match_type !== 'league' ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
+                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                   </div>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
