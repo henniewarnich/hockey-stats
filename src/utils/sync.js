@@ -56,12 +56,11 @@ export async function deleteTeamRemote(supabaseId) {
 // ─── MATCHES ─────────────────────────────────────────
 
 export async function saveMatchToSupabase(game) {
-  // 1. Resolve team IDs — find or create teams in Supabase
+  // 1. Resolve team IDs
   const homeTeam = await findOrCreateTeam(game.teams.home);
   const awayTeam = await findOrCreateTeam(game.teams.away);
   if (!homeTeam || !awayTeam) return null;
 
-  // 2. Insert match
   const matchRow = {
     home_team_id: homeTeam.id,
     away_team_id: awayTeam.id,
@@ -75,16 +74,52 @@ export async function saveMatchToSupabase(game) {
     status: 'ended',
   };
 
-  const { data: match, error: matchError } = await supabase
-    .from('matches')
-    .insert(matchRow)
-    .select()
-    .single();
+  let match;
 
-  if (matchError) { console.error('Insert match error:', matchError); return null; }
+  // 2. If game already has a Supabase ID (from createLiveMatch), UPDATE instead of INSERT
+  const existingId = game.supabase_id || game.id;
+  if (existingId) {
+    // Try to update first
+    const { data: updated, error: updateError } = await supabase
+      .from('matches')
+      .update(matchRow)
+      .eq('id', existingId)
+      .select()
+      .single();
+    
+    if (!updateError && updated) {
+      match = updated;
+    } else {
+      // Row doesn't exist — fall through to insert
+      console.warn('Update failed, inserting new:', updateError?.message);
+      const { data: inserted, error: insertError } = await supabase
+        .from('matches')
+        .insert(matchRow)
+        .select()
+        .single();
+      if (insertError) { console.error('Insert match error:', insertError); return null; }
+      match = inserted;
+    }
+  } else {
+    // No existing ID — insert new
+    const { data: inserted, error: insertError } = await supabase
+      .from('matches')
+      .insert(matchRow)
+      .select()
+      .single();
+    if (insertError) { console.error('Insert match error:', insertError); return null; }
+    match = inserted;
+  }
 
-  // 3. Insert events in batches (Supabase handles up to 1000 per insert)
-  if (game.events && game.events.length > 0) {
+  // 3. Insert events (only if not already pushed via live events)
+  // Check if events already exist for this match
+  const { data: existingEvents } = await supabase
+    .from('match_events')
+    .select('id')
+    .eq('match_id', match.id)
+    .limit(1);
+
+  if ((!existingEvents || existingEvents.length === 0) && game.events && game.events.length > 0) {
     const eventRows = game.events.map((e, i) => ({
       match_id: match.id,
       team: e.team,
@@ -92,10 +127,9 @@ export async function saveMatchToSupabase(game) {
       zone: e.zone || null,
       detail: e.detail || null,
       match_time: e.time || 0,
-      seq: game.events.length - i, // oldest = 1, newest = highest
+      seq: game.events.length - i,
     }));
 
-    // Batch insert in chunks of 500
     for (let i = 0; i < eventRows.length; i += 500) {
       const batch = eventRows.slice(i, i + 500);
       const { error: evError } = await supabase
