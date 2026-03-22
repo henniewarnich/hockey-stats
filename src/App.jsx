@@ -92,20 +92,20 @@ function AdminGate({ children }) {
 
       <input
         value={pin}
-        onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(false); }}
+        onChange={e => { setPin(e.target.value.slice(0, 20)); setError(false); }}
         type="password"
-        placeholder={isFirstTime ? "Choose a PIN (4-6 digits)" : "PIN"}
+        placeholder={isFirstTime ? "Choose a PIN (4+ characters)" : "PIN"}
         style={{
-          width: 220, padding: 14, borderRadius: 10,
+          width: 260, padding: 14, borderRadius: 10,
           border: error ? "2px solid #EF4444" : "1px solid #334155",
-          background: "#1E293B", color: "#F8FAFC", fontSize: 20, textAlign: "center",
-          letterSpacing: "0.3em", outline: "none",
+          background: "#1E293B", color: "#F8FAFC", fontSize: 16, textAlign: "center",
+          letterSpacing: "0.1em", outline: "none",
         }}
         autoFocus
         onKeyDown={e => e.key === "Enter" && handleSubmit()}
       />
       {error && <div style={{ fontSize: 12, color: "#EF4444", marginTop: 8 }}>Incorrect PIN</div>}
-      {isFirstTime && <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, textAlign: "center" }}>This PIN protects the recorder and admin features. You'll need it each time you open the app.</div>}
+      {isFirstTime && <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, textAlign: "center" }}>This PIN protects admin features. Use letters and numbers. You'll need it each time.</div>}
 
       <button onClick={handleSubmit} style={{
         marginTop: 16, padding: "12px 40px", borderRadius: 10, border: "none",
