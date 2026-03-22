@@ -154,11 +154,20 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
     }
   };
 
+  const [showDemoEnd, setShowDemoEnd] = useState(false);
+
   // End match
   const handleEndMatch = () => {
     setShowEndConfirm(false);
     timer.end();
     clearAutoSave();
+
+    // Demo: show discard option instead of auto-saving
+    if (isDemo) {
+      setShowDemoEnd(true);
+      return;
+    }
+
     const game = {
       id: liveMatchId || Date.now().toString(),
       supabase_id: liveMatchId || null,
@@ -167,8 +176,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       matchLength, breakFormat, venue,
       homeScore: score.home, awayScore: score.away,
     };
-    // Mark live match as ended in Supabase
-    if (liveMatchId && !isDemo) {
+    if (liveMatchId) {
       endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime).catch(() => {});
     }
     const saved = onSaveGame(game);
@@ -304,6 +312,10 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
             {matchState === "paused" && <button onClick={handleResume} style={S.btnSm(theme.success, theme.bg)}>▶ Resume</button>}
             {(running || matchState === "paused") && <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, "#FFF")}>⏹ End</button>}
             {events.length > 0 && <button onClick={undoLast} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>↩ Undo</button>}
+          </>
+        ) : showDemoEnd ? (
+          <>
+            <button onClick={() => onNavigate("home")} style={S.btnSm(theme.success, "#FFF")}>✓ Discard & Home</button>
           </>
         ) : (
           <>
