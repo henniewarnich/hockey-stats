@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
+import { APP_VERSION } from '../utils/constants.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -403,6 +404,7 @@ export default function TeamPage({ teamSlug, onBack }) {
           {/* Coach: Full CoachLiveScreen */}
           {isCoach ? (
             <CoachLiveScreen
+              embedded
               match={{
                 teams: {
                   home: { name: liveMatch.home_team?.name, color: liveMatch.home_team?.color, short: liveMatch.home_team?.name?.slice(0, 3).toUpperCase() },
@@ -560,6 +562,11 @@ export default function TeamPage({ teamSlug, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Version footer */}
+      <div style={{ padding: "12px 14px", textAlign: "center", fontSize: 9, color: "#334155" }}>
+        v{APP_VERSION}
+      </div>
 
       <style>{`
         @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }

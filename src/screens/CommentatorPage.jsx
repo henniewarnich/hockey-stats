@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { BREAK_FORMATS } from '../utils/constants.js';
+import { BREAK_FORMATS, APP_VERSION } from '../utils/constants.js';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -381,6 +381,11 @@ export default function CommentatorPage({ teamSlug, onBack }) {
           })}
         </div>
       )}
+
+      {/* Version footer */}
+      <div style={{ padding: "12px 14px", textAlign: "center", fontSize: 9, color: "#334155" }}>
+        v{APP_VERSION}
+      </div>
 
       <style>{`@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
     </div>

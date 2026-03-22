@@ -69,7 +69,7 @@ function getQuarters(events, breakFormat) {
   return [{ label: "Match", start: 0, end: 999999, status: "live" }];
 }
 
-export default function CoachLiveScreen({ match, events, matchTime, running, onBack }) {
+export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded }) {
   const teams = match?.teams || { home: { name: "Home", color: "#3B82F6" }, away: { name: "Away", color: "#EF4444" } };
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
@@ -115,10 +115,15 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
     );
   };
 
-  return (
-    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  const Wrapper = embedded ? ({ children }) => <div style={{ padding: "0" }}>{children}</div> : ({ children }) => (
+    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: embedded ? "auto" : "100vh", color: "#E2E8F0", userSelect: "none" }}>{children}</div>
+  );
 
+  return (
+    <Wrapper>
+      {!embedded && <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />}
+
+      {!embedded && <>
       {/* Header */}
       <div style={{ padding: "10px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -154,6 +159,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
           <div style={{ fontSize: 32, fontWeight: 900 }}>{awayScore}</div>
         </div>
       </div>
+      </>}
 
       {/* View toggle */}
       <div style={{ padding: "0 14px 8px" }}>
@@ -298,7 +304,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
         </div>
       )}
 
-      <style>{`@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
-    </div>
+      {!embedded && <style>{`@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>}
+    </Wrapper>
   );
 }
