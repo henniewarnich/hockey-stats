@@ -223,6 +223,7 @@ function mergeGames(local, remote) {
       existing.venue = rg.venue || existing.venue;
       existing.matchLength = rg.matchLength || existing.matchLength;
       existing.breakFormat = rg.breakFormat || existing.breakFormat;
+      existing.matchType = rg.matchType || existing.matchType;
       if ((!existing.events || existing.events.length === 0) && rg.events?.length > 0) {
         existing.events = rg.events;
         existing.duration = rg.duration;

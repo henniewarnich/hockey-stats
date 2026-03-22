@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { BREAK_FORMATS, APP_VERSION } from '../utils/constants.js';
+import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -46,6 +46,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [awaySearch, setAwaySearch] = useState("");
   const [matchLength, setMatchLength] = useState("60");
   const [breakFormat, setBreakFormat] = useState("quarters");
+  const [matchType, setMatchType] = useState("league");
   const [venue, setVenue] = useState("");
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [matchConfig, setMatchConfig] = useState(null);
@@ -268,6 +269,18 @@ export default function CommentatorPage({ teamSlug, onBack }) {
               </div>
             </div>
             <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Match Type</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {MATCH_TYPES.map(mt => (
+                  <button key={mt.id} onClick={() => setMatchType(mt.id)} style={{
+                    flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    border: matchType === mt.id ? "2px solid #F59E0B" : "1px solid #334155",
+                    background: matchType === mt.id ? "#F59E0B22" : "#0B0F1A", color: matchType === mt.id ? "#F59E0B" : "#94A3B8", cursor: "pointer",
+                  }}>{mt.label}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 4 }}>Venue</div>
               <input style={inputStyle} value={venue} onChange={e => setVenue(e.target.value)} />
             </div>
@@ -280,7 +293,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
           <button disabled={!canStart} onClick={() => setMatchConfig({
             home: { name: team.name, color: team.color, id: team.id },
             away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id },
-            matchLength: ml, breakFormat, venue: venue.trim(), date: matchDate,
+            matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate,
           })} style={{
             width: "100%", padding: 14, borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700,
             cursor: canStart ? "pointer" : "not-allowed",
@@ -313,7 +326,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
                       <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                     </div>
                   </div>
-                  {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.venue}</div>}
+                  {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type && liveMatch.match_type !== 'league' ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
                 </div>
               </div>
 
@@ -372,7 +385,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
                   <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
-                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.venue}`}
+                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.match_type && m.match_type !== 'league' ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                   </div>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>

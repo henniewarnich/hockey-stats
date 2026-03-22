@@ -14,7 +14,7 @@ import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 
 export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate }) {
-  const { home, away, matchLength, breakFormat, venue, date, isDemo } = matchConfig;
+  const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo } = matchConfig;
   const teams = { home, away };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
@@ -54,7 +54,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const getState = useCallback(() => ({
     teams, events, matchTime: timer.matchTime, matchState: timer.matchState,
     possession, ballPos, prevBallPos, score, flipped, sidelineOut,
-    matchLength, breakFormat, venue, date,
+    matchLength, breakFormat, matchType, venue, date,
   }), [teams, events, timer.matchTime, timer.matchState, possession, ballPos, prevBallPos, score, flipped, sidelineOut]);
   const { clearAutoSave } = useAutoSave(getState, matchState !== "idle" && matchState !== "ended");
 
@@ -192,7 +192,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
       supabase_id: liveMatchId || null,
       date: date ? new Date(date).toISOString() : new Date().toISOString(),
       teams, events, duration: timer.matchTime,
-      matchLength, breakFormat, venue,
+      matchLength, breakFormat, matchType, venue,
       homeScore: score.home, awayScore: score.away,
     };
     if (liveMatchId) {

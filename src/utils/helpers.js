@@ -40,6 +40,7 @@ export function exportMatchJSON(game) {
     matchLength: game.matchLength || null,
     breakFormat: game.breakFormat || null,
     venue: game.venue || null,
+    matchType: game.matchType || null,
     teams: { home: game.teams.home, away: game.teams.away },
     score: { home: game.homeScore, away: game.awayScore },
     events: [...game.events].reverse(),

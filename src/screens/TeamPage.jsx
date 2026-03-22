@@ -288,8 +288,9 @@ export default function TeamPage({ teamSlug, onBack }) {
     </div>
   );
 
-  // Season stats
-  const seasonStats = matches.reduce((s, m) => {
+  // Season stats (exclude friendlies)
+  const statsMatches = matches.filter(m => m.match_type !== 'friendly');
+  const seasonStats = statsMatches.reduce((s, m) => {
     const isHome = m.home_team?.id === team.id;
     const my = isHome ? m.home_score : m.away_score;
     const their = isHome ? m.away_score : m.home_score;
@@ -395,7 +396,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                 </div>
               </div>
-              {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.venue}</div>}
+              {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type && liveMatch.match_type !== 'league' ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
             </div>
           </div>
 
@@ -471,6 +472,9 @@ export default function TeamPage({ teamSlug, onBack }) {
                 </div>
               ))}
             </div>
+            {matches.some(m => m.match_type === 'friendly') && (
+              <div style={{ fontSize: 9, color: "#64748B", fontStyle: "italic", marginTop: 6, textAlign: "center" }}>* These stats exclude Friendly matches</div>
+            )}
           </div>
 
           {matches.length === 0 ? (
@@ -493,7 +497,7 @@ export default function TeamPage({ teamSlug, onBack }) {
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                       {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                      {m.venue && ` · ${m.venue}`}
+                      {m.venue && ` · ${m.match_type && m.match_type !== 'league' ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                       {isCoach && hasStats && <span style={{ color: "#8B5CF6", fontWeight: 700 }}>📊</span>}
                     </div>
                   </div>
@@ -531,7 +535,7 @@ export default function TeamPage({ teamSlug, onBack }) {
               </div>
               <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "#64748B" }}>
                 {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                {selectedMatch.venue && ` · ${selectedMatch.venue}`}
+                {selectedMatch.venue && ` · ${selectedMatch.match_type && selectedMatch.match_type !== 'league' ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
               </div>
             </div>
           </div>

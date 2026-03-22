@@ -1,4 +1,4 @@
-export const APP_VERSION = "4.4.0";
+export const APP_VERSION = "4.6.0";
 
 export const ZONES = [
   { id: "opp_quarter", label: "Opp Quarter" },
@@ -45,6 +45,12 @@ export const BREAK_FORMATS = [
   { id: "quarters", label: "Quarters", periods: 4 },
   { id: "halves", label: "Halftime Only", periods: 2 },
   { id: "none", label: "No Breaks", periods: 1 },
+];
+
+export const MATCH_TYPES = [
+  { id: "league", label: "League" },
+  { id: "festival", label: "Festival" },
+  { id: "friendly", label: "Friendly" },
 ];
 
 export const GRASS_A = "#116B35";

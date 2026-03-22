@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { BREAK_FORMATS } from '../utils/constants.js';
+import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
 const MODES = [
@@ -73,6 +73,7 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
   const [setupAway, setSetupAway] = useState(null);
   const [matchLength, setMatchLength] = useState("60");
   const [breakFormat, setBreakFormat] = useState("quarters");
+  const [matchType, setMatchType] = useState("league");
   const [venue, setVenue] = useState("");
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -139,6 +140,21 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
             </div>
           </div>
 
+          {/* Match Type */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Type</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {MATCH_TYPES.map(mt => (
+                <button key={mt.id} onClick={() => setMatchType(mt.id)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: matchType === mt.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: matchType === mt.id ? theme.accent + "22" : theme.bg,
+                  color: matchType === mt.id ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{mt.label}</button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Venue</div>
             <input style={{ ...S.input, fontSize: 12 }} value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Paarl Girls High" />
@@ -150,7 +166,7 @@ function FullMatchSetup({ teams, onStart, onBack, onManageTeams }) {
         </div>
 
         <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart ? 1 : 0.4 }}
-          onClick={() => canStart && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, venue: venue.trim(), date: matchDate })}>
+          onClick={() => canStart && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate })}>
           🏑 Start Match
         </button>
       </div>
@@ -166,6 +182,7 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
   const [awayScore, setAwayScore] = useState(0);
   const [matchDate, setMatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [venue, setVenue] = useState("");
+  const [matchType, setMatchType] = useState("league");
 
   const canSave = setupHome && setupAway && setupHome.id !== setupAway?.id;
 
@@ -207,6 +224,20 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
         )}
 
         <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Type</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {MATCH_TYPES.map(mt => (
+              <button key={mt.id} onClick={() => setMatchType(mt.id)} style={{
+                flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                border: matchType === mt.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                background: matchType === mt.id ? theme.accent + "22" : theme.bg,
+                color: matchType === mt.id ? theme.accent : theme.textMuted, cursor: "pointer",
+              }}>{mt.label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Venue</div>
           <input style={{ ...S.input, fontSize: 12 }} value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Paarl Girls High" />
         </div>
@@ -216,7 +247,7 @@ function QuickScoreSetup({ teams, onSave, onBack, onManageTeams }) {
         </div>
 
         <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canSave ? 1 : 0.4 }}
-          onClick={() => canSave && onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), quickScore: true })}>
+          onClick={() => canSave && onSave({ id: Date.now().toString(), date: new Date(matchDate).toISOString(), teams: { home: setupHome, away: setupAway }, events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), matchType, quickScore: true })}>
           💾 Save Match
         </button>
       </div>
@@ -258,7 +289,7 @@ function JsonImportSetup({ onImport, onBack }) {
       events: imported.events || [], duration: imported.duration || 0,
       homeScore: imported.score?.home ?? 0, awayScore: imported.score?.away ?? 0,
       matchLength: imported.matchLength || null, breakFormat: imported.breakFormat || null,
-      venue: imported.venue || null, imported: true,
+      venue: imported.venue || null, matchType: imported.matchType || null, imported: true,
     });
   };
 

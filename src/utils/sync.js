@@ -70,6 +70,7 @@ export async function saveMatchToSupabase(game) {
     match_length: game.matchLength || 60,
     break_format: game.breakFormat || 'quarters',
     venue: game.venue || null,
+    match_type: game.matchType || 'league',
     duration: game.duration || 0,
     status: 'ended',
   };
@@ -192,6 +193,7 @@ export async function fetchMatchesForLocal() {
       matchLength: m.match_length,
       breakFormat: m.break_format,
       venue: m.venue,
+      matchType: m.match_type,
       status: m.status,
     });
   }
@@ -261,6 +263,7 @@ export async function createLiveMatch(config) {
       match_length: config.matchLength || 60,
       break_format: config.breakFormat || 'quarters',
       venue: config.venue || null,
+      match_type: config.matchType || 'league',
       status: 'live',
       share_pin: pin,
     })

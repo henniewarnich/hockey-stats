@@ -48,6 +48,7 @@ CREATE TABLE matches (
   match_length    INTEGER DEFAULT 60,       -- minutes
   break_format    TEXT DEFAULT 'quarters',   -- quarters | halves | none
   venue           TEXT,
+  match_type      TEXT DEFAULT 'league',     -- league | festival | friendly
   duration        INTEGER,                   -- actual seconds played
   status          TEXT DEFAULT 'setup',      -- setup | live | paused | ended
   share_pin       TEXT,                      -- 4-6 digit PIN for shared viewing
