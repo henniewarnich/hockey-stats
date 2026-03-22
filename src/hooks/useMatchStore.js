@@ -183,11 +183,19 @@ function mergeTeams(local, remote) {
   return merged;
 }
 
-// Merge local and remote games (remote wins, matched by supabase_id or matching teams+date)
+// Merge local and remote games — remote is source of truth for synced games
 function mergeGames(local, remote) {
-  const merged = [...local];
+  const remoteIds = new Set(remote.map(r => r.supabase_id || r.id));
+
+  // Start with local games that are either unsynced OR still exist in remote
+  const kept = local.filter(g => {
+    if (!g.supabase_id) return true; // unsynced — keep it, it's local-only
+    return remoteIds.has(g.supabase_id); // synced — only keep if still in Supabase
+  });
+
+  // Now merge remote into kept
   for (const rg of remote) {
-    const existing = merged.find(g =>
+    const existing = kept.find(g =>
       g.supabase_id === rg.supabase_id ||
       g.id === rg.id ||
       (g.teams?.home?.name === rg.teams?.home?.name &&
@@ -195,23 +203,20 @@ function mergeGames(local, remote) {
        g.date?.slice(0, 10) === rg.date?.slice(0, 10))
     );
     if (existing) {
-      // Update local with supabase data but keep local events if richer
       existing.supabase_id = rg.supabase_id;
       existing.homeScore = rg.homeScore;
       existing.awayScore = rg.awayScore;
       existing.venue = rg.venue || existing.venue;
       existing.matchLength = rg.matchLength || existing.matchLength;
       existing.breakFormat = rg.breakFormat || existing.breakFormat;
-      // Use remote events if local has none
       if ((!existing.events || existing.events.length === 0) && rg.events?.length > 0) {
         existing.events = rg.events;
         existing.duration = rg.duration;
       }
     } else {
-      merged.push(rg);
+      kept.push(rg);
     }
   }
-  // Sort newest first
-  merged.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-  return merged;
+  kept.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  return kept;
 }

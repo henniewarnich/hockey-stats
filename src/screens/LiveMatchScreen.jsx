@@ -384,7 +384,7 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
               const url = `${window.location.origin}${window.location.pathname}#/team/${slug}`;
               return (
                 <div key={t.name} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, marginBottom: 4 }}>{t.name}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, marginBottom: 4 }}>📺 {t.name}</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <div style={{
                       flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
@@ -407,6 +407,31 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
                 </div>
               );
             })}
+
+            {/* Commentator link — home team */}
+            <div style={{ marginTop: 6, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", marginBottom: 4 }}>🎙 Commentator Link</div>
+              {(() => {
+                const slug = teams.home.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                const url = `${window.location.origin}${window.location.pathname}#/record/${slug}`;
+                return (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{
+                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
+                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{url}</div>
+                    <button onClick={() => {
+                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
+                    }} style={{
+                      padding: "8px 14px", borderRadius: 8, background: "#F59E0B22",
+                      border: "1px solid #F59E0B44", color: "#F59E0B",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                    }}>📋 Copy</button>
+                  </div>
+                );
+              })()}
+            </div>
 
             <div style={{ fontSize: 9, color: theme.textDim, textAlign: "center", marginTop: 8 }}>
               Spectators see score + commentary only. Coaches can enter their team PIN for full stats.

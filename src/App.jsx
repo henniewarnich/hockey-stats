@@ -12,6 +12,7 @@ import GameReviewScreen from './screens/GameReviewScreen.jsx';
 import PublicLiveScreen from './screens/PublicLiveScreen.jsx';
 import CoachLiveScreen from './screens/CoachLiveScreen.jsx';
 import TeamPage from './screens/TeamPage.jsx';
+import CommentatorPage from './screens/CommentatorPage.jsx';
 import MatchEditScreen from './screens/MatchEditScreen.jsx';
 
 const ADMIN_PIN_KEY = 'hockey-admin-pin';
@@ -20,6 +21,7 @@ const ADMIN_PIN_VERIFIED_KEY = 'hockey-admin-verified';
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
   if (hash.startsWith('team/')) return { type: 'team', slug: hash.replace('team/', '') };
+  if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
   return { type: 'app' };
 }
 
@@ -112,6 +114,11 @@ export default function App() {
   // Team pages are PUBLIC — no PIN needed
   if (route.type === 'team') {
     return <TeamPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'app' }); }} />;
+  }
+
+  // Commentator recorder — needs commentator PIN
+  if (route.type === 'record') {
+    return <CommentatorPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'app' }); }} />;
   }
 
   // Everything else requires Admin PIN

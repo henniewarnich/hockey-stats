@@ -103,16 +103,22 @@ const ZoneRow = ({ hAtk, hMid, hDef, hTotal, label, aAtk, aMid, aDef, aTotal, hC
   const hWins = inverted ? hTotal < aTotal : hTotal > aTotal;
   const aWins = inverted ? aTotal < hTotal : aTotal > hTotal;
   return (
-    <div style={{ padding: "4px 0", borderBottom: "1px solid #0F172A" }}>
+    <div style={{ padding: "6px 0", borderBottom: "1px solid #0F172A" }}>
+      {/* Total row */}
       <div style={{ display: "flex", alignItems: "center" }}>
-        <div style={{ width: 40, textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: hWins ? hColor : hTotal === aTotal ? "#94A3B8" : "#4B5563" }}>{hTotal}</div>
+        <div style={{ width: 40, textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: hWins ? hColor : hTotal === aTotal ? "#94A3B8" : "#64748B" }}>{hTotal}</div>
         <div style={{ flex: 1, textAlign: "center", fontSize: 10, fontWeight: 600, color: "#94A3B8", padding: "0 6px" }}>{label}</div>
-        <div style={{ width: 40, textAlign: "left", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: aWins ? aColor : aTotal === hTotal ? "#94A3B8" : "#4B5563" }}>{aTotal}</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: aWins ? aColor : aTotal === hTotal ? "#94A3B8" : "#64748B" }}>{aTotal}</div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-        <div style={{ width: 40, textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#475569" }}>{hAtk}·{hMid}·{hDef}</div>
-        <div style={{ flex: 1, textAlign: "center", fontSize: 7, color: "#334155" }}>atk · mid · def</div>
-        <div style={{ width: 40, textAlign: "left", fontSize: 9, fontFamily: "monospace", color: "#475569" }}>{aAtk}·{aMid}·{aDef}</div>
+      {/* Zone breakdown row */}
+      <div style={{ display: "flex", alignItems: "center", marginTop: 4, padding: "4px 0", background: "#0F172A", borderRadius: 4 }}>
+        <div style={{ width: 40, textAlign: "right", fontSize: 11, fontFamily: "monospace", color: "#CBD5E1", fontWeight: 600, paddingRight: 4 }}>{hAtk}</div>
+        <div style={{ width: 40, textAlign: "right", fontSize: 11, fontFamily: "monospace", color: "#94A3B8", fontWeight: 600, paddingRight: 4 }}>{hMid}</div>
+        <div style={{ width: 40, textAlign: "right", fontSize: 11, fontFamily: "monospace", color: "#64748B", fontWeight: 600 }}>{hDef}</div>
+        <div style={{ flex: 1, textAlign: "center", fontSize: 9, color: "#64748B", fontWeight: 600 }}>atk · mid · def</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 11, fontFamily: "monospace", color: "#CBD5E1", fontWeight: 600, paddingLeft: 4 }}>{aAtk}</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 11, fontFamily: "monospace", color: "#94A3B8", fontWeight: 600, paddingLeft: 4 }}>{aMid}</div>
+        <div style={{ width: 40, textAlign: "left", fontSize: 11, fontFamily: "monospace", color: "#64748B", fontWeight: 600 }}>{aDef}</div>
       </div>
     </div>
   );
@@ -123,9 +129,9 @@ const StatRow = ({ hVal, label, aVal, hColor, aColor, inverted }) => {
   const aWins = inverted ? aVal < hVal : aVal > hVal;
   return (
     <div style={{ display: "flex", alignItems: "center", padding: "5px 0", borderBottom: "1px solid #0F172A" }}>
-      <div style={{ width: 40, textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: hWins ? hColor : hVal === aVal ? "#94A3B8" : "#4B5563" }}>{hVal}</div>
+      <div style={{ width: 40, textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: hWins ? hColor : hVal === aVal ? "#94A3B8" : "#64748B" }}>{hVal}</div>
       <div style={{ flex: 1, textAlign: "center", fontSize: 10, fontWeight: 600, color: "#94A3B8", padding: "0 6px" }}>{label}</div>
-      <div style={{ width: 40, textAlign: "left", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: aWins ? aColor : aVal === hVal ? "#94A3B8" : "#4B5563" }}>{aVal}</div>
+      <div style={{ width: 40, textAlign: "left", fontSize: 14, fontWeight: 800, fontFamily: "monospace", color: aWins ? aColor : aVal === hVal ? "#94A3B8" : "#64748B" }}>{aVal}</div>
     </div>
   );
 };
@@ -326,8 +332,8 @@ export default function TeamPage({ teamSlug, onBack }) {
           {/* Coach/Public toggle */}
           {isCoach ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 8, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</span>
-              <button onClick={handleLogout} style={{ fontSize: 7, color: "#64748B", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Switch to Public</button>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</span>
+              <button onClick={handleLogout} style={{ fontSize: 9, color: "#94A3B8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Switch to Public</button>
             </div>
           ) : (
             <button onClick={() => setShowPinModal(true)} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>🔒 Coach</button>
@@ -442,7 +448,7 @@ export default function TeamPage({ teamSlug, onBack }) {
             <div style={{ flex: 1, padding: "0 14px 20px", overflowY: "auto" }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Live Commentary</div>
               {publicEvents.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#475569", fontStyle: "italic", textAlign: "center", padding: 20 }}>Waiting for kickoff...</div>
+                <div style={{ fontSize: 13, color: "#94A3B8", fontStyle: "italic", textAlign: "center", padding: 20 }}>Waiting for kickoff...</div>
               ) : publicEvents.slice(0, 30).map((entry, i) => {
                 const type = classifyEvent(entry);
                 const color = eventColor(type);
@@ -493,7 +499,7 @@ export default function TeamPage({ teamSlug, onBack }) {
           </div>
 
           {matches.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 20, color: "#475569", fontSize: 14 }}>No matches yet</div>
+            <div style={{ textAlign: "center", padding: 20, color: "#94A3B8", fontSize: 14 }}>No matches yet</div>
           ) : matches.map(m => {
             const opp = opponent(m);
             const isHome = m.home_team?.id === team.id;

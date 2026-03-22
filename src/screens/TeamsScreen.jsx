@@ -90,14 +90,25 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
           </div>
         </div>
         {/* Coach PIN */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 16 }}>
           <label style={S.label}>Coach PIN (optional)</label>
           <input style={{ ...S.input, letterSpacing: "0.2em", fontSize: 16 }}
             value={editing?.coach_pin || ""}
             onChange={e => setEditing(p => ({ ...p, coach_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
             placeholder="e.g. 1234" type="tel" maxLength={6} />
           <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
-            Share this PIN with coaches to unlock detailed stats on the team page
+            Unlocks detailed stats on the team page
+          </div>
+        </div>
+        {/* Commentator PIN */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={S.label}>Commentator PIN (optional)</label>
+          <input style={{ ...S.input, letterSpacing: "0.2em", fontSize: 16 }}
+            value={editing?.commentator_pin || ""}
+            onChange={e => setEditing(p => ({ ...p, commentator_pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+            placeholder="e.g. 5678" type="tel" maxLength={6} />
+          <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
+            Allows recording matches for this team via the commentator link
           </div>
         </div>
         {/* Preview */}

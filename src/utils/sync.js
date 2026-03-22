@@ -18,6 +18,8 @@ export async function upsertTeam(team) {
     color: team.color,
     short_name: team.short_name || null,
     school: team.school || false,
+    coach_pin: team.coach_pin || null,
+    commentator_pin: team.commentator_pin || null,
   };
 
   if (team.supabase_id) {
