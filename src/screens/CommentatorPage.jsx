@@ -45,6 +45,8 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const [recordMode, setRecordMode] = useState("live"); // "live" or "quick"
 
   // Match setup
+  const [homeTeam, setHomeTeam] = useState(null); // only used in global mode
+  const [homeSearch, setHomeSearch] = useState("");
   const [awayTeam, setAwayTeam] = useState(null);
   const [awaySearch, setAwaySearch] = useState("");
   const [matchLength, setMatchLength] = useState("60");
@@ -150,10 +152,14 @@ export default function CommentatorPage({ teamSlug, onBack }) {
   const handleNavigate = (target) => { if (target === "home") { setMatchConfig(null); setAwayTeam(null); } };
 
   const ml = parseInt(matchLength) || 60;
-  const canStart = awayTeam && awayTeam.id !== team?.id;
+  const effectiveHome = isGlobalMode ? homeTeam : team;
+  const canStart = effectiveHome && awayTeam && awayTeam.id !== effectiveHome?.id;
+  const filteredHomeTeams = homeSearch.trim()
+    ? allTeams.filter(t => t.name.toLowerCase().includes(homeSearch.toLowerCase()))
+    : allTeams;
   const filteredTeams = awaySearch.trim()
-    ? allTeams.filter(t => t.name.toLowerCase().includes(awaySearch.toLowerCase()) && t.id !== team?.id)
-    : allTeams.filter(t => t.id !== team?.id);
+    ? allTeams.filter(t => t.name.toLowerCase().includes(awaySearch.toLowerCase()) && t.id !== effectiveHome?.id)
+    : allTeams.filter(t => t.id !== effectiveHome?.id);
 
   const liveTime = liveEvents.length > 0 ? Math.max(...liveEvents.map(e => e.match_time || 0)) : 0;
   const publicEvents = liveEvents.filter(e => e.team === "meta" || e.team === "commentary" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)));
@@ -293,14 +299,35 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             ))}
           </div>
 
-          {/* Home — locked */}
+          {/* Home Team */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, marginBottom: 4 }}>Home Team</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: team.color + "22", border: `2px solid ${team.color}` }}>
-              <div style={{ width: 20, height: 20, borderRadius: 4, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{team.name.charAt(0)}</div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#F8FAFC" }}>{team.name}</div>
-              <div style={{ marginLeft: "auto", fontSize: 10, color: "#64748B" }}>🔒</div>
-            </div>
+            {isGlobalMode ? (
+              <>
+                <input style={inputStyle} value={homeSearch} onChange={e => { setHomeSearch(e.target.value); setHomeTeam(null); }} placeholder="🔍 Search home team..." />
+                <div style={{ maxHeight: 150, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
+                  {filteredHomeTeams.slice(0, 30).map(t => {
+                    const isSel = homeTeam?.id === t.id;
+                    return (
+                      <button key={t.id} onClick={() => { setHomeTeam(t); setHomeSearch(t.name); }} style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
+                        border: isSel ? `2px solid ${t.color}` : "1px solid #33415544", background: isSel ? t.color + "22" : "#1E293B", cursor: "pointer",
+                      }}>
+                        <div style={{ width: 18, height: 18, borderRadius: 4, background: t.color, flexShrink: 0 }} />
+                        <div style={{ fontWeight: 600, fontSize: 12, color: "#F8FAFC" }}>{t.name}</div>
+                        {isSel && <div style={{ marginLeft: "auto", fontSize: 11 }}>✓</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: team.color + "22", border: `2px solid ${team.color}` }}>
+                <div style={{ width: 20, height: 20, borderRadius: 4, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{team.name.charAt(0)}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#F8FAFC" }}>{team.name}</div>
+                <div style={{ marginLeft: "auto", fontSize: 10, color: "#64748B" }}>🔒</div>
+              </div>
+            )}
           </div>
 
           {/* Away — searchable */}
@@ -328,7 +355,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
           {recordMode === "quick" && canStart && (
             <div style={{ background: "#1E293B", borderRadius: 12, padding: 16, marginBottom: 12, border: "1px solid #334155" }}>
               <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
-                {[[team, homeScore, setHomeScore], [awayTeam, awayScore, setAwayScore]].map(([t, sc, setSc], i) => (
+                {[[effectiveHome, homeScore, setHomeScore], [awayTeam, awayScore, setAwayScore]].map(([t, sc, setSc], i) => (
                   <div key={i} style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: t?.color, marginBottom: 6 }}>{t?.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -398,7 +425,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
 
           {recordMode === "live" ? (
             <button disabled={!canStart} onClick={() => setMatchConfig({
-              home: { name: team.name, color: team.color, id: team.id },
+              home: { name: effectiveHome.name, color: effectiveHome.color, id: effectiveHome.id },
               away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id },
               matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate,
             })} style={{
@@ -413,12 +440,13 @@ export default function CommentatorPage({ teamSlug, onBack }) {
                 const game = {
                   id: Date.now().toString(),
                   date: new Date(matchDate).toISOString(),
-                  teams: { home: { name: team.name, color: team.color, id: team.id }, away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id } },
+                  teams: { home: { name: effectiveHome.name, color: effectiveHome.color, id: effectiveHome.id }, away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id } },
                   events: [], duration: 0, homeScore, awayScore, venue: venue.trim(), matchType, quickScore: true,
                 };
                 try { await saveMatchToSupabase(game); } catch {}
                 setQuickSaved(true);
                 setHomeScore(0); setAwayScore(0); setAwayTeam(null); setAwaySearch("");
+                if (isGlobalMode) { setHomeTeam(null); setHomeSearch(""); }
                 setTimeout(() => setQuickSaved(false), 3000);
               }} style={{
                 width: "100%", padding: 14, borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700,

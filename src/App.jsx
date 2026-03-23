@@ -5,7 +5,7 @@ import { saveData, loadData } from './utils/helpers.js';
 import { saveMatchToSupabase } from './utils/sync.js';
 import { supabase } from './utils/supabase.js';
 import { APP_VERSION } from './utils/constants.js';
-import { logLoginAttempt } from './utils/audit.js';
+import { getSession, getProfile, signOut } from './utils/auth.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
 import MatchSetupScreen from './screens/MatchSetupScreen.jsx';
@@ -18,8 +18,8 @@ import TeamPage from './screens/TeamPage.jsx';
 import CommentatorPage from './screens/CommentatorPage.jsx';
 import LandingPage from './screens/LandingPage.jsx';
 import MatchEditScreen from './screens/MatchEditScreen.jsx';
-
-const ADMIN_PIN_VERIFIED_KEY = 'hockey-admin-verified';
+import LoginPage from './screens/LoginPage.jsx';
+import UserManagementScreen from './screens/UserManagementScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -31,106 +31,9 @@ function getHashRoute() {
   }
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
   if (hash === 'record') return { type: 'record', slug: '' };
+  if (hash === 'login') return { type: 'login' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
-}
-
-// Admin PIN gate component
-function AdminGate({ children }) {
-  const [verified, setVerified] = useState(() => {
-    return sessionStorage.getItem(ADMIN_PIN_VERIFIED_KEY) === 'true';
-  });
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [serverPin, setServerPin] = useState(null); // null = not loaded, "" = not set
-
-  // Load admin PIN from Supabase on mount
-  useEffect(() => {
-    supabase.from('app_settings').select('value').eq('key', 'admin_pin').single()
-      .then(({ data }) => {
-        setServerPin(data?.value || "");
-        setLoading(false);
-      })
-      .catch(() => { setServerPin(""); setLoading(false); });
-  }, []);
-
-  const handleSubmit = async () => {
-    if (pin.length < 4) return;
-
-    if (!serverPin) {
-      // First time — save PIN to Supabase
-      const { error: err } = await supabase.from('app_settings').upsert({ key: 'admin_pin', value: pin });
-      if (!err) {
-        setServerPin(pin);
-        sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
-        setVerified(true);
-        logLoginAttempt({ pinType: 'admin', success: true });
-      }
-    } else if (pin === serverPin) {
-      sessionStorage.setItem(ADMIN_PIN_VERIFIED_KEY, 'true');
-      setVerified(true);
-      logLoginAttempt({ pinType: 'admin', success: true });
-    } else {
-      setError(true);
-      logLoginAttempt({ pinType: 'admin', success: false });
-    }
-  };
-
-  if (verified) return children;
-  if (loading) return (
-    <div style={{ fontFamily: "'DM Sans','Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0F172A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      Loading...
-    </div>
-  );
-
-  const isFirstTime = !serverPin;
-
-  return (
-    <div style={{
-      fontFamily: "'DM Sans','Outfit',sans-serif", maxWidth: 430, margin: "0 auto",
-      background: "#0F172A", minHeight: "100vh", color: "#F8FAFC",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: 20,
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🏑</div>
-      <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Hockey Stats</div>
-      <div style={{ fontSize: 12, color: "#64748B", marginBottom: 24 }}>
-        {isFirstTime ? "Set an Admin PIN to protect this app" : "Enter Admin PIN"}
-      </div>
-
-      <input
-        value={pin}
-        onChange={e => { setPin(e.target.value.slice(0, 20)); setError(false); }}
-        type="password"
-        placeholder={isFirstTime ? "Choose a PIN (4+ characters)" : "PIN"}
-        style={{
-          width: 260, padding: 14, borderRadius: 10,
-          border: error ? "2px solid #EF4444" : "1px solid #334155",
-          background: "#1E293B", color: "#F8FAFC", fontSize: 16, textAlign: "center",
-          letterSpacing: "0.1em", outline: "none",
-        }}
-        autoFocus
-        onKeyDown={e => e.key === "Enter" && handleSubmit()}
-      />
-      {error && <div style={{ fontSize: 12, color: "#EF4444", marginTop: 8 }}>Incorrect PIN</div>}
-      {isFirstTime && <div style={{ fontSize: 10, color: "#64748B", marginTop: 6, textAlign: "center" }}>This PIN protects admin features. Use letters and numbers. You'll need it each time.</div>}
-
-      <button onClick={handleSubmit} style={{
-        marginTop: 16, padding: "12px 40px", borderRadius: 10, border: "none",
-        background: "#F59E0B", color: "#0F172A", fontSize: 14, fontWeight: 700, cursor: "pointer",
-      }}>
-        {isFirstTime ? "Set PIN & Enter" : "Unlock"}
-      </button>
-
-      <button onClick={() => { window.location.hash = ''; }} style={{
-        marginTop: 16, background: "none", border: "none", color: "#475569", fontSize: 10, cursor: "pointer", textDecoration: "underline",
-      }}>← Back to kykie.net</button>
-
-      <div style={{ marginTop: 16, fontSize: 9, color: "#475569" }}>v{APP_VERSION}</div>
-    </div>
-  );
 }
 
 export default function App() {
@@ -138,40 +41,113 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [matchConfig, setMatchConfig] = useState(null);
   const [reviewGame, setReviewGame] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const store = useMatchStore();
 
+  // Listen for hash changes
   useEffect(() => {
     const handler = () => setRoute(getHashRoute());
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
-  // Team pages are PUBLIC — no PIN needed
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const session = await getSession();
+      if (session) {
+        const profile = await getProfile();
+        if (profile && !profile.blocked) {
+          setCurrentUser(profile);
+        }
+      }
+      setAuthLoading(false);
+    };
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = (profile) => {
+    setCurrentUser(profile);
+    // Route based on role
+    if (profile.role === 'admin' || profile.role === 'commentator_admin') {
+      window.location.hash = '#/admin';
+    } else if (profile.role === 'commentator') {
+      window.location.hash = '#/record';
+    } else if (profile.role === 'coach') {
+      window.location.hash = '';
+    } else {
+      window.location.hash = '';
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setCurrentUser(null);
+    setScreen("home");
+    window.location.hash = '';
+  };
+
+  // ── PUBLIC ROUTES (no auth needed) ──
+
   if (route.type === 'team') {
     return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
   }
 
-  // Commentator recorder — needs commentator PIN
-  if (route.type === 'record') {
-    return <CommentatorPage teamSlug={route.slug} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
-  }
-
-  // Landing page — default public view
   if (route.type === 'landing') {
     return <LandingPage />;
   }
 
-  // Admin — requires PIN
-  return (
-    <AdminGate>
-      <AppContent store={store} screen={screen} setScreen={setScreen}
+  if (route.type === 'login') {
+    if (currentUser) { handleLogin(currentUser); return null; }
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // ── AUTH-REQUIRED ROUTES ──
+
+  if (authLoading) {
+    return (
+      <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        Loading...
+      </div>
+    );
+  }
+
+  // Commentator recorder
+  if (route.type === 'record') {
+    if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = ''; }} onLogout={handleLogout} />;
+  }
+
+  // Admin area
+  if (route.type === 'admin') {
+    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return (
+      <AppContent
+        store={store} screen={screen} setScreen={setScreen}
         matchConfig={matchConfig} setMatchConfig={setMatchConfig}
-        reviewGame={reviewGame} setReviewGame={setReviewGame} />
-    </AdminGate>
-  );
+        reviewGame={reviewGame} setReviewGame={setReviewGame}
+        currentUser={currentUser} onLogout={handleLogout}
+      />
+    );
+  }
+
+  return <LandingPage />;
 }
 
-function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame }) {
+function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout }) {
   const navigate = (target, data) => {
     if (["game_review", "public_view", "coach_view", "match_edit"].includes(target) && data) {
       setReviewGame(data);
@@ -185,12 +161,10 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleDeleteGame = (id) => { store.deleteGame(id); setScreen("history"); };
 
   const handleUpdateGame = async (updatedGame) => {
-    // Update locally
     const GAMES_KEY = 'hockey-games';
     const games = loadData(GAMES_KEY, []);
     const updated = games.map(g => g.id === updatedGame.id ? updatedGame : g);
     saveData(GAMES_KEY, updated);
-    // Re-sync to Supabase, then reload
     try { await saveMatchToSupabase(updatedGame); } catch {}
     window.location.reload();
   };
@@ -204,7 +178,10 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
   switch (screen) {
     case "home":
-      return <HomeScreen teamCount={store.teams.length} gameCount={store.games.length} onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError} />;
+      return <HomeScreen teamCount={store.teams.length} gameCount={store.games.length} onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError} currentUser={currentUser} onLogout={onLogout} />;
+
+    case "users":
+      return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "teams":
       return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;

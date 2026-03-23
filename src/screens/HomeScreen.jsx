@@ -1,7 +1,7 @@
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 
-export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError }) {
+export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout }) {
   const handleClearCache = () => {
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage('CLEAR_CACHE');
@@ -15,16 +15,32 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ padding: "40px 20px 20px", textAlign: "center" }}>
-        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4 }}>🏑</div>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>Hockey Stats</div>
-        <div style={{ fontSize: 12, color: theme.textDim, marginTop: 4 }}>Field recorder & analysis</div>
+      <div style={{ padding: "30px 20px 16px", textAlign: "center" }}>
+        <div style={{ marginBottom: 8 }}>
+          <svg width="36" height="36" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 14 }}>.net</span></div>
+        {currentUser && (
+          <div style={{ fontSize: 11, color: theme.textDim, marginTop: 6 }}>
+            {currentUser.firstname} {currentUser.lastname}
+            <span style={{ fontSize: 9, marginLeft: 6, padding: "2px 8px", borderRadius: 99, background: "#F59E0B22", color: "#F59E0B", fontWeight: 700 }}>
+              {currentUser.role === 'commentator_admin' ? 'Comm Admin' : currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
+            </span>
+          </div>
+        )}
       </div>
       <div style={{ padding: "0 16px 20px" }}>
         {[
-          ["match_setup", "⚡", "New Match", "Start recording a game"],
+          ["match_setup", "⚡", "New Match", "Live match or quick score"],
           ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
           ["history", "📊", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
+          ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [["users", "🔑", "Users", "Manage user accounts"]] : []),
         ].map(([screen, icon, title, sub]) => (
           <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => onNavigate(screen)}>
             <div style={{ fontSize: 28 }}>{icon}</div>
@@ -57,6 +73,11 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
           <button onClick={() => { window.location.hash = ''; }} style={{
             marginTop: 8, background: "none", border: "none", color: theme.textDim, fontSize: 10, cursor: "pointer", textDecoration: "underline",
           }}>← Back to kykie.net</button>
+          {onLogout && (
+            <button onClick={onLogout} style={{
+              marginTop: 4, background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", textDecoration: "underline",
+            }}>Sign out</button>
+          )}
         </div>
       </div>
     </div>

@@ -263,7 +263,7 @@ export default function LandingPage() {
             {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"} online
           </div>
         )}
-        <button onClick={() => { window.location.hash = "#/admin"; }} style={styles.adminBtn}>🔒 Admin login</button>
+        <button onClick={() => { window.location.hash = "#/login"; }} style={styles.adminBtn}>🔒 Sign in</button>
         <div style={{ fontSize: 10, color: "#334155" }}>kykie.net · v{APP_VERSION}</div>
       </div>
     </div>
