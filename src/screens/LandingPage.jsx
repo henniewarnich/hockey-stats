@@ -206,7 +206,7 @@ export default function LandingPage() {
                 style={styles.searchInput}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search teams, venues..."
+                placeholder="Search..."
               />
               {search && (
                 <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
@@ -422,7 +422,7 @@ const styles = {
   section: { padding: "0 16px 16px" },
   sectionTitle: { fontSize: 11, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, padding: "0 2px" },
   searchBox: { display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 10 },
-  searchInput: { flex: 1, background: "none", border: "none", color: "#E2E8F0", fontSize: 14, outline: "none", fontFamily: "'Outfit',sans-serif" },
+  searchInput: { flex: 1, minWidth: 0, background: "none", border: "none", color: "#E2E8F0", fontSize: 14, outline: "none", fontFamily: "'Outfit',sans-serif" },
   teamRow: { display: "flex", alignItems: "center", gap: 10, background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4, border: "1px solid #1E293B", cursor: "pointer" },
   teamDot: { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fff", flexShrink: 0 },
   teamName: { fontSize: 13, fontWeight: 700, color: "#F8FAFC" },
