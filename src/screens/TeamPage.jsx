@@ -431,18 +431,30 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none", display: "flex", flexDirection: "column" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      {/* Home link */}
-      <div style={{ padding: "8px 14px 0" }}>
+      {/* Home link + Login */}
+      <div style={{ padding: "10px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.location.hash = isCoach ? '#/coach' : ''; }} style={{
-          background: "none", border: "none", color: "#64748B", fontSize: 11, cursor: "pointer", padding: 0,
-          display: "flex", alignItems: "center", gap: 4,
+          background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", padding: 0,
+          display: "flex", alignItems: "center", gap: 5, fontWeight: 700,
         }}>
-          <svg width="12" height="12" viewBox="0 0 56 56" style={{ opacity: 0.6 }}>
+          <svg width="16" height="16" viewBox="0 0 56 56">
             <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/>
             <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/>
+            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
+            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
+            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
           </svg>
           {isCoach ? '← Dashboard' : 'kykie'}
         </button>
+        {/* Login / Logout */}
+        {isCoach && coachProfile ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
+            <button onClick={handleCoachLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Logout</button>
+          </div>
+        ) : (
+          <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
+        )}
       </div>
 
       {/* Team Header */}
@@ -458,15 +470,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               {winRate > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "1px 6px", borderRadius: 99 }}>{winRate}%</span>}
             </div>
           </div>
-          {/* Login / Logout */}
-          {isCoach && coachProfile ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
-              <button onClick={handleCoachLogout} style={{ fontSize: 9, color: "#EF4444", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Logout</button>
-            </div>
-          ) : (
-            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Login</button>
-          )}
         </div>
       </div>
 
@@ -761,6 +764,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               <div style={{ fontSize: 11, fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
               {selectedEvents
                 .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
+                .sort((a, b) => (b.match_time || 0) - (a.match_time || 0) || (b.seq || 0) - (a.seq || 0))
                 .map((entry, i) => {
                   const isMeta = entry.team === "meta";
                   const isComm = entry.team === "commentary";
