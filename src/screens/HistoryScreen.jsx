@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../utils/supabase.js';
 import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
 
@@ -6,11 +7,53 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState("desc");
   const [syncResult, setSyncResult] = useState(null);
+  const [cloudMatches, setCloudMatches] = useState([]);
+  const [loadingCloud, setLoadingCloud] = useState(true);
+
+  // Fetch all ended matches from Supabase
+  useEffect(() => {
+    const fetchCloud = async () => {
+      const { data } = await supabase
+        .from('matches')
+        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .eq('status', 'ended')
+        .order('match_date', { ascending: false });
+      if (data) {
+        // Convert to the local game format
+        const mapped = data.map(m => ({
+          id: m.id,
+          supabase_id: m.id,
+          date: m.match_date,
+          teams: {
+            home: { name: m.home_team?.name, color: m.home_team?.color, id: m.home_team?.id },
+            away: { name: m.away_team?.name, color: m.away_team?.color, id: m.away_team?.id },
+          },
+          homeScore: m.home_score,
+          awayScore: m.away_score,
+          duration: m.duration || 0,
+          venue: m.venue,
+          matchType: m.match_type,
+          quickScore: !m.duration || m.duration === 0,
+          cloudOnly: true,
+        }));
+        setCloudMatches(mapped);
+      }
+      setLoadingCloud(false);
+    };
+    fetchCloud();
+  }, []);
+
+  // Merge local + cloud, deduplicate by supabase_id
+  const allGames = useMemo(() => {
+    const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
+    const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
+    return [...games, ...cloudOnly];
+  }, [games, cloudMatches]);
 
   const unsyncedCount = games.filter(g => !g.supabase_id).length;
 
   const filtered = useMemo(() => {
-    let list = [...games];
+    let list = [...allGames];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(g => {
@@ -26,7 +69,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
       return sortDir === "desc" ? db - da : da - db;
     });
     return list;
-  }, [games, search, sortDir]);
+  }, [allGames, search, sortDir]);
 
   const resultColor = (g) => {
     if (g.homeScore > g.awayScore) return "#10B981";
@@ -47,7 +90,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
         <div style={S.navTitle}>Game History</div>
-        <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{games.length} game{games.length !== 1 ? "s" : ""}</div>
+        <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{loadingCloud ? "..." : allGames.length} game{allGames.length !== 1 ? "s" : ""}</div>
       </div>
       <div style={S.page}>
         {/* Sync banner */}
@@ -104,7 +147,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
         {/* Game list */}
         {filtered.length === 0 ? (
           <div style={S.empty}>
-            {games.length === 0 ? "No games recorded yet." : "No matches found."}
+            {allGames.length === 0 ? "No games recorded yet." : "No matches found."}
           </div>
         ) : (
           filtered.map(g => {
