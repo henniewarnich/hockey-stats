@@ -83,10 +83,10 @@ export async function createUser({ firstname, lastname, username, email, passwor
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
 
-  // Save current session
+  // Save current admin session
   const { data: { session: adminSession } } = await supabase.auth.getSession();
   
-  // Create auth user WITHOUT metadata (avoids trigger doing anything complex)
+  // Create auth user — no metadata, no trigger
   const { data, error } = await supabase.auth.signUp({ email, password });
   
   if (error) {
@@ -94,35 +94,32 @@ export async function createUser({ firstname, lastname, username, email, passwor
     return { error: error.message };
   }
 
-  // Check for fake success (existing email)
   if (data.user && data.user.identities && data.user.identities.length === 0) {
     if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
     return { error: `Email "${email}" is already registered.` };
   }
 
-  // Restore admin session
+  if (!data.user) {
+    if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    return { error: 'User creation failed.' };
+  }
+
+  // Restore admin session immediately
   if (adminSession) {
     await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
   }
 
-  if (!data.user) return { error: 'User creation failed — no user returned.' };
+  // Create profile directly
+  const { error: profileErr } = await supabase.from('profiles').insert({
+    id: data.user.id,
+    email,
+    firstname,
+    lastname,
+    username: username.toLowerCase().trim(),
+    role,
+  });
 
-  // Wait for trigger to finish (it creates a bare profile with empty fields)
-  await new Promise(r => setTimeout(r, 1500));
-
-  // Update the profile with correct data
-  const { error: updateErr } = await supabase.from('profiles').update({
-    firstname, lastname, username: username.toLowerCase().trim(), role, email,
-  }).eq('id', data.user.id);
-
-  if (updateErr) {
-    // Trigger might not have created a profile — insert one
-    const { error: insertErr } = await supabase.from('profiles').upsert({
-      id: data.user.id, email, firstname, lastname,
-      username: username.toLowerCase().trim(), role,
-    });
-    if (insertErr) return { error: `Auth user created but profile failed: ${insertErr.message}` };
-  }
+  if (profileErr) return { error: `Auth user created but profile failed: ${profileErr.message}` };
 
   return { user: data.user };
 }
