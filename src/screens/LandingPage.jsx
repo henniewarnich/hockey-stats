@@ -11,7 +11,8 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(true);
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
-  const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results
+  const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results | teams
+  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
 
   // Global presence tracking
   useEffect(() => {
@@ -120,9 +121,7 @@ export default function LandingPage() {
 
   const filteredTeams = search.trim()
     ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : recentTeamIds.slice(0, 5).map(id => teams.find(t => t.id === id)).filter(Boolean);
-
-  const isSearching = search.trim().length > 0;
+    : recentTeamIds.map(id => teams.find(t => t.id === id)).filter(Boolean);
 
   const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
 
@@ -163,14 +162,52 @@ export default function LandingPage() {
         </div>
         <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
         <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
+
+        {/* Sport picker dropdown */}
+        <div style={{ margin: "12px auto 0", maxWidth: 220, position: "relative" }}>
+          <div onClick={() => setSportDropdownOpen(p => !p)} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: "8px 16px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 14 }}>🏑</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+            <span style={{ fontSize: 10, color: "#64748B" }}>▼</span>
+          </div>
+          {sportDropdownOpen && (
+            <div style={{
+              position: "absolute", top: 42, left: 0, right: 0, borderRadius: 8,
+              border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", background: "#F59E0B11" }}>
+                <span style={{ fontSize: 14 }}>🏑</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
+              </div>
+              {[
+                { icon: "🏑", label: "Boys Hockey" },
+                { icon: "🏉", label: "Rugby" },
+                { icon: "🏐", label: "Netball" },
+                { icon: "🏏", label: "Cricket" },
+              ].map(s => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
+                  <span style={{ fontSize: 14 }}>{s.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
+                  <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 8px", borderRadius: 99 }}>Coming soon</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 320, margin: "14px auto 0" }}>
+        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "14px auto 0" }}>
           {[
             { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
             { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
-            { id: "results", label: "Results", count: matches.length },
+            { id: "results", label: "Results" },
+            { id: "teams", label: "Teams" },
           ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
               background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
               color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
@@ -253,72 +290,71 @@ export default function LandingPage() {
 
           {/* ═══ RESULTS TAB ═══ */}
           {activeTab === "results" && (
-            <>
-              {/* Teams */}
-              <div style={styles.section}>
-                <div style={styles.sectionTitle}>{isSearching ? `Results (${filteredTeams.length})` : "Recently active"}</div>
-                <div style={styles.searchBox}>
-                  <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-                  <input
-                    style={styles.searchInput}
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Find a team..."
-                  />
-                  {search && (
-                    <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
-                  )}
-                </div>
-                {filteredTeams.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
-                ) : (
-                  filteredTeams.map(t => {
-                    const r = teamRecords[t.id];
-                    const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
-                    return (
-                      <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
-                        <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={styles.teamName}>{t.name}</div>
-                          {r ? (
-                            <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
-                          ) : (
-                            <div style={styles.teamRecord}>No matches yet</div>
-                          )}
+            <div style={styles.section}>
+              {matches.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No results yet</div>
+              ) : (
+                matches.slice(0, 20).map(m => {
+                  const homeR = resultBadge(m, m.home_team?.id);
+                  const d = new Date(m.match_date);
+                  const homeSlug = teamSlug(m.home_team?.name || "");
+                  return (
+                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
+                      style={{ ...styles.scoreCard, cursor: "pointer" }}>
+                      <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={styles.matchMeta}>
+                          {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          {m.venue && ` · ${venueDisplay(m)}`}
                         </div>
-                        <span style={{ color: "#334155", fontSize: 14 }}>›</span>
                       </div>
-                    );
-                  })
+                      <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* ═══ TEAMS TAB ═══ */}
+          {activeTab === "teams" && (
+            <div style={styles.section}>
+              <div style={styles.searchBox}>
+                <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+                <input
+                  style={styles.searchInput}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Find a team..."
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
                 )}
               </div>
-
-              {/* Recent Results */}
-              {matches.length > 0 && (
-                <div style={styles.section}>
-                  <div style={styles.sectionTitle}>Recent results</div>
-                  {matches.slice(0, 8).map(m => {
-                    const homeR = resultBadge(m, m.home_team?.id);
-                    const d = new Date(m.match_date);
-                    const homeSlug = teamSlug(m.home_team?.name || "");
-                    return (
-                      <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
-                        style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                        <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
-                          <div style={styles.matchMeta}>
-                            {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                            {m.venue && ` · ${venueDisplay(m)}`}
-                          </div>
-                        </div>
-                        <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+              {filteredTeams.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
+              ) : (
+                filteredTeams.map(t => {
+                  const r = teamRecords[t.id];
+                  const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
+                  return (
+                    <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
+                      <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={styles.teamName}>{t.name}</div>
+                        {r ? (
+                          <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
+                        ) : (
+                          <div style={styles.teamRecord}>No matches yet</div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                      <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                    </div>
+                  );
+                })
               )}
-            </>
+            </div>
           )}
         </>
       )}

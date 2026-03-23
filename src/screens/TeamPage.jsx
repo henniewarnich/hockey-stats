@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { getSession, getProfile, isCoachForTeam } from '../utils/auth.js';
+import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -147,6 +147,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [liveEvents, setLiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
+  const [coachProfile, setCoachProfile] = useState(null);
   const [tab, setTab] = useState("results");
   const [liveView, setLiveView] = useState("totals");
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -221,7 +222,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           const profile = await getProfile();
           if (profile && profile.role === 'coach' && !profile.blocked) {
             const assigned = await isCoachForTeam(profile.id, teamSlug);
-            if (assigned) setIsCoach(true);
+            if (assigned) {
+              setIsCoach(true);
+              setCoachProfile(profile);
+            }
           }
         }
 
@@ -317,8 +321,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     return () => clearInterval(interval);
   }, [team, liveMatch, tab]);
 
-  const handleCoachLogout = () => {
+  const handleCoachLogout = async () => {
+    await signOut();
     setIsCoach(false);
+    setCoachProfile(null);
   };
 
   if (loading) return (
@@ -406,14 +412,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               {winRate > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "1px 6px", borderRadius: 99 }}>{winRate}%</span>}
             </div>
           </div>
-          {/* Coach/Public toggle */}
-          {isCoach ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</span>
-              <button onClick={handleCoachLogout} style={{ fontSize: 9, color: "#94A3B8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Switch to Public</button>
+          {/* Login / Logout */}
+          {isCoach && coachProfile ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
+              <button onClick={handleCoachLogout} style={{ fontSize: 9, color: "#EF4444", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Logout</button>
             </div>
           ) : (
-            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>🔒 Coach Login</button>
+            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Login</button>
           )}
         </div>
       </div>
