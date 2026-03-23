@@ -6,10 +6,12 @@ export default function LandingPage() {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
+  const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
+  const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results
 
   // Global presence tracking
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function LandingPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [{ data: allTeams }, { data: allMatches }, { data: live }] = await Promise.all([
+        const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }] = await Promise.all([
           supabase.from('teams').select('*').order('name'),
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
@@ -52,23 +54,42 @@ export default function LandingPage() {
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
             .eq('status', 'live'),
+          supabase.from('matches')
+            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .eq('status', 'upcoming')
+            .order('match_date', { ascending: true })
+            .order('scheduled_time', { ascending: true }),
         ]);
 
         if (allTeams) setTeams(allTeams);
         if (allMatches) setMatches(allMatches);
         if (live) setLiveMatches(live);
+        if (upcoming) setUpcomingMatches(upcoming);
+
+        // Auto-select best tab
+        if (live && live.length > 0) setActiveTab("live");
+        else if (upcoming && upcoming.length > 0) setActiveTab("upcoming");
+        else setActiveTab("results");
       } catch (err) { console.error('Landing load error:', err); }
       setLoading(false);
     };
     load();
 
-    // Poll live matches every 10s
+    // Poll live + upcoming every 10s
     const poll = setInterval(async () => {
       try {
-        const { data: live } = await supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-          .eq('status', 'live');
+        const [{ data: live }, { data: upcoming }] = await Promise.all([
+          supabase.from('matches')
+            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .eq('status', 'live'),
+          supabase.from('matches')
+            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .eq('status', 'upcoming')
+            .order('match_date', { ascending: true })
+            .order('scheduled_time', { ascending: true }),
+        ]);
         if (live) setLiveMatches(live);
+        if (upcoming) setUpcomingMatches(upcoming);
       } catch {}
     }, 10000);
     return () => clearInterval(poll);
@@ -142,11 +163,22 @@ export default function LandingPage() {
         </div>
         <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
         <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
-        <div style={styles.sportPills}>
-          <span style={{ ...styles.pill, borderColor: "#F59E0B44", color: "#F59E0B", background: "#F59E0B11" }}>Hockey</span>
-          <span style={styles.pill}>Rugby</span>
-          <span style={styles.pill}>Netball</span>
-          <span style={styles.pill}>Cricket</span>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 320, margin: "14px auto 0" }}>
+          {[
+            { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
+            { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
+            { id: "results", label: "Results", count: matches.length },
+          ].map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+              background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
+              color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
+            }}>
+              {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", marginRight: 4, animation: "pulse 2s infinite" }} />}
+              {t.label}{t.count > 0 ? ` (${t.count})` : ""}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -154,103 +186,139 @@ export default function LandingPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
-          {/* Live Matches */}
-          {liveMatches.length > 0 && (
+          {/* ═══ LIVE TAB ═══ */}
+          {activeTab === "live" && (
             <div style={styles.section}>
-              <div style={{ ...styles.sectionTitle, color: "#10B981" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
-                  Live now
-                </span>
-              </div>
-              {liveMatches.map(m => {
-                const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-                return (
-                  <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
-                    style={{ ...styles.scoreCard, border: "1px solid #10B98133", background: "#10B98108", cursor: "pointer" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: "#10B98122", border: "1.5px solid #10B98144", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
-                      <div style={styles.matchMeta}>
-                        {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
-                        {liveMatchViewers[m.id] > 0 && (
-                          <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
-                        )}
+              {liveMatches.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No live matches right now</div>
+              ) : (
+                liveMatches.map(m => {
+                  const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  return (
+                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
+                      style={{ ...styles.scoreCard, border: "1px solid #10B98133", background: "#10B98108", cursor: "pointer" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: "#10B98122", border: "1.5px solid #10B98144", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
                       </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={styles.matchMeta}>
+                          {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
+                          {liveMatchViewers[m.id] > 0 && (
+                            <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
               <style>{`@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
             </div>
           )}
 
-          {/* Teams */}
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{isSearching ? `Results (${filteredTeams.length})` : "Recently active"}</div>
-            <div style={styles.searchBox}>
-              <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-              <input
-                style={styles.searchInput}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Find a team..."
-              />
-              {search && (
-                <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
-              )}
-            </div>
-            {filteredTeams.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
-            ) : (
-              filteredTeams.map(t => {
-                const r = teamRecords[t.id];
-                const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
-                return (
-                  <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
-                    <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={styles.teamName}>{t.name}</div>
-                      {r ? (
-                        <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
-                      ) : (
-                        <div style={styles.teamRecord}>No matches yet</div>
-                      )}
-                    </div>
-                    <span style={{ color: "#334155", fontSize: 14 }}>›</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Recent Results */}
-          {matches.length > 0 && (
+          {/* ═══ UPCOMING TAB ═══ */}
+          {activeTab === "upcoming" && (
             <div style={styles.section}>
-              <div style={styles.sectionTitle}>Recent results</div>
-              {matches.slice(0, 8).map(m => {
-                const homeR = resultBadge(m, m.home_team?.id);
-                const d = new Date(m.match_date);
-                const homeSlug = teamSlug(m.home_team?.name || "");
-                return (
-                  <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
-                    style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                    <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
-                      <div style={styles.matchMeta}>
-                        {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                        {m.venue && ` · ${venueDisplay(m)}`}
+              {upcomingMatches.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No upcoming matches scheduled</div>
+              ) : (
+                upcomingMatches.map(m => {
+                  const d = new Date(m.match_date + 'T00:00:00');
+                  const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  return (
+                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
+                      style={{ ...styles.scoreCard, cursor: "pointer" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: "#F59E0B22", border: "1.5px solid #F59E0B44", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#F59E0B" }}>
+                        {d.getDate()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={styles.matchMeta}>
+                          {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                          {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                          {m.venue && ` · ${m.venue}`}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>
+                        {m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) : ''}
                       </div>
                     </div>
-                    <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
+          )}
+
+          {/* ═══ RESULTS TAB ═══ */}
+          {activeTab === "results" && (
+            <>
+              {/* Teams */}
+              <div style={styles.section}>
+                <div style={styles.sectionTitle}>{isSearching ? `Results (${filteredTeams.length})` : "Recently active"}</div>
+                <div style={styles.searchBox}>
+                  <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+                  <input
+                    style={styles.searchInput}
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Find a team..."
+                  />
+                  {search && (
+                    <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+                  )}
+                </div>
+                {filteredTeams.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
+                ) : (
+                  filteredTeams.map(t => {
+                    const r = teamRecords[t.id];
+                    const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
+                    return (
+                      <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
+                        <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={styles.teamName}>{t.name}</div>
+                          {r ? (
+                            <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
+                          ) : (
+                            <div style={styles.teamRecord}>No matches yet</div>
+                          )}
+                        </div>
+                        <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Recent Results */}
+              {matches.length > 0 && (
+                <div style={styles.section}>
+                  <div style={styles.sectionTitle}>Recent results</div>
+                  {matches.slice(0, 8).map(m => {
+                    const homeR = resultBadge(m, m.home_team?.id);
+                    const d = new Date(m.match_date);
+                    const homeSlug = teamSlug(m.home_team?.name || "");
+                    return (
+                      <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
+                        style={{ ...styles.scoreCard, cursor: "pointer" }}>
+                        <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                          <div style={styles.matchMeta}>
+                            {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                            {m.venue && ` · ${venueDisplay(m)}`}
+                          </div>
+                        </div>
+                        <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -275,8 +343,6 @@ const styles = {
   hero: { padding: "28px 20px 20px", textAlign: "center" },
   logo: { fontSize: 38, fontWeight: 900, letterSpacing: -1, color: "#F59E0B" },
   tagline: { fontSize: 13, color: "#94A3B8", fontWeight: 500, marginTop: 5 },
-  sportPills: { display: "flex", gap: 6, justifyContent: "center", marginTop: 12, flexWrap: "wrap" },
-  pill: { fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 99, border: "1px solid #334155", color: "#64748B" },
   section: { padding: "0 16px 16px" },
   sectionTitle: { fontSize: 11, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, padding: "0 2px" },
   searchBox: { display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 10 },

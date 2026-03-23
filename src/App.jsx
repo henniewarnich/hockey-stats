@@ -111,7 +111,14 @@ export default function App() {
   }
 
   if (route.type === 'login') {
-    if (currentUser) { handleLogin(currentUser); return null; }
+    if (currentUser) {
+      // Already logged in — redirect immediately without rendering blank
+      const target = currentUser.role === 'admin' || currentUser.role === 'commentator_admin' ? '#/admin'
+        : currentUser.role === 'commentator' ? '#/record'
+        : currentUser.role === 'coach' ? '#/coach' : '';
+      if (window.location.hash !== target) window.location.hash = target;
+      return <LoginPage onLogin={handleLogin} />;
+    }
     return <LoginPage onLogin={handleLogin} />;
   }
 
@@ -186,7 +193,34 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     window.location.reload();
   };
 
-  const handleSelectGame = (game) => { setReviewGame(game); setScreen("game_review"); };
+  const handleSelectGame = async (game) => {
+    // Cloud-only match — fetch events from Supabase
+    if (game.cloudOnly && !game.events) {
+      try {
+        const { data: events } = await supabase
+          .from('match_events')
+          .select('*')
+          .eq('match_id', game.id)
+          .order('seq', { ascending: false });
+        game = {
+          ...game,
+          events: (events || []).map(e => ({
+            id: e.id,
+            team: e.team,
+            event: e.event,
+            zone: e.zone || "",
+            detail: e.detail || "",
+            time: e.match_time || 0,
+            seq: e.seq,
+          })),
+        };
+      } catch {
+        game = { ...game, events: [] };
+      }
+    }
+    setReviewGame(game);
+    setScreen("game_review");
+  };
 
   const getTeamShareLink = (teamName) => {
     const slug = teamName.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');

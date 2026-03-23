@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { logLoginAttempt } from '../utils/audit.js';
 import { getSession, getProfile, isCoachForTeam } from '../utils/auth.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
@@ -143,13 +142,11 @@ const StatRow = ({ hVal, label, aVal, hColor, aColor, inverted }) => {
 export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [team, setTeam] = useState(null);
   const [matches, setMatches] = useState([]);
+  const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [liveMatch, setLiveMatch] = useState(null);
   const [liveEvents, setLiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
   const [tab, setTab] = useState("results");
   const [liveView, setLiveView] = useState("totals");
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -183,7 +180,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       if (data) {
         const live = data.find(m => m.status === 'live');
         const ended = data.filter(m => m.status === 'ended');
+        const upcoming = data.filter(m => m.status === 'upcoming').sort((a, b) => {
+          const da = new Date(a.match_date + 'T' + (a.scheduled_time || '00:00'));
+          const db = new Date(b.match_date + 'T' + (b.scheduled_time || '00:00'));
+          return da - db;
+        });
         setMatches(ended);
+        setUpcomingMatches(upcoming);
         if (live) { setLiveMatch(live); setTab("live"); }
         else { setLiveMatch(null); }
       }
@@ -222,12 +225,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           }
         }
 
-        // Legacy PIN check fallback
-        if (!session) {
-          const storedPin = localStorage.getItem(`coach-pin-${found.id}`);
-          if (storedPin && found.coach_pin && storedPin === found.coach_pin) setIsCoach(true);
-        }
-
         // Load matches
         const { data: allMatches } = await supabase
           .from('matches')
@@ -238,7 +235,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         if (allMatches) {
           const live = allMatches.find(m => m.status === 'live');
           const ended = allMatches.filter(m => m.status === 'ended');
+          const upcoming = allMatches.filter(m => m.status === 'upcoming').sort((a, b) => {
+            const da = new Date(a.match_date + 'T' + (a.scheduled_time || '00:00'));
+            const db = new Date(b.match_date + 'T' + (b.scheduled_time || '00:00'));
+            return da - db;
+          });
           setMatches(ended);
+          setUpcomingMatches(upcoming);
 
           // Auto-open a specific match if navigated from landing page
           if (initialMatchId) {
@@ -314,27 +317,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     return () => clearInterval(interval);
   }, [team, liveMatch, tab]);
 
-  const handlePinSubmit = () => {
-    if (!team) return;
-    if (team.coach_pin && pinInput === team.coach_pin) {
-      setIsCoach(true);
-      localStorage.setItem(`coach-pin-${team.id}`, pinInput);
-      setShowPinModal(false); setPinError(false);
-      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: true });
-    } else if (!team.coach_pin && pinInput.length >= 4) {
-      setIsCoach(true);
-      localStorage.setItem(`coach-pin-${team.id}`, pinInput);
-      setShowPinModal(false); setPinError(false);
-      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: true });
-    } else {
-      setPinError(true);
-      logLoginAttempt({ pinType: 'coach', teamName: team.name, success: false });
-    }
-  };
-
-  const handleLogout = () => {
+  const handleCoachLogout = () => {
     setIsCoach(false);
-    if (team) localStorage.removeItem(`coach-pin-${team.id}`);
   };
 
   if (loading) return (
@@ -397,7 +381,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
       {/* Home link */}
       <div style={{ padding: "8px 14px 0" }}>
-        <button onClick={() => { window.location.hash = ''; }} style={{
+        <button onClick={() => { window.location.hash = isCoach ? '#/coach' : ''; }} style={{
           background: "none", border: "none", color: "#64748B", fontSize: 11, cursor: "pointer", padding: 0,
           display: "flex", alignItems: "center", gap: 4,
         }}>
@@ -405,7 +389,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/>
             <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/>
           </svg>
-          kykie.net
+          {isCoach ? '← Dashboard' : 'kykie.net'}
         </button>
       </div>
 
@@ -426,31 +410,37 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           {isCoach ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", background: "#8B5CF622", padding: "2px 8px", borderRadius: 99 }}>🔒 Coach</span>
-              <button onClick={handleLogout} style={{ fontSize: 9, color: "#94A3B8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Switch to Public</button>
+              <button onClick={handleCoachLogout} style={{ fontSize: 9, color: "#94A3B8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Switch to Public</button>
             </div>
           ) : (
-            <button onClick={() => setShowPinModal(true)} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>🔒 Coach</button>
+            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 9, color: "#8B5CF6", background: "#8B5CF622", border: "1px solid #8B5CF644", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>🔒 Coach Login</button>
           )}
         </div>
       </div>
 
       {/* Tabs */}
-      {liveMatch && (
-        <div style={{ padding: "0 14px 6px" }}>
-          <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #334155" }}>
+      <div style={{ padding: "0 14px 6px" }}>
+        <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #334155" }}>
+          {liveMatch && (
             <button onClick={() => setTab("live")} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
               background: tab === "live" ? "#10B98122" : "#1E293B", color: tab === "live" ? "#10B981" : "#64748B",
             }}>
-              <span style={{ animation: "pulse-dot 2s infinite", marginRight: 4 }}>●</span> {isCoach ? "Live Stats" : "Live Match"}
+              <span style={{ animation: "pulse-dot 2s infinite", marginRight: 4 }}>●</span> {isCoach ? "Live Stats" : "Live"}
             </button>
-            <button onClick={() => setTab("results")} style={{
+          )}
+          {upcomingMatches.length > 0 && (
+            <button onClick={() => setTab("upcoming")} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
-              background: tab === "results" ? "#334155" : "#1E293B", color: tab === "results" ? "#F8FAFC" : "#64748B",
-            }}>Results ({matches.length})</button>
-          </div>
+              background: tab === "upcoming" ? "#F59E0B22" : "#1E293B", color: tab === "upcoming" ? "#F59E0B" : "#64748B",
+            }}>Upcoming ({upcomingMatches.length})</button>
+          )}
+          <button onClick={() => setTab("results")} style={{
+            flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+            background: tab === "results" ? "#334155" : "#1E293B", color: tab === "results" ? "#F8FAFC" : "#64748B",
+          }}>Results ({matches.length})</button>
         </div>
-      )}
+      </div>
 
       {/* ═══ LIVE TAB ═══ */}
       {(tab === "live" && liveMatch) && (
@@ -544,8 +534,56 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         </div>
       )}
 
+      {/* ═══ UPCOMING TAB ═══ */}
+      {tab === "upcoming" && !selectedMatch && (
+        <div style={{ padding: "8px 14px 20px", flex: 1, overflowY: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button onClick={refreshMatches} disabled={refreshing} style={{
+              background: "none", border: "1px solid #334155", borderRadius: 6, padding: "3px 10px",
+              fontSize: 9, fontWeight: 700, color: refreshing ? "#475569" : "#94A3B8", cursor: "pointer",
+            }}>{refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}</button>
+          </div>
+          {upcomingMatches.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No upcoming matches</div>
+          ) : (
+            upcomingMatches.map(m => {
+              const isHome = m.home_team?.id === team.id;
+              const opp = isHome ? m.away_team : m.home_team;
+              const d = new Date(m.match_date + 'T00:00:00');
+              return (
+                <div key={m.id} style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4,
+                  background: "#1E293B", borderRadius: 10, border: "1px solid #334155",
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 8, background: "#F59E0B11", border: "1.5px solid #F59E0B33",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: "#F59E0B", lineHeight: 1 }}>{d.getDate()}</div>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>
+                      {isHome ? 'vs' : '@'} {opp?.name || 'TBD'}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
+                      {d.toLocaleDateString("en-ZA", { weekday: "short" })}
+                      {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                      {m.venue && ` · ${m.venue}`}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 9, color: "#64748B", fontWeight: 600 }}>
+                    {m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) : ''}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {/* ═══ RESULTS TAB ═══ */}
-      {(tab === "results" || !liveMatch) && !selectedMatch && (
+      {tab === "results" && !selectedMatch && (
         <div style={{ padding: "8px 14px 20px", flex: 1, overflowY: "auto" }}>
           {/* Refresh + Season stats */}
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
@@ -691,20 +729,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 })}
             </div>
           )}
-        </div>
-      )}
-
-      {/* PIN Modal */}
-      {showPinModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowPinModal(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#1E293B", borderRadius: 12, padding: 20, width: 280, border: "1px solid #334155" }}>
-            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, textAlign: "center" }}>🔒 Coach Login</div>
-            <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12, textAlign: "center" }}>Enter the team PIN</div>
-            <input value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }} type="password" placeholder="PIN"
-              style={{ width: "100%", padding: 12, borderRadius: 8, border: pinError ? "2px solid #EF4444" : "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, textAlign: "center", letterSpacing: "0.3em", boxSizing: "border-box", outline: "none" }} autoFocus />
-            {pinError && <div style={{ fontSize: 12, color: "#EF4444", textAlign: "center", marginTop: 6 }}>Incorrect PIN</div>}
-            <button onClick={handlePinSubmit} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 8, background: "#8B5CF6", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Unlock</button>
-          </div>
         </div>
       )}
 

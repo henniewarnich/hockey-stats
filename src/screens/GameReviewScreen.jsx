@@ -91,7 +91,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
 
       {/* Match Log */}
       <div style={{ padding: "0 12px 20px" }}>
-        {G.events.length === 0 ? (
+        {!G.events || G.events.length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px 16px", color: theme.textDim }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 4 }}>Detailed analytics not available for this match</div>

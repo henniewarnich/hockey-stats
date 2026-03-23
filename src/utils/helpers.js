@@ -43,7 +43,7 @@ export function exportMatchJSON(game) {
     matchType: game.matchType || null,
     teams: { home: game.teams.home, away: game.teams.away },
     score: { home: game.homeScore, away: game.awayScore },
-    events: [...game.events].reverse(),
+    events: [...(game.events || [])].reverse(),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
