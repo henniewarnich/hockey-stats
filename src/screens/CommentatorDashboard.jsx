@@ -205,11 +205,29 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
       {/* Header */}
-      <div style={{ padding: "20px 16px 12px", textAlign: "center" }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: "#F59E0B" }}>🎙 My Matches</div>
-        <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
-          {currentUser.firstname} {currentUser.lastname}
-          <span style={{ fontSize: 9, marginLeft: 6, padding: "2px 8px", borderRadius: 99, background: "#10B98122", color: "#10B981", fontWeight: 700 }}>Commentator</span>
+      <div style={{ padding: "16px 16px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="28" height="28" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+              <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+              <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>My Matches</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 10, color: "#64748B", textAlign: "right" }}>
+              {currentUser.firstname}
+              <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", borderRadius: 99, background: "#10B98122", color: "#10B981", fontWeight: 700 }}>
+                {currentUser.role === 'commentator_admin' ? 'Comm Admin' : 'Commentator'}
+              </span>
+            </div>
+            <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Sign out</button>
+          </div>
         </div>
       </div>
 
@@ -302,9 +320,6 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
 
         <div style={{ textAlign: "center", marginTop: 24 }}>
           <button onClick={load} style={{ background: "none", border: "1px solid #334155", borderRadius: 8, padding: "6px 16px", color: "#64748B", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>🔄 Refresh</button>
-          <div style={{ marginTop: 12 }}>
-            <button onClick={onLogout} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", textDecoration: "underline" }}>Sign out</button>
-          </div>
           <div style={{ marginTop: 8, fontSize: 9, color: "#334155" }}>v{APP_VERSION}</div>
         </div>
       </div>

@@ -159,8 +159,13 @@ export async function fetchMatches() {
 
 // Fetch all matches with events, converted to local app format
 export async function fetchMatchesForLocal() {
-  const matches = await fetchMatches();
-  if (!matches) return null;
+  // Only pull ended matches — upcoming/live don't belong in local game history
+  const { data: matches, error } = await supabase
+    .from('matches')
+    .select(`*, home_team:teams!home_team_id(id, name, color, short_name), away_team:teams!away_team_id(id, name, color, short_name)`)
+    .eq('status', 'ended')
+    .order('match_date', { ascending: false });
+  if (error || !matches) return null;
 
   const results = [];
   for (const m of matches) {

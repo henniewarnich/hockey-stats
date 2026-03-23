@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword, getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 const ROLES = [
   { id: 'admin', label: 'Admin', color: '#EF4444' },
@@ -149,7 +150,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={() => { setView("list"); setSaveError(""); setSaveSuccess(""); }}>←</button>
-        <div style={S.navTitle}>New User</div>
+        <div style={S.navTitle}>New User</div><NavLogo />
       </div>
       <div style={S.page}>
         <div style={{ marginBottom: 12 }}>
@@ -202,7 +203,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={() => { setView("list"); setSaveError(""); }}>←</button>
-        <div style={S.navTitle}>Edit User</div>
+        <div style={S.navTitle}>Edit User</div><NavLogo />
       </div>
       <div style={S.page}>
         <div style={{ marginBottom: 12 }}>
@@ -315,7 +316,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Users</div>
+        <div style={S.navTitle}>Users</div><NavLogo />
       </div>
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => setView("create")}>+ New User</button>

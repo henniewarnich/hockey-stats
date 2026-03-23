@@ -1,5 +1,6 @@
 import { fmt, fmtTs, exportMatchJSON } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function GameReviewScreen({ game, onDelete, onBack, onNavigate }) {
   const G = game;
@@ -50,6 +51,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
             {G.venue && ` · ${G.matchType ? (G.matchType.charAt(0).toUpperCase() + G.matchType.slice(1)) + ' @ ' : ''}${G.venue}`}
           </div>
         </div>
+        <NavLogo />
       </div>
 
       {/* Score header */}

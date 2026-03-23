@@ -4,6 +4,7 @@ import { scheduleMatch, fetchUpcomingMatches, assignCommentators, updateSchedule
 import { listUsersByRole } from '../utils/auth.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function MatchScheduleScreen({ onBack }) {
   const [view, setView] = useState("list"); // list | create | edit
@@ -134,6 +135,7 @@ export default function MatchScheduleScreen({ onBack }) {
       <div style={S.nav}>
         <button style={S.backBtn} onClick={() => { resetForm(); setView("list"); }}>←</button>
         <div style={S.navTitle}>{editMatch ? "Edit Match" : "Schedule Match"}</div>
+        <NavLogo />
       </div>
       <div style={{ ...S.page, paddingBottom: 30 }}>
         {/* Home Team */}
@@ -267,6 +269,7 @@ export default function MatchScheduleScreen({ onBack }) {
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
         <div style={S.navTitle}>Match Schedule</div>
+        <NavLogo />
       </div>
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => { resetForm(); setView("create"); }}>+ Schedule Match</button>

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 function isDuplicateMatch(games, homeId, awayId, date) {
   const dateStr = new Date(date).toISOString().slice(0, 10);
@@ -60,7 +61,7 @@ export default function MatchSetupScreen({ teams, games, onStart, onImportGame, 
   if (!mode) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>New Match</div></div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>New Match</div><NavLogo /></div>
         <div style={S.page}>
           <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>Choose how to create a match</div>
           {MODES.map(m => (
@@ -97,7 +98,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div></div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div><NavLogo /></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -109,7 +110,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div></div>
+      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div><NavLogo /></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
@@ -210,7 +211,7 @@ function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div></div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div><NavLogo /></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -222,7 +223,7 @@ function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div></div>
+      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div><NavLogo /></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />

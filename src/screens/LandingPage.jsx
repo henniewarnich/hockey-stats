@@ -159,17 +159,20 @@ export default function LandingPage() {
 
       {/* Hero */}
       <div style={styles.hero}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-          <svg width="44" height="44" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
-            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
-            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-          <div style={styles.logo}>kykie</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="44" height="44" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+              <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+              <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+            <div style={styles.logo}>kykie</div>
+          </div>
+          <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
         </div>
-        <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
+        <div style={{ ...styles.tagline, textAlign: "center" }}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "12px auto 0" }}>
@@ -401,7 +404,6 @@ export default function LandingPage() {
             {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"} online
           </div>
         )}
-        <button onClick={() => { window.location.hash = "#/login"; }} style={styles.adminBtn}>🔒 Sign in</button>
         <div style={{ fontSize: 10, color: "#334155" }}>kykie · v{APP_VERSION}</div>
       </div>
     </div>

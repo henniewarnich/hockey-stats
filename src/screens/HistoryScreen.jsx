@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing }) {
   const [search, setSearch] = useState("");
@@ -91,8 +92,8 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Game History</div>
-        <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{loadingCloud ? "..." : allGames.length} game{allGames.length !== 1 ? "s" : ""}</div>
+        <div style={S.navTitle}>Game History ({loadingCloud ? "..." : allGames.length})</div>
+        <NavLogo />
       </div>
       <div style={S.page}>
         {/* Sync banner */}

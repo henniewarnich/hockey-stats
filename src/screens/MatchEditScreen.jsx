@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [homeTeamId, setHomeTeamId] = useState(game.teams?.home?.id || null);
@@ -66,7 +67,7 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Edit Match</div>
+        <div style={S.navTitle}>Edit Match</div><NavLogo />
       </div>
       <div style={S.page}>
         {/* Search */}

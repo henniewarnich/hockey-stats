@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareLink }) {
   const [editing, setEditing] = useState(null);
-  const [showCoachPin, setShowCoachPin] = useState(false);
-  const [showCommPin, setShowCommPin] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = search.trim()
@@ -18,8 +17,8 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
       <div style={S.app}>
         <div style={S.nav}>
           <button style={S.backBtn} onClick={onBack}>←</button>
-          <div style={S.navTitle}>Teams</div>
-          <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{teams.length}</div>
+          <div style={S.navTitle}>Teams ({teams.length})</div>
+          <NavLogo />
         </div>
         <div style={S.page}>
           <button style={S.btn(theme.accent, theme.bg)} onClick={() => setEditing({ name: "", color: TEAM_COLORS[0].hex })}>
@@ -69,8 +68,6 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
     if (!editing?.name?.trim()) return;
     onSave(editing);
     setEditing(null);
-    setShowCoachPin(false);
-    setShowCommPin(false);
   };
 
   return (
@@ -78,6 +75,7 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
       <div style={S.nav}>
         <button style={S.backBtn} onClick={() => setEditing(null)}>←</button>
         <div style={S.navTitle}>{editing?.id ? "Edit" : "New"} Team</div>
+        <NavLogo />
       </div>
       <div style={S.page}>
         <div style={{ marginBottom: 20 }}>
@@ -100,38 +98,6 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
                 )}
               </button>
             ))}
-          </div>
-        </div>
-        {/* Coach PIN */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={S.label}>Coach PIN (optional)</label>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input style={{ ...S.input, flex: 1, letterSpacing: "0.2em", fontSize: 16 }}
-              value={editing?.coach_pin || ""}
-              onChange={e => setEditing(p => ({ ...p, coach_pin: e.target.value.slice(0, 20) }))}
-              placeholder="e.g. mypin123" type={showCoachPin ? "text" : "password"} />
-            <button onClick={() => setShowCoachPin(p => !p)} style={{ background: "none", border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: theme.textDim, fontSize: 14 }}>
-              {showCoachPin ? "🙈" : "👁"}
-            </button>
-          </div>
-          <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
-            Unlocks detailed stats on the team page
-          </div>
-        </div>
-        {/* Commentator PIN */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={S.label}>Commentator PIN (optional)</label>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input style={{ ...S.input, flex: 1, letterSpacing: "0.2em", fontSize: 16 }}
-              value={editing?.commentator_pin || ""}
-              onChange={e => setEditing(p => ({ ...p, commentator_pin: e.target.value.slice(0, 20) }))}
-              placeholder="e.g. comm456" type={showCommPin ? "text" : "password"} />
-            <button onClick={() => setShowCommPin(p => !p)} style={{ background: "none", border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: theme.textDim, fontSize: 14 }}>
-              {showCommPin ? "🙈" : "👁"}
-            </button>
-          </div>
-          <div style={{ fontSize: 9, color: theme.textDim, marginTop: 4 }}>
-            Allows recording matches for this team via the commentator link
           </div>
         </div>
         {/* Preview */}
