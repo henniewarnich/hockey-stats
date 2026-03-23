@@ -157,9 +157,7 @@ export default function LandingPage() {
       `}</style>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      {/* Sticky header */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
-      {/* Hero */}
+      {/* Hero - scrolls away */}
       <div style={styles.hero}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -175,75 +173,78 @@ export default function LandingPage() {
           <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
         </div>
         <div style={{ ...styles.tagline, textAlign: "center" }}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
+      </div>
 
+      {/* Sticky tabs + search */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "12px auto 0" }}>
-          {[
-            { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
-            { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
-            { id: "results", label: "Results", count: matches.length },
-            { id: "teams", label: "Teams", count: teams.length },
-          ].map(t => (
-            <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
-              flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
-              background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
-              color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
-            }}>
-              {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", marginRight: 4, animation: "pulse 2s infinite" }} />}
-              {t.label}{t.count > 0 ? ` (${t.count})` : ""}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Search + sport picker */}
-      <div style={{ padding: "0 16px 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", position: "relative" }}>
-          <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-          <input
-            style={styles.searchInput}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search..."
-          />
-          {search && (
-            <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
-          )}
-          <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
-            display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
-            border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 12 }}>🏑</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
-            <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
+        <div style={{ padding: "0 16px 6px" }}>
+          <div style={{ display: "flex", gap: 0, justifyContent: "center", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "0 auto" }}>
+            {[
+              { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
+              { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
+              { id: "results", label: "Results", count: matches.length },
+              { id: "teams", label: "Teams", count: teams.length },
+            ].map(t => (
+              <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
+                flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
+                color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
+              }}>
+                {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", marginRight: 4, animation: "pulse 2s infinite" }} />}
+                {t.label}{t.count > 0 ? ` (${t.count})` : ""}
+              </button>
+            ))}
           </div>
-          {sportDropdownOpen && (
-            <div style={{
-              position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
-              border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
-            }}>
-              <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
-                <span style={{ fontSize: 13 }}>🏑</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
-                <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
-              </div>
-              {[
-                { icon: "🏑", label: "Boys Hockey" },
-                { icon: "🏉", label: "Rugby" },
-                { icon: "🏐", label: "Netball" },
-                { icon: "🏏", label: "Cricket" },
-              ].map(s => (
-                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
-                  <span style={{ fontSize: 13 }}>{s.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
-                  <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
-      <div style={{ height: 1, background: "#334155" }} />
+
+        {/* Search + sport picker */}
+        <div style={{ padding: "0 16px 8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", position: "relative" }}>
+            <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+            <input
+              style={styles.searchInput}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+            />
+            {search && (
+              <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+            )}
+            <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
+              display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
+              border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 12 }}>🏑</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
+              <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
+            </div>
+            {sportDropdownOpen && (
+              <div style={{
+                position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
+                border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
+              }}>
+                <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
+                  <span style={{ fontSize: 13 }}>🏑</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                  <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
+                </div>
+                {[
+                  { icon: "🏑", label: "Boys Hockey" },
+                  { icon: "🏉", label: "Rugby" },
+                  { icon: "🏐", label: "Netball" },
+                  { icon: "🏏", label: "Cricket" },
+                ].map(s => (
+                  <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
+                    <span style={{ fontSize: 13 }}>{s.icon}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
+                    <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {loading ? (

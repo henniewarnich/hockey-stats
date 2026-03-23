@@ -446,15 +446,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           </svg>
           {isCoach ? '← Dashboard' : 'kykie'}
         </button>
-        {/* Login / Logout */}
-        {isCoach && coachProfile ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
-            <button onClick={handleCoachLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Logout</button>
-          </div>
-        ) : (
-          <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
-        )}
+        {/* Refresh + Login / Logout */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={refreshMatches} disabled={refreshing} style={{
+            background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center",
+            animation: refreshing ? "spin 1s linear infinite" : "none",
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={refreshing ? "#475569" : "#94A3B8"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+          </button>
+          {isCoach && coachProfile ? (
+            <>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
+              <button onClick={handleCoachLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Logout</button>
+            </>
+          ) : (
+            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
+          )}
+        </div>
       </div>
 
       {/* Team Header */}
@@ -601,12 +611,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* ═══ UPCOMING TAB ═══ */}
       {tab === "upcoming" && !selectedMatch && (
         <div style={{ padding: "8px 14px 20px", flex: 1, overflowY: "auto" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
-            <button onClick={refreshMatches} disabled={refreshing} style={{
-              background: "none", border: "1px solid #334155", borderRadius: 6, padding: "3px 10px",
-              fontSize: 9, fontWeight: 700, color: refreshing ? "#475569" : "#94A3B8", cursor: "pointer",
-            }}>{refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}</button>
-          </div>
           {upcomingMatches.length === 0 ? (
             <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No upcoming matches</div>
           ) : (
@@ -649,13 +653,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* ═══ RESULTS TAB ═══ */}
       {tab === "results" && !selectedMatch && (
         <div style={{ padding: "8px 14px 20px", flex: 1, overflowY: "auto" }}>
-          {/* Refresh + Season stats */}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
-            <button onClick={refreshMatches} disabled={refreshing} style={{
-              background: "none", border: "1px solid #334155", borderRadius: 6, padding: "3px 10px",
-              fontSize: 9, fontWeight: 700, color: refreshing ? "#475569" : "#94A3B8", cursor: "pointer",
-            }}>{refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}</button>
-          </div>
           {/* Season stats */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "12px 14px", marginBottom: 10, border: "1px solid #334155" }}>
             <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
@@ -815,6 +812,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
       <style>{`
         @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes slide-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes reaction-float { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.4); } }
       `}</style>
