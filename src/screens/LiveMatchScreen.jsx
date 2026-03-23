@@ -5,6 +5,7 @@ import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
 import { createLiveMatch, pushLiveEvent, updateLiveScore, endLiveMatch } from '../utils/sync.js';
+import { supabase } from '../utils/supabase.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import FieldRecorder from '../components/FieldRecorder.jsx';
 import EventLog from '../components/EventLog.jsx';
@@ -34,6 +35,21 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [pauseReason, setPauseReason] = useState(null);
   const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
+  const [matchViewers, setMatchViewers] = useState(0);
+
+  // Track viewers via presence
+  useEffect(() => {
+    if (!liveMatchId || isDemo) { setMatchViewers(0); return; }
+    const channel = supabase.channel(`match-viewers-${liveMatchId}`, { config: { presence: { key: 'commentator-' + Math.random().toString(36).slice(2) } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      const count = Object.keys(channel.presenceState()).length;
+      setMatchViewers(Math.max(0, count - 1)); // exclude self
+    });
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await channel.track({ role: 'commentator', ts: Date.now() });
+    });
+    return () => { supabase.removeChannel(channel); };
+  }, [liveMatchId, isDemo]);
   const eventSeqRef = useRef(0);
 
   const topTeam = flipped ? "home" : "away";
@@ -243,6 +259,15 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
         matchTime={matchTime} matchState={matchState} running={running} />
+
+      {/* Viewer count */}
+      {matchViewers > 0 && (
+        <div style={{ textAlign: "center", padding: "2px 0 4px" }}>
+          <span style={{ fontSize: 10, color: "#10B981", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            👁 {matchViewers} watching
+          </span>
+        </div>
+      )}
 
       {/* Possession + Flip */}
       <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>

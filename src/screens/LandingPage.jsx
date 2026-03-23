@@ -159,7 +159,7 @@ export default function LandingPage() {
 
       {/* Hero */}
       <div style={styles.hero}>
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
           <svg width="44" height="44" viewBox="0 0 56 56">
             <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
             <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
@@ -167,8 +167,8 @@ export default function LandingPage() {
             <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
+          <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
         </div>
-        <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
         <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
 
         {/* Sport picker dropdown */}
@@ -412,7 +412,7 @@ export default function LandingPage() {
 
 const styles = {
   page: { fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" },
-  hero: { padding: "28px 20px 20px", textAlign: "center" },
+  hero: { padding: "18px 20px 16px", textAlign: "center" },
   logo: { fontSize: 38, fontWeight: 900, letterSpacing: -1, color: "#F59E0B" },
   tagline: { fontSize: 13, color: "#94A3B8", fontWeight: 500, marginTop: 5 },
   section: { padding: "0 16px 16px" },

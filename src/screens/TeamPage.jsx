@@ -657,20 +657,20 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           <div style={{ padding: "8px 14px 10px" }}>
             <div style={{ background: "#1E293B", borderRadius: 12, padding: "14px 12px", border: "1px solid #334155" }}>
               <div style={{ textAlign: "center", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "#64748B" }}>FULL TIME</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8" }}>FULL TIME</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: selectedMatch.home_team?.color }}>{selectedMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedMatch.home_team?.color }}>{selectedMatch.home_team?.name}</div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
-                <div style={{ fontSize: 14, color: "#64748B", padding: "0 8px" }}>–</div>
+                <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: selectedMatch.away_team?.color }}>{selectedMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedMatch.away_team?.color }}>{selectedMatch.away_team?.name}</div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
-              <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "#64748B" }}>
+              <div style={{ textAlign: "center", marginTop: 6, fontSize: 11, color: "#94A3B8" }}>
                 {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                 {selectedMatch.venue && ` · ${selectedMatch.match_type ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
               </div>
@@ -700,7 +700,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             />
           ) : (
             <div style={{ padding: "0 14px 20px" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
               {selectedEvents
                 .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
                 .map((entry, i) => {
@@ -710,25 +710,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   const mins = Math.floor((entry.match_time || 0) / 60);
                   return (
                     <div key={entry.id || i} style={{
-                      padding: "6px 10px", borderRadius: 8, marginBottom: 3,
+                      padding: "7px 10px", borderRadius: 8, marginBottom: 3,
                       background: isComm ? "linear-gradient(135deg, #F59E0B12, #F59E0B08)" : tc + "08",
                       borderLeft: isComm ? "3px solid #F59E0B55" : `3px solid ${tc}`,
                     }}>
                       {isComm ? (
                         <>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
-                            <span style={{ fontSize: 11 }}>💬</span>
-                            <span style={{ fontSize: 8, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>Insight</span>
-                            <span style={{ fontSize: 8, fontFamily: "monospace", color: "#64748B", marginLeft: "auto" }}>{mins}'</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                            <span style={{ fontSize: 12 }}>💬</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>Insight</span>
+                            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", marginLeft: "auto" }}>{mins}'</span>
                           </div>
-                          <div style={{ fontSize: 10, color: "#E2E8F0", lineHeight: 1.3, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail || entry.event}</div>
+                          <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.4, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail || entry.event}</div>
                         </>
                       ) : (
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <div style={{ fontSize: 8, fontFamily: "monospace", color: "#64748B", minWidth: 20 }}>{mins}'</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 22 }}>{mins}'</div>
                           <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
-                          <div style={{ fontSize: 10, fontWeight: 700, color: entry.event?.startsWith("Goal") ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
-                          {entry.detail && !isMeta && <div style={{ fontSize: 9, color: "#64748B", marginLeft: "auto" }}>{entry.detail}</div>}
+                          <div style={{ fontSize: 12, fontWeight: 700, color: entry.event?.startsWith("Goal") ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
+                          {entry.detail && !isMeta && <div style={{ fontSize: 10, color: "#94A3B8", marginLeft: "auto", textAlign: "right", maxWidth: "50%" }}>{entry.detail}</div>}
                         </div>
                       )}
                     </div>
