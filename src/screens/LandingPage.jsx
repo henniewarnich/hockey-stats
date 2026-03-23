@@ -178,7 +178,7 @@ export default function LandingPage() {
               position: "absolute", top: 42, left: 0, right: 0, borderRadius: 8,
               border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", background: "#F59E0B11" }}>
+              <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
                 <span style={{ fontSize: 14 }}>🏑</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
                 <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
@@ -223,13 +223,36 @@ export default function LandingPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
+          {/* Shared search */}
+          <div style={{ ...styles.section, paddingBottom: 0 }}>
+            <div style={styles.searchBox}>
+              <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+              <input
+                style={styles.searchInput}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search teams, venues..."
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+              )}
+            </div>
+          </div>
+
           {/* ═══ LIVE TAB ═══ */}
-          {activeTab === "live" && (
+          {activeTab === "live" && (() => {
+            const q = search.trim().toLowerCase();
+            const filtered = q ? liveMatches.filter(m =>
+              (m.home_team?.name || "").toLowerCase().includes(q) ||
+              (m.away_team?.name || "").toLowerCase().includes(q) ||
+              (m.venue || "").toLowerCase().includes(q)
+            ) : liveMatches;
+            return (
             <div style={styles.section}>
-              {liveMatches.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No live matches right now</div>
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No live matches right now"}</div>
               ) : (
-                liveMatches.map(m => {
+                filtered.map(m => {
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   return (
                     <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
@@ -253,15 +276,23 @@ export default function LandingPage() {
               )}
               <style>{`@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
             </div>
-          )}
+            );
+          })()}
 
           {/* ═══ UPCOMING TAB ═══ */}
-          {activeTab === "upcoming" && (
+          {activeTab === "upcoming" && (() => {
+            const q = search.trim().toLowerCase();
+            const filtered = q ? upcomingMatches.filter(m =>
+              (m.home_team?.name || "").toLowerCase().includes(q) ||
+              (m.away_team?.name || "").toLowerCase().includes(q) ||
+              (m.venue || "").toLowerCase().includes(q)
+            ) : upcomingMatches;
+            return (
             <div style={styles.section}>
-              {upcomingMatches.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No upcoming matches scheduled</div>
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No upcoming matches scheduled"}</div>
               ) : (
-                upcomingMatches.map(m => {
+                filtered.map(m => {
                   const d = new Date(m.match_date + 'T00:00:00');
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   return (
@@ -286,15 +317,23 @@ export default function LandingPage() {
                 })
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* ═══ RESULTS TAB ═══ */}
-          {activeTab === "results" && (
+          {activeTab === "results" && (() => {
+            const q = search.trim().toLowerCase();
+            const filtered = q ? matches.filter(m =>
+              (m.home_team?.name || "").toLowerCase().includes(q) ||
+              (m.away_team?.name || "").toLowerCase().includes(q) ||
+              (m.venue || "").toLowerCase().includes(q)
+            ) : matches;
+            return (
             <div style={styles.section}>
-              {matches.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No results yet</div>
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No results yet"}</div>
               ) : (
-                matches.slice(0, 20).map(m => {
+                filtered.slice(0, 20).map(m => {
                   const homeR = resultBadge(m, m.home_team?.id);
                   const d = new Date(m.match_date);
                   const homeSlug = teamSlug(m.home_team?.name || "");
@@ -315,23 +354,12 @@ export default function LandingPage() {
                 })
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* ═══ TEAMS TAB ═══ */}
           {activeTab === "teams" && (
             <div style={styles.section}>
-              <div style={styles.searchBox}>
-                <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-                <input
-                  style={styles.searchInput}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Find a team..."
-                />
-                {search && (
-                  <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
-                )}
-              </div>
               {filteredTeams.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
               ) : (
