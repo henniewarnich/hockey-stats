@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 
 // Sign in with username or email
 export async function signIn(usernameOrEmail, password) {
@@ -79,6 +79,9 @@ export async function getProfileByUsername(username) {
 
 // Create a new user (admin/commentator_admin function)
 export async function createUser({ firstname, lastname, username, email, password, role }) {
+  // Save current session before creating new user (signUp logs in as new user)
+  const { data: { session: adminSession } } = await supabase.auth.getSession();
+  
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -88,6 +91,15 @@ export async function createUser({ firstname, lastname, username, email, passwor
   });
   
   if (error) return { error: error.message };
+
+  // Restore admin session
+  if (adminSession) {
+    await supabase.auth.setSession({
+      access_token: adminSession.access_token,
+      refresh_token: adminSession.refresh_token,
+    });
+  }
+
   return { user: data.user };
 }
 
@@ -98,6 +110,26 @@ export async function updateProfile(userId, updates) {
     .update(updates)
     .eq('id', userId);
   if (error) return { error: error.message };
+  return { success: true };
+}
+
+// Reset a user's password (admin function via Edge Function)
+export async function resetPassword(userId, newPassword) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { error: 'Not authenticated' };
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ userId, newPassword }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) return { error: data.error || 'Failed to reset password' };
   return { success: true };
 }
 

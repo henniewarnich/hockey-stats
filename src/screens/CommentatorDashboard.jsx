@@ -180,6 +180,8 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   // ── MAIN DASHBOARD ──
   const upcomingMatches = matches.filter(m => m.status === 'upcoming');
   const liveMatches = matches.filter(m => m.status === 'live');
+  const completedMatches = matches.filter(m => m.status === 'ended');
+  const [tab, setTab] = useState("upcoming");
 
   return (
     <div style={{
@@ -197,13 +199,26 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div style={{ display: "flex", margin: "0 16px 12px", borderRadius: 8, overflow: "hidden", border: "1px solid #334155" }}>
+        {[["upcoming", `📅 Upcoming (${upcomingMatches.length + liveMatches.length})`], ["completed", `✓ Completed (${completedMatches.length})`]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            flex: 1, padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+            background: tab === k ? "#F59E0B22" : "#1E293B", color: tab === k ? "#F59E0B" : "#64748B",
+          }}>{l}</button>
+        ))}
+      </div>
+
       <div style={{ padding: "0 16px 20px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 40, color: "#64748B" }}>Loading...</div>
         ) : matches.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: "#64748B" }}>No matches assigned to you yet</div>
-        ) : (
+        ) : tab === "upcoming" ? (
           <>
+            {liveMatches.length === 0 && upcomingMatches.length === 0 && (
+              <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>No upcoming matches</div>
+            )}
             {/* Live matches */}
             {liveMatches.length > 0 && (
               <div style={{ marginBottom: 16 }}>
@@ -230,10 +245,48 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
               </div>
             )}
           </>
+        ) : (
+          <>
+            {completedMatches.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>No completed matches yet</div>
+            ) : (
+              <div>
+                {completedMatches.map(m => {
+                  const d = new Date(m.match_date);
+                  const isMyLock = m.locked_by === currentUser.id;
+                  return (
+                    <div key={m.id} style={{
+                      background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4,
+                      border: "1px solid #334155",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
+                          {m.home_team?.name} vs {m.away_team?.name}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#64748B", marginBottom: 4 }}>
+                        {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                        {m.venue && ` · ${m.venue}`}
+                        {m.duration > 0 ? " · Live" : " · Quick"}
+                      </div>
+                      {isMyLock && m.duration === 0 && (
+                        <button onClick={() => handleEditQuickScore(m)} style={{
+                          width: "100%", padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          border: "1px solid #F59E0B44", background: "transparent", color: "#F59E0B", cursor: "pointer",
+                        }}>✏️ Edit Score</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
 
         <div style={{ textAlign: "center", marginTop: 24 }}>
-          <button onClick={load} style={{ background: "none", border: `1px solid #334155`, borderRadius: 8, padding: "6px 16px", color: "#64748B", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>🔄 Refresh</button>
+          <button onClick={load} style={{ background: "none", border: "1px solid #334155", borderRadius: 8, padding: "6px 16px", color: "#64748B", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>🔄 Refresh</button>
           <div style={{ marginTop: 12 }}>
             <button onClick={onLogout} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", textDecoration: "underline" }}>Sign out</button>
           </div>

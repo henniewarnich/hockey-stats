@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { listUsers, createUser, updateProfile, toggleBlockUser } from '../utils/auth.js';
+import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword } from '../utils/auth.js';
 import { S, theme } from '../utils/styles.js';
 
 const ROLES = [
@@ -196,9 +196,21 @@ export default function UserManagementScreen({ currentUser, onBack }) {
             background: "transparent", color: editUser.blocked ? "#10B981" : "#EF4444",
             fontSize: 12, fontWeight: 700, cursor: "pointer",
           }}>{editUser.blocked ? "Unblock User" : "Block User"}</button>
+          <button onClick={async () => {
+            const newPw = prompt("Enter new password for " + editUser.firstname + " (min 6 characters):");
+            if (!newPw || newPw.length < 6) { if (newPw !== null) setSaveError("Password must be 6+ characters"); return; }
+            const result = await resetPassword(editUser.id, newPw);
+            if (result.error) { setSaveError(result.error); }
+            else { setSaveSuccess(`Password reset for ${editUser.firstname}`); setTimeout(() => setSaveSuccess(""), 4000); }
+          }} style={{
+            flex: 1, padding: 12, borderRadius: 10, border: "1px solid #F59E0B44",
+            background: "transparent", color: "#F59E0B",
+            fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>🔑 Reset Password</button>
         </div>
 
         {saveError && <div style={{ fontSize: 11, color: "#EF4444", marginBottom: 10, textAlign: "center" }}>{saveError}</div>}
+        {saveSuccess && <div style={{ fontSize: 11, color: "#10B981", marginBottom: 10, textAlign: "center" }}>{saveSuccess}</div>}
 
         <button onClick={handleUpdate} disabled={saving} style={{
           ...S.btn(theme.accent, theme.bg), opacity: saving ? 0.5 : 1,

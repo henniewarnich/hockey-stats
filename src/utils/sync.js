@@ -406,8 +406,7 @@ export async function fetchCommentatorMatches(commentatorId) {
     .from('matches')
     .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
     .in('id', matchIds)
-    .in('status', ['upcoming', 'live'])
-    .order('match_date', { ascending: true });
+    .order('match_date', { ascending: false });
   return matches || [];
 }
 
