@@ -6,6 +6,11 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
   const [editing, setEditing] = useState(null);
   const [showCoachPin, setShowCoachPin] = useState(false);
   const [showCommPin, setShowCommPin] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = search.trim()
+    ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    : teams;
 
   // ── LIST VIEW ──
   if (!editing) {
@@ -14,16 +19,20 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
         <div style={S.nav}>
           <button style={S.backBtn} onClick={onBack}>←</button>
           <div style={S.navTitle}>Teams</div>
+          <div style={{ marginLeft: "auto", fontSize: 11, color: theme.textDim }}>{teams.length}</div>
         </div>
         <div style={S.page}>
           <button style={S.btn(theme.accent, theme.bg)} onClick={() => setEditing({ name: "", color: TEAM_COLORS[0].hex })}>
             + Add Team
           </button>
-          <div style={{ marginTop: 16 }}>
-            {teams.length === 0 ? (
-              <div style={S.empty}>No teams yet.</div>
+          <div style={{ marginTop: 10, marginBottom: 10 }}>
+            <input style={{ ...S.input, fontSize: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search teams..." />
+          </div>
+          <div>
+            {filtered.length === 0 ? (
+              <div style={S.empty}>{search.trim() ? "No teams found" : "No teams yet."}</div>
             ) : (
-              teams.map(t => (
+              filtered.map(t => (
                 <div key={t.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12 }}
                   onClick={() => setEditing({ ...t })}>
                   <div style={{

@@ -176,8 +176,8 @@ export default function LandingPage() {
           {[
             { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
             { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
-            { id: "results", label: "Results" },
-            { id: "teams", label: "Teams" },
+            { id: "results", label: "Results", count: matches.length },
+            { id: "teams", label: "Teams", count: teams.length },
           ].map(t => (
             <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
@@ -303,8 +303,9 @@ export default function LandingPage() {
                   return (
                     <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
                       style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 7, background: "#F59E0B22", border: "1.5px solid #F59E0B44", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#F59E0B" }}>
-                        {d.getDate()}
+                      <div style={{ width: 36, height: 36, borderRadius: 7, background: "#F59E0B22", border: "1.5px solid #F59E0B44", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 900, color: "#F59E0B", lineHeight: 1 }}>{d.getDate()}</div>
+                        <div style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>

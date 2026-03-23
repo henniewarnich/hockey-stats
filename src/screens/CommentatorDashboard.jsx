@@ -37,8 +37,22 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
     // Open the live recorder
     setActiveMatch({
       supabaseId: m.id,
-      home: { name: m.home_team?.name, color: m.home_team?.color, id: m.home_team?.id },
-      away: { name: m.away_team?.name, color: m.away_team?.color, id: m.away_team?.id },
+      home: { name: m.home_team?.name, color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
+      away: { name: m.away_team?.name, color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
+      matchLength: m.match_length || 60,
+      breakFormat: m.break_format || 'quarters',
+      matchType: m.match_type || 'league',
+      venue: m.venue || '',
+      date: m.match_date,
+    });
+  };
+
+  const handleResumeLive = (m) => {
+    // Resume recording — match is already live and locked
+    setActiveMatch({
+      supabaseId: m.id,
+      home: { name: m.home_team?.name, color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
+      away: { name: m.away_team?.name, color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
       matchLength: m.match_length || 60,
       breakFormat: m.break_format || 'quarters',
       matchType: m.match_type || 'league',
@@ -226,6 +240,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
                 {liveMatches.map(m => (
                   <MatchCard key={m.id} match={m} currentUser={currentUser}
                     onStartLive={() => handleStartLive(m)}
+                    onResumeLive={() => handleResumeLive(m)}
                     onCancel={() => handleCancelLive(m)}
                   />
                 ))}
@@ -297,7 +312,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   );
 }
 
-function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel }) {
+function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel, onResumeLive }) {
   const d = new Date(m.match_date);
   const isLocked = m.locked_by && m.locked_by !== currentUser.id;
   const isMyLock = m.locked_by === currentUser.id;
@@ -334,11 +349,21 @@ function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel 
           }}>💾 Quick Score</button>
         </div>
       )}
-      {isMyLock && m.status === 'live' && onCancel && (
-        <button onClick={onCancel} style={{
-          width: "100%", padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700,
-          border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer",
-        }}>✕ Cancel & Revert to Upcoming</button>
+      {isMyLock && m.status === 'live' && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {onResumeLive && (
+            <button onClick={onResumeLive} style={{
+              flex: 1, padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700, border: "none",
+              background: "#10B981", color: "#fff", cursor: "pointer",
+            }}>🏑 Continue Recording</button>
+          )}
+          {onCancel && (
+            <button onClick={onCancel} style={{
+              padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700,
+              border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer",
+            }}>✕ Cancel</button>
+          )}
+        </div>
       )}
     </div>
   );

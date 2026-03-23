@@ -45,14 +45,18 @@ export default function MatchScheduleScreen({ onBack }) {
     setCommentators([...commAdmins, ...comms]);
     setAllTeams(teams || []);
 
-    // Load commentator assignments for each match
+    // Load commentator assignments in one query
+    const matchIds = matches.map(m => m.id);
     const commsMap = {};
-    for (const m of matches) {
+    if (matchIds.length > 0) {
       const { data } = await supabase
         .from('match_commentators')
         .select('*, commentator:profiles!commentator_id(firstname, lastname)')
-        .eq('match_id', m.id);
-      commsMap[m.id] = data || [];
+        .in('match_id', matchIds);
+      (data || []).forEach(c => {
+        if (!commsMap[c.match_id]) commsMap[c.match_id] = [];
+        commsMap[c.match_id].push(c);
+      });
     }
     setMatchComms(commsMap);
     setLoading(false);
