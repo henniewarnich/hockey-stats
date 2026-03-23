@@ -23,11 +23,20 @@ export default function LoginPage({ onLogin }) {
       return;
     }
 
-    // Fetch profile directly using the user ID from sign-in
-    const { getProfileById } = await import('../utils/auth.js');
-    const profile = await getProfileById(result.user.id);
+    // Fetch profile — try by user ID first, then by email/username
+    const { getProfileById, getProfileByEmail, getProfileByUsername } = await import('../utils/auth.js');
+    let profile = null;
+    if (result.user?.id) {
+      profile = await getProfileById(result.user.id);
+    }
+    if (!profile && username.includes('@')) {
+      profile = await getProfileByEmail(username.trim().toLowerCase());
+    }
+    if (!profile && !username.includes('@')) {
+      profile = await getProfileByUsername(username.trim().toLowerCase());
+    }
     if (!profile) {
-      setError("Account not found");
+      setError("Account not found — profile missing");
       setLoading(false);
       return;
     }

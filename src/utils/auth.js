@@ -57,6 +57,26 @@ export async function getProfileById(userId) {
   return profile;
 }
 
+// Get profile by email
+export async function getProfileByEmail(email) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('email', email)
+    .single();
+  return profile;
+}
+
+// Get profile by username
+export async function getProfileByUsername(username) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', username)
+    .single();
+  return profile;
+}
+
 // Create a new user (admin/commentator_admin function)
 export async function createUser({ firstname, lastname, username, email, password, role }) {
   const { data, error } = await supabase.auth.signUp({
