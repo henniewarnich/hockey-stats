@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { otherTeam, exportMatchJSON } from '../utils/helpers.js';
+import { otherTeam, exportMatchJSON, ensureContrastingColors } from '../utils/helpers.js';
 import { generateInsight } from '../utils/commentary.js';
 import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
@@ -16,7 +16,8 @@ import TeamPicker from '../components/TeamPicker.jsx';
 
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo } = matchConfig;
-  const teams = { home, away };
+  const { homeColor: hc, awayColor: ac } = ensureContrastingColors(home.color, away.color);
+  const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
 

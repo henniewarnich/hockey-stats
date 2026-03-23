@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { ensureContrastingColors } from '../utils/helpers.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import { useReactions } from '../hooks/useReactions.js';
 import ReactionBar from '../components/ReactionBar.jsx';
@@ -157,11 +158,37 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matchViewers, setMatchViewers] = useState(0);
+  const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
   const { counts, myReactions, toggleReaction, loadReactions } = useReactions(liveMatch?.id || selectedMatch?.id);
+
+  // Ensure contrasting team colors for live and selected matches
+  const liveColors = useMemo(() => {
+    if (!liveMatch) return { homeColor: null, awayColor: null };
+    return ensureContrastingColors(liveMatch.home_team?.color, liveMatch.away_team?.color);
+  }, [liveMatch?.home_team?.color, liveMatch?.away_team?.color]);
+
+  const selectedColors = useMemo(() => {
+    if (!selectedMatch) return { homeColor: null, awayColor: null };
+    return ensureContrastingColors(selectedMatch.home_team?.color, selectedMatch.away_team?.color);
+  }, [selectedMatch?.home_team?.color, selectedMatch?.away_team?.color]);
+
+  // Get or create anonymous viewer ID
+  const getViewerId = () => {
+    let id = sessionStorage.getItem('kykie-viewer-id');
+    if (!id) {
+      id = 'v-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('kykie-viewer-id', id);
+    }
+    return id;
+  };
 
   // Track presence on live match
   useEffect(() => {
     if (!liveMatch) { setMatchViewers(0); return; }
+    // Persist this viewer
+    supabase.from('match_viewers')
+      .upsert({ match_id: liveMatch.id, viewer_id: getViewerId() }, { onConflict: 'match_id,viewer_id' })
+      .then(() => {});
     const channel = supabase.channel(`match-viewers-${liveMatch.id}`, { config: { presence: { key: Math.random().toString(36).slice(2) } } });
     channel.on('presence', { event: 'sync' }, () => {
       setMatchViewers(Object.keys(channel.presenceState()).length);
@@ -212,10 +239,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const handleMatchTap = async (m) => {
     setSelectedMatch(m);
     setLoadingEvents(true);
+    setTotalViewers(null);
     try {
-      const { data: events } = await supabase.from('match_events').select('*').eq('match_id', m.id).order('seq', { ascending: false });
+      const [{ data: events }, { count }] = await Promise.all([
+        supabase.from('match_events').select('*').eq('match_id', m.id).order('seq', { ascending: false }),
+        supabase.from('match_viewers').select('*', { count: 'exact', head: true }).eq('match_id', m.id),
+      ]);
       setSelectedEvents(events || []);
-    } catch { setSelectedEvents([]); }
+      setTotalViewers(count || 0);
+    } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
   };
 
@@ -480,14 +512,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveMatch.home_team?.color || "#3B82F6", marginBottom: 4 }}>{liveMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{liveMatch.home_team?.name}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.home_score}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: "#F59E0B" }}>{fmtClock(liveTime)}</div>
                 </div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveMatch.away_team?.color || "#EF4444", marginBottom: 4 }}>{liveMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{liveMatch.away_team?.name}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                 </div>
               </div>
@@ -501,8 +533,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               embedded
               match={{
                 teams: {
-                  home: { name: liveMatch.home_team?.name, color: liveMatch.home_team?.color, short: liveMatch.home_team?.name?.slice(0, 3).toUpperCase() },
-                  away: { name: liveMatch.away_team?.name, color: liveMatch.away_team?.color, short: liveMatch.away_team?.name?.slice(0, 3).toUpperCase() },
+                  home: { name: liveMatch.home_team?.name, color: liveColors.homeColor, short: liveMatch.home_team?.name?.slice(0, 3).toUpperCase() },
+                  away: { name: liveMatch.away_team?.name, color: liveColors.awayColor, short: liveMatch.away_team?.name?.slice(0, 3).toUpperCase() },
                 },
                 breakFormat: liveMatch.break_format || "quarters",
                 matchLength: liveMatch.match_length || 60,
@@ -672,7 +704,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {selectedMatch && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
           <div style={{ padding: "6px 14px 0" }}>
-            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
           </div>
           {/* Match scoreboard */}
           <div style={{ padding: "8px 14px 10px" }}>
@@ -682,12 +714,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedMatch.home_team?.color }}>{selectedMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{selectedMatch.home_team?.name}</div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
                 <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedMatch.away_team?.color }}>{selectedMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{selectedMatch.away_team?.name}</div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
@@ -695,6 +727,11 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                 {selectedMatch.venue && ` · ${selectedMatch.match_type ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
               </div>
+              {totalViewers > 0 && (
+                <div style={{ textAlign: "center", marginTop: 6, fontSize: 10, color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                  👁 {totalViewers} {totalViewers === 1 ? 'viewer' : 'viewers'} watched
+                </div>
+              )}
             </div>
           </div>
           {loadingEvents ? (
@@ -706,8 +743,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               embedded
               match={{
                 teams: {
-                  home: { name: selectedMatch.home_team?.name, color: selectedMatch.home_team?.color, short: selectedMatch.home_team?.name?.slice(0, 3).toUpperCase() },
-                  away: { name: selectedMatch.away_team?.name, color: selectedMatch.away_team?.color, short: selectedMatch.away_team?.name?.slice(0, 3).toUpperCase() },
+                  home: { name: selectedMatch.home_team?.name, color: selectedColors.homeColor, short: selectedMatch.home_team?.name?.slice(0, 3).toUpperCase() },
+                  away: { name: selectedMatch.away_team?.name, color: selectedColors.awayColor, short: selectedMatch.away_team?.name?.slice(0, 3).toUpperCase() },
                 },
                 breakFormat: selectedMatch.break_format || "quarters",
                 matchLength: selectedMatch.match_length || 60,
@@ -727,7 +764,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 .map((entry, i) => {
                   const isMeta = entry.team === "meta";
                   const isComm = entry.team === "commentary";
-                  const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedMatch.home_team?.color || "#3B82F6") : (selectedMatch.away_team?.color || "#EF4444");
+                  const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedColors.homeColor || "#3B82F6") : (selectedColors.awayColor || "#EF4444");
                   const mins = Math.floor((entry.match_time || 0) / 60);
                   const isGoal = entry.event?.startsWith("Goal");
                   const showReactions = isComm || isGoal || ["Short Corner", "Long Corner", "Penalty"].includes(entry.event);

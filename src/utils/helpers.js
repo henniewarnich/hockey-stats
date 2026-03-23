@@ -63,6 +63,29 @@ export function exportMatchJSON(game) {
 // Generate unique ID
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+// Color contrast — pick a different color for away team if too similar to home
+const hexToRgb = (hex) => {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+};
+const colorDist = (a, b) => Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0));
+
+const CONTRAST_POOL = ["#DC2626", "#1D4ED8", "#16A34A", "#7C3AED", "#EA580C", "#0D9488", "#DB2777", "#CA8A04", "#475569", "#4338CA"];
+
+export function ensureContrastingColors(homeColor, awayColor) {
+  if (!homeColor || !awayColor) return { homeColor, awayColor };
+  const dist = colorDist(hexToRgb(homeColor), hexToRgb(awayColor));
+  if (dist > 120) return { homeColor, awayColor }; // different enough
+  // Pick the most contrasting color from the pool
+  const homeRgb = hexToRgb(homeColor);
+  let best = awayColor, bestDist = 0;
+  for (const c of CONTRAST_POOL) {
+    const d = colorDist(homeRgb, hexToRgb(c));
+    if (d > bestDist) { bestDist = d; best = c; }
+  }
+  return { homeColor, awayColor: best };
+}
+
 // Calculate period durations from match length and break format
 export function calcPeriods(matchLength, breakFormat) {
   if (!matchLength) return null;

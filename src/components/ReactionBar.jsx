@@ -5,21 +5,32 @@ export default function ReactionBar({ eventId, counts, myReactions, onToggle }) 
   const [floats, setFloats] = useState([]);
 
   const handleTap = (emoji) => {
-    const isOn = myReactions?.[eventId]?.[emoji.id];
-    if (!isOn) {
+    const myEvt = myReactions?.[eventId] || {};
+    const isOn = myEvt[emoji.id];
+
+    if (isOn) {
+      // Toggle off
+      onToggle(eventId, emoji.id);
+    } else {
+      // Deselect any existing reaction first
+      const currentEmoji = EMOJIS.find(e => myEvt[e.id]);
+      if (currentEmoji) {
+        onToggle(eventId, currentEmoji.id);
+      }
+      // Select new one
+      onToggle(eventId, emoji.id);
       // Float animation
       const id = Date.now() + emoji.id;
       setFloats(prev => [...prev, { id, emoji: emoji.emoji }]);
       setTimeout(() => setFloats(prev => prev.filter(f => f.id !== id)), 800);
     }
-    onToggle(eventId, emoji.id);
   };
 
   const eventCounts = counts?.[eventId] || {};
   const myEvt = myReactions?.[eventId] || {};
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, position: "relative" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, position: "relative", justifyContent: "flex-end" }}>
       {EMOJIS.map(e => {
         const count = eventCounts[e.id] || 0;
         const isOn = myEvt[e.id];
@@ -46,7 +57,7 @@ export default function ReactionBar({ eventId, counts, myReactions, onToggle }) 
       {/* Float animations */}
       {floats.map(f => (
         <span key={f.id} style={{
-          position: "absolute", bottom: "100%", left: "20%",
+          position: "absolute", bottom: "100%", right: "20%",
           fontSize: 20, pointerEvents: "none",
           animation: "reaction-float 0.8s ease-out forwards",
         }}>{f.emoji}</span>
