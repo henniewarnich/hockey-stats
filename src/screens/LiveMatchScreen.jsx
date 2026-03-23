@@ -287,7 +287,25 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           </div>
         )}
         {matchState !== "ended" && (
-          <button onClick={() => setFlipped(f => !f)} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
+          <button onClick={() => {
+            setFlipped(f => !f);
+            const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
+            const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
+            setBallPos(bp => {
+              if (!bp) return bp;
+              const updated = { ...bp };
+              if (updated.pos) updated.pos = mirrorPos(updated.pos);
+              if (updated.end) updated.end = mirrorEnd(updated.end);
+              return updated;
+            });
+            setPrevBallPos(bp => {
+              if (!bp) return bp;
+              const updated = { ...bp };
+              if (updated.pos) updated.pos = mirrorPos(updated.pos);
+              if (updated.end) updated.end = mirrorEnd(updated.end);
+              return updated;
+            });
+          }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
         )}
       </div>
 

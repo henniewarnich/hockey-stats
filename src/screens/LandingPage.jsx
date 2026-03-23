@@ -213,11 +213,11 @@ export default function LandingPage() {
               )}
               {/* Sport picker pill */}
               <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
-                display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 6,
+                display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
                 border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
               }}>
                 <span style={{ fontSize: 12 }}>🏑</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
                 <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
               </div>
               {sportDropdownOpen && (

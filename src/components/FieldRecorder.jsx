@@ -179,8 +179,6 @@ export default function FieldRecorder({
     const fw = fieldRef.current.offsetWidth;
     const greenW = fw - 56;
     const xMap = { left: 28 + greenW / 6, centre: 28 + greenW / 2, right: 28 + 5 * greenW / 6 };
-    // Mirror left/right when flipped
-    const pos = flipped ? (bp.pos === "left" ? "right" : bp.pos === "right" ? "left" : bp.pos) : bp.pos;
     if (bp.type === "centre") return { x: fw / 2, y: 174 };
     if (bp.type === "d") return { x: fw / 2, y: bp.end === "top" ? 42 : 318 };
     if (bp.type === "sc") return { x: fw / 2 + 65, y: bp.end === "top" ? 15 : 345 };
@@ -188,7 +186,7 @@ export default function FieldRecorder({
       const ri = zones.findIndex(z => z.id === bp.zoneId);
       if (ri < 0) return null;
       const y = ri < 2 ? 30 + ri * 72 + 36 : 30 + ri * 72 + 1 + 36;
-      return { x: xMap[pos] || xMap.centre, y };
+      return { x: xMap[bp.pos] || xMap.centre, y };
     }
     return null;
   };
