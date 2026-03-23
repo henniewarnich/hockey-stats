@@ -148,6 +148,20 @@ export default function LandingPage() {
     return prefix + m.venue;
   };
 
+  const getCountdown = (matchDate, scheduledTime) => {
+    if (!scheduledTime) return null;
+    const kickoff = new Date(`${matchDate}T${scheduledTime}`);
+    const now = new Date();
+    const diff = kickoff - now;
+    if (diff <= 0) return { text: "Now", color: "#10B981" };
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
+    if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
+    return { text: `${mins}m`, color: "#EF4444" };
+  };
+
   return (
     <div style={styles.page}>
       <style>{`
@@ -319,13 +333,14 @@ export default function LandingPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
                         <div style={styles.matchMeta}>
-                          {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                          {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                           {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                          {m.venue && ` · ${m.venue}`}
+                          {m.match_type && ` · ${m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)}`}
                         </div>
                       </div>
-                      <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>
-                        {m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) : ''}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        {(() => { const cd = getCountdown(m.match_date, m.scheduled_time); return cd ? <div style={{ fontSize: 10, fontWeight: 700, color: cd.color, fontFamily: "monospace" }}>{cd.text}</div> : null; })()}
+                        {m.venue && <div style={{ fontSize: 9, color: "#475569", fontWeight: 600 }}>{m.venue}</div>}
                       </div>
                     </div>
                   );

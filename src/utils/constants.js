@@ -1,4 +1,4 @@
-export const APP_VERSION = "6.8.3";
+export const APP_VERSION = "6.8.6";
 
 export const ZONES = [
   { id: "opp_quarter", label: "Opp Quarter" },
@@ -49,7 +49,7 @@ export const BREAK_FORMATS = [
 
 export const MATCH_TYPES = [
   { id: "league", label: "League" },
-  { id: "festival", label: "Festival" },
+  { id: "tournament", label: "Tournament" },
   { id: "friendly", label: "Friendly" },
 ];
 

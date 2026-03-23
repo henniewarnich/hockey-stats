@@ -83,9 +83,10 @@ export async function createUser({ firstname, lastname, username, email, passwor
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
 
-  // Save current session before creating new user (signUp logs in as new user)
+  // Save current session
   const { data: { session: adminSession } } = await supabase.auth.getSession();
   
+  // Step 1: Create auth user with minimal metadata (avoids trigger issues)
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -95,36 +96,41 @@ export async function createUser({ firstname, lastname, username, email, passwor
   });
   
   if (error) {
-    // If trigger failed, the auth user may have been created but profile wasn't
-    // Try to find the auth user and create the profile manually
-    if (error.message.includes('Database error')) {
-      // Restore admin session first
-      if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
-      return { error: `${error.message}. Try re-running the handle_new_user trigger in Supabase SQL Editor: SELECT handle_new_user();` };
-    }
     if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    
+    // If trigger failed, try without metadata so trigger inserts defaults, then update profile
+    if (error.message.includes('Database error')) {
+      const { data: data2, error: error2 } = await supabase.auth.signUp({ email, password });
+      if (error2) {
+        return { error: `${error2.message}` };
+      }
+      if (data2.user) {
+        // Restore admin session to update profile
+        if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+        // Wait a moment for trigger to create default profile
+        await new Promise(r => setTimeout(r, 1000));
+        // Update the profile with correct data
+        const { error: updateErr } = await supabase.from('profiles').update({
+          firstname, lastname, username: username.toLowerCase().trim(), role,
+        }).eq('id', data2.user.id);
+        if (updateErr) {
+          // Profile might not exist yet, try insert
+          const { error: insertErr } = await supabase.from('profiles').insert({
+            id: data2.user.id, email, firstname, lastname,
+            username: username.toLowerCase().trim(), role,
+          });
+          if (insertErr) return { error: `Auth user created but profile failed: ${insertErr.message}` };
+        }
+        return { user: data2.user };
+      }
+    }
     return { error: error.message };
   }
 
-  // Check if user was actually created (Supabase returns fake success for existing emails)
+  // Check for fake success (existing email)
   if (data.user && data.user.identities && data.user.identities.length === 0) {
     if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
     return { error: `Email "${email}" is already registered.` };
-  }
-
-  // Check if profile was created by trigger, if not create it manually
-  if (data.user) {
-    const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
-    if (!profile) {
-      // Restore admin session so we have insert permissions
-      if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
-      const { error: profileErr } = await supabase.from('profiles').insert({
-        id: data.user.id, email, firstname, lastname,
-        username: username.toLowerCase().trim(), role,
-      });
-      if (profileErr) return { error: `User created but profile failed: ${profileErr.message}` };
-      return { user: data.user };
-    }
   }
 
   // Restore admin session
