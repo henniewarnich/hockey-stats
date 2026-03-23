@@ -13,7 +13,7 @@ import DPopup from '../components/DPopup.jsx';
 import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 
-export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate }) {
+export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo } = matchConfig;
   const teams = { home, away };
   const timer = useMatchTimer();
@@ -39,9 +39,13 @@ export default function LiveMatchScreen({ matchConfig, onSaveGame, onNavigate })
   const topTeam = flipped ? "home" : "away";
   const bottomTeam = flipped ? "away" : "home";
 
-  // Create live match in Supabase on mount (unless demo)
+  // Create live match in Supabase on mount (unless demo or existing match)
   useEffect(() => {
     if (isDemo) return;
+    if (existingMatchId) {
+      setLiveMatchId(existingMatchId);
+      return;
+    }
     createLiveMatch(matchConfig).then(result => {
       if (result) {
         setLiveMatchId(result.id);

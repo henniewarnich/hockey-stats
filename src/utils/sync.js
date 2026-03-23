@@ -325,3 +325,111 @@ export function subscribeLiveMatch(matchId, onMatchUpdate, onNewEvent) {
 
   return () => supabase.removeChannel(channel);
 }
+
+// ─── MATCH SCHEDULING ────────────────────────────────
+
+export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, scheduledTime, matchLength, breakFormat, matchType, venue, commentatorIds }) {
+  const { data, error } = await supabase
+    .from('matches')
+    .insert({
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      match_date: matchDate,
+      scheduled_time: scheduledTime || null,
+      match_length: matchLength || 60,
+      break_format: breakFormat || 'quarters',
+      match_type: matchType || 'league',
+      venue: venue || null,
+      status: 'upcoming',
+    })
+    .select()
+    .single();
+
+  if (error) { console.error('Schedule match error:', error); return null; }
+
+  // Assign commentators
+  if (commentatorIds?.length > 0) {
+    const rows = commentatorIds.map(cid => ({ match_id: data.id, commentator_id: cid }));
+    await supabase.from('match_commentators').insert(rows);
+  }
+
+  return data;
+}
+
+export async function updateScheduledMatch(matchId, updates) {
+  const { error } = await supabase
+    .from('matches')
+    .update(updates)
+    .eq('id', matchId);
+  if (error) console.error('Update scheduled match error:', error);
+  return !error;
+}
+
+export async function assignCommentators(matchId, commentatorIds) {
+  // Remove existing assignments
+  await supabase.from('match_commentators').delete().eq('match_id', matchId);
+  // Insert new
+  if (commentatorIds?.length > 0) {
+    const rows = commentatorIds.map(cid => ({ match_id: matchId, commentator_id: cid }));
+    await supabase.from('match_commentators').insert(rows);
+  }
+}
+
+export async function fetchUpcomingMatches() {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+    .eq('status', 'upcoming')
+    .order('match_date', { ascending: true });
+  if (error) { console.error('Fetch upcoming error:', error); return []; }
+  return data;
+}
+
+export async function fetchMatchCommentators(matchId) {
+  const { data, error } = await supabase
+    .from('match_commentators')
+    .select('*, commentator:profiles!commentator_id(*)')
+    .eq('match_id', matchId);
+  if (error) return [];
+  return data;
+}
+
+export async function fetchCommentatorMatches(commentatorId) {
+  const { data: assignments, error } = await supabase
+    .from('match_commentators')
+    .select('match_id')
+    .eq('commentator_id', commentatorId);
+  if (error || !assignments?.length) return [];
+
+  const matchIds = assignments.map(a => a.match_id);
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+    .in('id', matchIds)
+    .in('status', ['upcoming', 'live'])
+    .order('match_date', { ascending: true });
+  return matches || [];
+}
+
+export async function lockMatch(matchId, userId) {
+  // First-to-start locks — only if not already locked
+  const { data, error } = await supabase
+    .from('matches')
+    .update({ locked_by: userId })
+    .eq('id', matchId)
+    .is('locked_by', null)
+    .select()
+    .single();
+  if (error) return null;
+  return data;
+}
+
+export async function unlockMatch(matchId, userId) {
+  // Only the user who locked it can unlock
+  const { error } = await supabase
+    .from('matches')
+    .update({ locked_by: null, status: 'upcoming' })
+    .eq('id', matchId)
+    .eq('locked_by', userId);
+  return !error;
+}

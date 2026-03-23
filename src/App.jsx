@@ -20,6 +20,8 @@ import LandingPage from './screens/LandingPage.jsx';
 import MatchEditScreen from './screens/MatchEditScreen.jsx';
 import LoginPage from './screens/LoginPage.jsx';
 import UserManagementScreen from './screens/UserManagementScreen.jsx';
+import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
+import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -126,7 +128,12 @@ export default function App() {
     if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = ''; }} onLogout={handleLogout} />;
+    // If no slug — show the commentator dashboard
+    if (!route.slug) {
+      return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} />;
+    }
+    // Team-specific — old commentator page (kept for backward compat)
+    return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
   }
 
   // Admin area
@@ -182,6 +189,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "users":
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;
+
+    case "match_schedule":
+      return <MatchScheduleScreen onBack={() => navigate("home")} />;
 
     case "teams":
       return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;

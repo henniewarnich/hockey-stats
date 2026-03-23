@@ -91,17 +91,22 @@ CREATE POLICY "Public read profiles" ON profiles FOR SELECT USING (true);
 CREATE POLICY "Users update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
--- Admins can do everything on profiles
-CREATE POLICY "Admins manage profiles" ON profiles
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+-- Admins can insert/update/delete profiles
+CREATE POLICY "Admins insert profiles" ON profiles FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
--- Commentator admins can manage commentator profiles
-CREATE POLICY "CommAdmin manage commentators" ON profiles
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'commentator_admin')
-  );
+CREATE POLICY "Admins update profiles" ON profiles FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY "Admins delete profiles" ON profiles FOR DELETE
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- Commentator admins can insert/update commentators
+CREATE POLICY "CommAdmin insert commentators" ON profiles FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'commentator_admin'));
+
+CREATE POLICY "CommAdmin update commentators" ON profiles FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'commentator_admin'));
 
 -- Public read on assignments
 CREATE POLICY "Public read coach_teams" ON coach_teams FOR SELECT USING (true);

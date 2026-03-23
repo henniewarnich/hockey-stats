@@ -37,6 +37,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
       </div>
       <div style={{ padding: "0 16px 20px" }}>
         {[
+          ["match_schedule", "📅", "Match Schedule", "Schedule & assign matches"],
           ["match_setup", "⚡", "New Match", "Live match or quick score"],
           ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
           ["history", "📊", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],

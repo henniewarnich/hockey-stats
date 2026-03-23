@@ -569,7 +569,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 display: "flex", alignItems: "center", padding: "12px 12px", gap: 10,
                 background: "#1E293B", borderRadius: 10, marginBottom: 4,
               }}>
-                <div onClick={() => hasStats && handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: hasStats ? "pointer" : "default" }}>
+                <div onClick={() => handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer" }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
@@ -580,7 +580,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     </div>
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
-                  {hasStats && <span style={{ fontSize: 12, color: "#334155" }}>›</span>}
+                  <span style={{ fontSize: 12, color: "#334155" }}>›</span>
                 </div>
               </div>
             );
