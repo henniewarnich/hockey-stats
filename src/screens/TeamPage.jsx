@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
+import { useReactions } from '../hooks/useReactions.js';
+import ReactionBar from '../components/ReactionBar.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -155,6 +157,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [matchViewers, setMatchViewers] = useState(0);
+  const { counts, myReactions, toggleReaction, loadReactions } = useReactions(liveMatch?.id || selectedMatch?.id);
 
   // Track presence on live match
   useEffect(() => {
@@ -168,6 +171,17 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     });
     return () => { supabase.removeChannel(channel); };
   }, [liveMatch?.id]);
+
+  // Load reactions when events change
+  useEffect(() => {
+    const ids = liveEvents.filter(e => e.id).map(e => e.id);
+    if (ids.length > 0) loadReactions(ids);
+  }, [liveEvents.length]);
+
+  useEffect(() => {
+    const ids = selectedEvents.filter(e => e.id).map(e => e.id);
+    if (ids.length > 0) loadReactions(ids);
+  }, [selectedEvents.length]);
 
   const refreshMatches = useCallback(async () => {
     if (!team) return;
@@ -519,6 +533,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 if (type === "start") text = entry.detail || "Match underway";
                 if (type === "pause") text = entry.detail || entry.event;
 
+                const showReactions = ["goal", "narrative", "set_piece"].includes(type);
+
                 return (
                   <div key={entry.id} style={{
                     display: "flex", gap: 10, padding: isGoal ? "10px 0" : "7px 0",
@@ -529,8 +545,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                       {fmtMin(entry.match_time)}
                     </div>
                     <div style={{ fontSize: 16, width: 22, textAlign: "center", flexShrink: 0 }}>{icon}</div>
-                    <div style={{ flex: 1, fontSize: isGoal ? 15 : 13, color, fontWeight: isGoal ? 800 : type === "narrative" ? 400 : 600, lineHeight: 1.5, fontStyle: type === "narrative" ? "italic" : "normal" }}>
-                      {text}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: isGoal ? 15 : 13, color, fontWeight: isGoal ? 800 : type === "narrative" ? 400 : 600, lineHeight: 1.5, fontStyle: type === "narrative" ? "italic" : "normal" }}>
+                        {text}
+                      </div>
+                      {showReactions && entry.id && (
+                        <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} />
+                      )}
                     </div>
                   </div>
                 );
@@ -708,6 +729,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   const isComm = entry.team === "commentary";
                   const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedMatch.home_team?.color || "#3B82F6") : (selectedMatch.away_team?.color || "#EF4444");
                   const mins = Math.floor((entry.match_time || 0) / 60);
+                  const isGoal = entry.event?.startsWith("Goal");
+                  const showReactions = isComm || isGoal || ["Short Corner", "Long Corner", "Penalty"].includes(entry.event);
                   return (
                     <div key={entry.id || i} style={{
                       padding: "7px 10px", borderRadius: 8, marginBottom: 3,
@@ -727,9 +750,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 22 }}>{mins}'</div>
                           <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
-                          <div style={{ fontSize: 12, fontWeight: 700, color: entry.event?.startsWith("Goal") ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: isGoal ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
                           {entry.detail && !isMeta && <div style={{ fontSize: 10, color: "#94A3B8", marginLeft: "auto", textAlign: "right", maxWidth: "50%" }}>{entry.detail}</div>}
                         </div>
+                      )}
+                      {showReactions && entry.id && (
+                        <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} />
                       )}
                     </div>
                   );
@@ -747,6 +773,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       <style>{`
         @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes slide-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes reaction-float { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.4); } }
       `}</style>
     </div>
   );
