@@ -72,7 +72,7 @@ export default function LoginPage({ onLogin }) {
         </svg>
       </div>
       <div style={{ fontSize: 28, fontWeight: 900, color: "#F59E0B", marginBottom: 2 }}>
-        kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 20 }}>.net</span>
+        kykie
       </div>
       <div style={{ fontSize: 12, color: "#64748B", marginBottom: 28 }}>Sign in to continue</div>
 
@@ -132,7 +132,7 @@ export default function LoginPage({ onLogin }) {
       <button onClick={() => { window.location.hash = ''; }} style={{
         marginTop: 16, background: "none", border: "none", color: "#475569", fontSize: 10,
         cursor: "pointer", textDecoration: "underline",
-      }}>← Back to kykie.net</button>
+      }}>← Back to kykie</button>
 
       <div style={{ marginTop: 20, fontSize: 9, color: "#334155" }}>v{APP_VERSION}</div>
     </div>

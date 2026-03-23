@@ -25,7 +25,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 14 }}>.net</span></div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie</div>
         {currentUser && (
           <div style={{ fontSize: 11, color: theme.textDim, marginTop: 6 }}>
             {currentUser.firstname} {currentUser.lastname}
@@ -73,7 +73,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
           )}
           <button onClick={() => { window.location.hash = ''; }} style={{
             marginTop: 8, background: "none", border: "none", color: theme.textDim, fontSize: 10, cursor: "pointer", textDecoration: "underline",
-          }}>← Back to kykie.net</button>
+          }}>← Back to kykie</button>
           {onLogout && (
             <button onClick={onLogout} style={{
               marginTop: 4, background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", textDecoration: "underline",

@@ -167,48 +167,12 @@ export default function LandingPage() {
             <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
-          <div style={styles.logo}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 26 }}>.net</span></div>
+          <div style={styles.logo}>kykie</div>
         </div>
         <div style={styles.tagline}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
 
-        {/* Sport picker dropdown */}
-        <div style={{ margin: "12px auto 0", maxWidth: 220, position: "relative" }}>
-          <div onClick={() => setSportDropdownOpen(p => !p)} style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "8px 16px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", cursor: "pointer",
-          }}>
-            <span style={{ fontSize: 14 }}>🏑</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
-            <span style={{ fontSize: 10, color: "#64748B" }}>▼</span>
-          </div>
-          {sportDropdownOpen && (
-            <div style={{
-              position: "absolute", top: 42, left: 0, right: 0, borderRadius: 8,
-              border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
-            }}>
-              <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
-                <span style={{ fontSize: 14 }}>🏑</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
-                <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
-              </div>
-              {[
-                { icon: "🏑", label: "Boys Hockey" },
-                { icon: "🏉", label: "Rugby" },
-                { icon: "🏐", label: "Netball" },
-                { icon: "🏏", label: "Cricket" },
-              ].map(s => (
-                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
-                  <span style={{ fontSize: 14 }}>{s.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
-                  <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 8px", borderRadius: 99 }}>Coming soon</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "14px auto 0" }}>
+        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginTop: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "12px auto 0" }}>
           {[
             { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
             { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
@@ -231,9 +195,9 @@ export default function LandingPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
-          {/* Shared search */}
+          {/* Shared search + sport picker */}
           <div style={{ ...styles.section, paddingBottom: 0 }}>
-            <div style={styles.searchBox}>
+            <div style={{ ...styles.searchBox, position: "relative" }}>
               <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
               <input
                 style={styles.searchInput}
@@ -243,6 +207,39 @@ export default function LandingPage() {
               />
               {search && (
                 <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+              )}
+              {/* Sport picker pill */}
+              <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
+                display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 6,
+                border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 12 }}>🏑</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
+              </div>
+              {sportDropdownOpen && (
+                <div style={{
+                  position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
+                  border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
+                }}>
+                  <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
+                    <span style={{ fontSize: 13 }}>🏑</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                    <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
+                  </div>
+                  {[
+                    { icon: "🏑", label: "Boys Hockey" },
+                    { icon: "🏉", label: "Rugby" },
+                    { icon: "🏐", label: "Netball" },
+                    { icon: "🏏", label: "Cricket" },
+                  ].map(s => (
+                    <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
+                      <span style={{ fontSize: 13 }}>{s.icon}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
+                      <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -404,7 +401,7 @@ export default function LandingPage() {
           </div>
         )}
         <button onClick={() => { window.location.hash = "#/login"; }} style={styles.adminBtn}>🔒 Sign in</button>
-        <div style={{ fontSize: 10, color: "#334155" }}>kykie.net · v{APP_VERSION}</div>
+        <div style={{ fontSize: 10, color: "#334155" }}>kykie · v{APP_VERSION}</div>
       </div>
     </div>
   );

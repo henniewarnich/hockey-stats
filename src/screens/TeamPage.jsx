@@ -441,7 +441,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/>
             <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/>
           </svg>
-          {isCoach ? '← Dashboard' : 'kykie.net'}
+          {isCoach ? '← Dashboard' : 'kykie'}
         </button>
       </div>
 

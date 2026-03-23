@@ -60,6 +60,7 @@ export function useReactions(matchId) {
     const channel = supabase.channel(`reactions-${matchId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_reactions' }, (payload) => {
         const r = payload.new;
+        if (r.viewer_id === viewerId.current) return; // already handled optimistically
         setCounts(prev => {
           const updated = { ...prev };
           if (!updated[r.match_event_id]) updated[r.match_event_id] = {};
@@ -67,17 +68,10 @@ export function useReactions(matchId) {
           updated[r.match_event_id][r.emoji] = (updated[r.match_event_id][r.emoji] || 0) + 1;
           return updated;
         });
-        if (r.viewer_id === viewerId.current) {
-          setMyReactions(prev => {
-            const updated = { ...prev };
-            if (!updated[r.match_event_id]) updated[r.match_event_id] = {};
-            updated[r.match_event_id] = { ...updated[r.match_event_id], [r.emoji]: true };
-            return updated;
-          });
-        }
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'event_reactions' }, (payload) => {
         const r = payload.old;
+        if (r.viewer_id === viewerId.current) return; // already handled optimistically
         setCounts(prev => {
           const updated = { ...prev };
           if (updated[r.match_event_id]?.[r.emoji]) {
@@ -87,16 +81,6 @@ export function useReactions(matchId) {
           }
           return updated;
         });
-        if (r.viewer_id === viewerId.current) {
-          setMyReactions(prev => {
-            const updated = { ...prev };
-            if (updated[r.match_event_id]) {
-              updated[r.match_event_id] = { ...updated[r.match_event_id] };
-              delete updated[r.match_event_id][r.emoji];
-            }
-            return updated;
-          });
-        }
       })
       .subscribe();
 

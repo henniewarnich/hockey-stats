@@ -92,7 +92,7 @@ export default function CoachDashboard({ currentUser, onLogout }) {
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie<span style={{ color: "#64748B", fontWeight: 500, fontSize: 14 }}>.net</span></div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie</div>
         <div style={{ fontSize: 11, color: theme.textDim, marginTop: 6 }}>
           {currentUser.firstname} {currentUser.lastname}
           <span style={{ fontSize: 9, marginLeft: 6, padding: "2px 8px", borderRadius: 99, background: "#8B5CF622", color: "#8B5CF6", fontWeight: 700 }}>Coach</span>
@@ -190,7 +190,7 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           <div style={{ fontSize: 10, color: theme.textDimmer }}>v{APP_VERSION}</div>
           <button onClick={() => { window.location.hash = ''; }} style={{
             background: "none", border: "none", color: theme.textDim, fontSize: 10, cursor: "pointer", textDecoration: "underline",
-          }}>← Back to kykie.net</button>
+          }}>← Back to kykie</button>
           {onLogout && (
             <button onClick={onLogout} style={{
               marginTop: 4, background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", textDecoration: "underline",
