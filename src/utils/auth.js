@@ -44,10 +44,15 @@ export async function getSession() {
 export async function getProfile() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+  return getProfileById(user.id);
+}
+
+// Get profile by user ID
+export async function getProfileById(userId) {
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single();
   return profile;
 }

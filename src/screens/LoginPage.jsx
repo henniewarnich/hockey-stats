@@ -23,8 +23,9 @@ export default function LoginPage({ onLogin }) {
       return;
     }
 
-    // Get profile to check role and blocked status
-    const profile = await getProfile();
+    // Fetch profile directly using the user ID from sign-in
+    const { getProfileById } = await import('../utils/auth.js');
+    const profile = await getProfileById(result.user.id);
     if (!profile) {
       setError("Account not found");
       setLoading(false);
