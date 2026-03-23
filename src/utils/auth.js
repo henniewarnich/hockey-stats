@@ -109,17 +109,21 @@ export async function createUser({ firstname, lastname, username, email, passwor
     await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
   }
 
-  // Create profile directly
-  const { error: profileErr } = await supabase.from('profiles').insert({
-    id: data.user.id,
-    email,
-    firstname,
-    lastname,
-    username: username.toLowerCase().trim(),
-    role,
+  // Create profile via SECURITY DEFINER function (bypasses RLS)
+  const { error: profileErr } = await supabase.rpc('create_profile', {
+    p_id: data.user.id,
+    p_email: email,
+    p_firstname: firstname,
+    p_lastname: lastname,
+    p_username: username.toLowerCase().trim(),
+    p_role: role,
   });
 
   if (profileErr) return { error: `Auth user created but profile failed: ${profileErr.message}` };
+
+  // Verify it actually inserted
+  const { data: verify } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+  if (!verify) return { error: 'Profile creation failed unexpectedly.' };
 
   return { user: data.user };
 }
