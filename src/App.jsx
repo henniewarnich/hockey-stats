@@ -182,7 +182,17 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleStartMatch = (config) => { setMatchConfig(config); setScreen("live"); };
   const handleSaveGame = (game) => { store.saveGame(game); return game; };
   const handleImportGame = (game) => { const saved = store.saveGame(game); setReviewGame(saved || game); setScreen("game_review"); };
-  const handleDeleteGame = (id) => { store.deleteGame(id); setScreen("history"); };
+  const handleDeleteGame = async (id) => {
+    // Delete from local storage
+    store.deleteGame(id);
+    // Delete from Supabase (events cascade via FK)
+    try {
+      await supabase.from('match_events').delete().eq('match_id', id);
+      await supabase.from('match_commentators').delete().eq('match_id', id);
+      await supabase.from('matches').delete().eq('id', id);
+    } catch {}
+    setScreen("history");
+  };
 
   const handleUpdateGame = async (updatedGame) => {
     const GAMES_KEY = 'hockey-games';

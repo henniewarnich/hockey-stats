@@ -134,6 +134,14 @@ export default function LandingPage() {
     return { label: "D", cls: "rb-d" };
   };
 
+  const CommentaryIcon = ({ title }) => (
+    <span title={title || "Full stats + commentary"} style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </span>
+  );
+
   const venueDisplay = (m) => {
     if (!m.venue) return "";
     const prefix = m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + " @ " : "";
@@ -342,7 +350,7 @@ export default function LandingPage() {
                       style={{ ...styles.scoreCard, cursor: "pointer" }}>
                       <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>{m.home_team?.name} vs {m.away_team?.name}{m.duration > 0 && <CommentaryIcon />}</div>
                         <div style={styles.matchMeta}>
                           {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                           {m.venue && ` · ${venueDisplay(m)}`}
