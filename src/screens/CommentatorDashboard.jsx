@@ -25,39 +25,47 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   };
 
   const handleStartLive = async (m) => {
-    // Try to lock
-    const locked = await lockMatch(m.id, currentUser.id);
-    if (!locked) {
-      alert("Another commentator has already started this match.");
+    try {
+      // Try to lock
+      const locked = await lockMatch(m.id, currentUser.id);
+      if (!locked) {
+        alert("Another commentator has already started this match.");
+        load();
+        return;
+      }
+      // Update status to live
+      await updateScheduledMatch(m.id, { status: 'live' });
+      // Open the live recorder
+      setActiveMatch({
+        supabaseId: m.id,
+        home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+        away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+        matchLength: m.match_length || 60,
+        breakFormat: m.break_format || 'quarters',
+        matchType: m.match_type || 'league',
+        venue: m.venue || '',
+        date: m.match_date,
+        isDemo: false,
+      });
+    } catch (err) {
+      console.error('Start live error:', err);
+      alert('Failed to start match. Please try again.');
       load();
-      return;
     }
-    // Update status to live
-    await updateScheduledMatch(m.id, { status: 'live' });
-    // Open the live recorder
-    setActiveMatch({
-      supabaseId: m.id,
-      home: { name: m.home_team?.name, color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
-      away: { name: m.away_team?.name, color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
-      matchLength: m.match_length || 60,
-      breakFormat: m.break_format || 'quarters',
-      matchType: m.match_type || 'league',
-      venue: m.venue || '',
-      date: m.match_date,
-    });
   };
 
   const handleResumeLive = (m) => {
     // Resume recording — match is already live and locked
     setActiveMatch({
       supabaseId: m.id,
-      home: { name: m.home_team?.name, color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
-      away: { name: m.away_team?.name, color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
+      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
       matchLength: m.match_length || 60,
       breakFormat: m.break_format || 'quarters',
       matchType: m.match_type || 'league',
       venue: m.venue || '',
       date: m.match_date,
+      isDemo: false,
     });
   };
 
@@ -126,7 +134,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   // If recording a live match, show the LiveMatchScreen
   if (activeMatch) {
     return (
-      <div>
+      <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh" }}>
         <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button onClick={() => {
             if (confirm("Cancel this match? It will revert to upcoming.")) {

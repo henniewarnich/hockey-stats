@@ -157,6 +157,8 @@ export default function LandingPage() {
       `}</style>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
+      {/* Sticky header */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {/* Hero */}
       <div style={styles.hero}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -194,58 +196,60 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* Search + sport picker */}
+      <div style={{ padding: "0 16px 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", position: "relative" }}>
+          <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+          <input
+            style={styles.searchInput}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search..."
+          />
+          {search && (
+            <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+          )}
+          <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
+            display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
+            border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 12 }}>🏑</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
+            <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
+          </div>
+          {sportDropdownOpen && (
+            <div style={{
+              position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
+              border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
+            }}>
+              <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
+                <span style={{ fontSize: 13 }}>🏑</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
+                <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
+              </div>
+              {[
+                { icon: "🏑", label: "Boys Hockey" },
+                { icon: "🏉", label: "Rugby" },
+                { icon: "🏐", label: "Netball" },
+                { icon: "🏏", label: "Cricket" },
+              ].map(s => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
+                  <span style={{ fontSize: 13 }}>{s.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
+                  <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{ height: 1, background: "#334155" }} />
+      </div>
+
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
-          {/* Shared search + sport picker */}
-          <div style={{ ...styles.section, paddingBottom: 0 }}>
-            <div style={{ ...styles.searchBox, position: "relative" }}>
-              <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-              <input
-                style={styles.searchInput}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search..."
-              />
-              {search && (
-                <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
-              )}
-              {/* Sport picker pill */}
-              <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
-                display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
-                border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
-              }}>
-                <span style={{ fontSize: 12 }}>🏑</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
-                <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
-              </div>
-              {sportDropdownOpen && (
-                <div style={{
-                  position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
-                  border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
-                }}>
-                  <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
-                    <span style={{ fontSize: 13 }}>🏑</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
-                    <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
-                  </div>
-                  {[
-                    { icon: "🏑", label: "Boys Hockey" },
-                    { icon: "🏉", label: "Rugby" },
-                    { icon: "🏐", label: "Netball" },
-                    { icon: "🏏", label: "Cricket" },
-                  ].map(s => (
-                    <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
-                      <span style={{ fontSize: 13 }}>{s.icon}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
-                      <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* ═══ LIVE TAB ═══ */}
           {activeTab === "live" && (() => {

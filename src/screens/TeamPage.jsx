@@ -474,6 +474,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       </div>
 
       {/* Tabs */}
+      {!selectedMatch && (
       <div style={{ padding: "0 14px 6px" }}>
         <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #334155" }}>
           {liveMatch && (
@@ -496,6 +497,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           }}>Results ({matches.length})</button>
         </div>
       </div>
+      )}
 
       {/* ═══ LIVE TAB ═══ */}
       {(tab === "live" && liveMatch) && (
