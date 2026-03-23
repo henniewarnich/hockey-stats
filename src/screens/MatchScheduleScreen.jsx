@@ -1,17 +1,27 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { scheduleMatch, fetchUpcomingMatches, assignCommentators, updateScheduledMatch } from '../utils/sync.js';
+import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch } from '../utils/sync.js';
 import { listUsersByRole } from '../utils/auth.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
+import LiveMatchScreen from './LiveMatchScreen.jsx';
 
-export default function MatchScheduleScreen({ onBack }) {
+export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [view, setView] = useState("list"); // list | create | edit
   const [upcoming, setUpcoming] = useState([]);
   const [commentators, setCommentators] = useState([]);
   const [allTeams, setAllTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // Live match
+  const [activeMatch, setActiveMatch] = useState(null);
+  // Quick score
+  const [quickScoreMatch, setQuickScoreMatch] = useState(null);
+  const [homeScore, setHomeScore] = useState(0);
+  const [awayScore, setAwayScore] = useState(0);
+  const [quickSaving, setQuickSaving] = useState(false);
 
   // Create/Edit form
   const [homeTeam, setHomeTeam] = useState(null);
@@ -37,7 +47,7 @@ export default function MatchScheduleScreen({ onBack }) {
   const load = async () => {
     setLoading(true);
     const [matches, comms, commAdmins, { data: teams }] = await Promise.all([
-      fetchUpcomingMatches(),
+      supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).then(r => r.data || []),
       listUsersByRole('commentator'),
       listUsersByRole('commentator_admin'),
       supabase.from('teams').select('*').order('name'),
@@ -128,6 +138,122 @@ export default function MatchScheduleScreen({ onBack }) {
   const toggleComm = (id) => {
     setSelectedComms(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   };
+
+  // Live match handlers
+  const handleStartLive = async (m) => {
+    const locked = await lockMatch(m.id, currentUser.id);
+    if (!locked) { alert("Another user has already started this match."); load(); return; }
+    await updateScheduledMatch(m.id, { status: 'live' });
+    setActiveMatch({
+      supabaseId: m.id,
+      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
+    });
+  };
+
+  const handleResumeLive = (m) => {
+    setActiveMatch({
+      supabaseId: m.id,
+      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
+    });
+  };
+
+  const handleCancelLive = async (m) => {
+    await unlockMatch(m.id, currentUser.id);
+    await updateScheduledMatch(m.id, { status: 'upcoming' });
+    setActiveMatch(null);
+    load();
+  };
+
+  const handleSaveLiveGame = async (gameData) => {
+    setActiveMatch(null);
+    load();
+  };
+
+  const handleQuickScore = (m) => { setQuickScoreMatch(m); setHomeScore(m.home_score || 0); setAwayScore(m.away_score || 0); };
+
+  const handleSaveQuickScore = async () => {
+    if (!quickScoreMatch) return;
+    setQuickSaving(true);
+    const locked = await lockMatch(quickScoreMatch.id, currentUser.id);
+    if (!locked && quickScoreMatch.locked_by !== currentUser.id) {
+      alert("Another user has already scored this match."); setQuickSaving(false); load(); return;
+    }
+    await updateScheduledMatch(quickScoreMatch.id, { home_score: homeScore, away_score: awayScore, status: 'ended', duration: 0, locked_by: currentUser.id });
+    setQuickSaving(false); setQuickScoreMatch(null); load();
+  };
+
+  // Countdown helper
+  const getCountdown = (matchDate, scheduledTime) => {
+    if (!scheduledTime) return null;
+    const kickoff = new Date(`${matchDate}T${scheduledTime}`);
+    const now = new Date();
+    const diff = kickoff - now;
+    if (diff <= 0) return { text: "Now", color: "#10B981" };
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
+    if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
+    return { text: `${mins}m`, color: "#EF4444" };
+  };
+
+  const filtered = search.trim()
+    ? upcoming.filter(m => (m.home_team?.name || "").toLowerCase().includes(search.toLowerCase()) || (m.away_team?.name || "").toLowerCase().includes(search.toLowerCase()) || (m.venue || "").toLowerCase().includes(search.toLowerCase()))
+    : upcoming;
+
+  // ── LIVE MATCH VIEW ──
+  if (activeMatch) {
+    return (
+      <div>
+        <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button onClick={() => {
+            if (confirm("Cancel this match? It will revert to upcoming.")) handleCancelLive({ id: activeMatch.supabaseId, locked_by: currentUser.id });
+          }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+            ✕ Cancel & Revert
+          </button>
+        </div>
+        <LiveMatchScreen matchConfig={activeMatch} existingMatchId={activeMatch.supabaseId} onSaveGame={handleSaveLiveGame} onNavigate={() => { setActiveMatch(null); load(); }} />
+      </div>
+    );
+  }
+
+  // ── QUICK SCORE VIEW ──
+  if (quickScoreMatch) {
+    const m = quickScoreMatch;
+    return (
+      <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC", padding: 20 }}>
+        <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} vs {m.away_team?.name}</div>
+          <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
+            {new Date(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+            {m.venue && ` · ${m.venue}`}
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 20, marginBottom: 24 }}>
+          {[["home", m.home_team, homeScore, setHomeScore], ["away", m.away_team, awayScore, setAwayScore]].map(([side, t, score, setScore]) => (
+            <div key={side} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: t?.color || "#F8FAFC", marginBottom: 8 }}>{t?.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => setScore(Math.max(0, score - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 18, cursor: "pointer" }}>−</button>
+                <div style={{ fontSize: 36, fontWeight: 900, fontFamily: "monospace", minWidth: 40, textAlign: "center" }}>{score}</div>
+                <button onClick={() => setScore(score + 1)} style={{ width: 36, height: 36, borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 18, fontWeight: 800, cursor: "pointer" }}>+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={handleSaveQuickScore} disabled={quickSaving} style={{ width: "100%", padding: 12, borderRadius: 8, border: "none", background: "#10B981", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", opacity: quickSaving ? 0.5 : 1 }}>
+          {quickSaving ? "Saving..." : "Save Final Score"}
+        </button>
+      </div>
+    );
+  }
 
   // ── CREATE/EDIT VIEW ──
   if (view === "create") return (
@@ -274,25 +400,36 @@ export default function MatchScheduleScreen({ onBack }) {
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => { resetForm(); setView("create"); }}>+ Schedule Match</button>
 
+        {/* Search */}
+        <div style={{ marginTop: 10 }}>
+          <input style={{ width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 12, outline: "none", boxSizing: "border-box" }}
+            value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search matches..." />
+        </div>
+
         {loading ? (
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>Loading...</div>
-        ) : upcoming.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>No upcoming matches</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{search.trim() ? "No matches found" : "No upcoming matches"}</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
-            {upcoming.map(m => {
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+            {filtered.map(m => {
               const comms = matchComms[m.id] || [];
               const d = new Date(m.match_date);
+              const isLive = m.status === 'live';
+              const isMyLock = m.locked_by === currentUser?.id;
+              const countdown = getCountdown(m.match_date, m.scheduled_time);
               return (
                 <div key={m.id} style={{
                   background: theme.surface, borderRadius: 10, padding: "10px 12px",
-                  border: `1px solid ${theme.border}`,
+                  border: isLive ? "1px solid #EF444444" : `1px solid ${theme.border}`,
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: m.home_team?.color }} />
                     <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, flex: 1 }}>
                       {m.home_team?.name} vs {m.away_team?.name}
                     </div>
+                    {isLive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
+                    {countdown && !isLive && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>
                     {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
@@ -305,16 +442,22 @@ export default function MatchScheduleScreen({ onBack }) {
                       🎙 {comms.map(c => `${c.commentator?.firstname} ${c.commentator?.lastname}`).join(", ")}
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => handleEdit(m)} style={{
-                      flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700,
-                      border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer",
-                    }}>✏️ Edit</button>
-                    <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{
-                      padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700,
-                      border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer",
-                    }}>🗑</button>
-                  </div>
+                  {/* Action buttons */}
+                  {isLive && isMyLock ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => handleResumeLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#10B981", color: "#fff", cursor: "pointer" }}>🏑 Continue Recording</button>
+                      <button onClick={() => { if (confirm("Cancel? Reverts to upcoming.")) handleCancelLive(m); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>✕</button>
+                    </div>
+                  ) : isLive ? (
+                    <div style={{ fontSize: 9, color: "#EF4444" }}>🔒 Started by another user</div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => handleStartLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#F59E0B", color: "#0B0F1A", cursor: "pointer" }}>🏑 Start Live</button>
+                      <button onClick={() => handleQuickScore(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>💾 Quick Score</button>
+                      <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
+                      <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>🗑</button>
+                    </div>
+                  )}
                 </div>
               );
             })}

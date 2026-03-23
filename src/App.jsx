@@ -245,7 +245,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "match_schedule":
-      return <MatchScheduleScreen onBack={() => navigate("home")} />;
+      return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "teams":
       return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;

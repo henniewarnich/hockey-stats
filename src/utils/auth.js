@@ -79,6 +79,10 @@ export async function getProfileByUsername(username) {
 
 // Create a new user (admin/commentator_admin function)
 export async function createUser({ firstname, lastname, username, email, password, role }) {
+  // Pre-check: username uniqueness
+  const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
+  if (existing) return { error: `Username "${username}" is already taken.` };
+
   // Save current session before creating new user (signUp logs in as new user)
   const { data: { session: adminSession } } = await supabase.auth.getSession();
   
@@ -90,7 +94,38 @@ export async function createUser({ firstname, lastname, username, email, passwor
     },
   });
   
-  if (error) return { error: error.message };
+  if (error) {
+    // If trigger failed, the auth user may have been created but profile wasn't
+    // Try to find the auth user and create the profile manually
+    if (error.message.includes('Database error')) {
+      // Restore admin session first
+      if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+      return { error: `${error.message}. Try re-running the handle_new_user trigger in Supabase SQL Editor: SELECT handle_new_user();` };
+    }
+    if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    return { error: error.message };
+  }
+
+  // Check if user was actually created (Supabase returns fake success for existing emails)
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    return { error: `Email "${email}" is already registered.` };
+  }
+
+  // Check if profile was created by trigger, if not create it manually
+  if (data.user) {
+    const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
+    if (!profile) {
+      // Restore admin session so we have insert permissions
+      if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+      const { error: profileErr } = await supabase.from('profiles').insert({
+        id: data.user.id, email, firstname, lastname,
+        username: username.toLowerCase().trim(), role,
+      });
+      if (profileErr) return { error: `User created but profile failed: ${profileErr.message}` };
+      return { user: data.user };
+    }
+  }
 
   // Restore admin session
   if (adminSession) {

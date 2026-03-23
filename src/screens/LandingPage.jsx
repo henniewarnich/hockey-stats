@@ -312,9 +312,9 @@ export default function LandingPage() {
                   return (
                     <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
                       style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 7, background: hc + "22", border: `1.5px solid ${hc}44`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 900, color: hc, lineHeight: 1 }}>{d.getDate()}</div>
-                        <div style={{ fontSize: 7, fontWeight: 700, color: hc, textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
+                      <div style={{ width: 36, height: 36, borderRadius: 7, background: hc, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{d.getDate()}</div>
+                        <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>

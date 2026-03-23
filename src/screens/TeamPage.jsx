@@ -431,8 +431,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none", display: "flex", flexDirection: "column" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
+      {/* Sticky header */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {/* Home link + Login */}
-      <div style={{ padding: "10px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.location.hash = isCoach ? '#/coach' : ''; }} style={{
           background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", padding: 0,
           display: "flex", alignItems: "center", gap: 5, fontWeight: 700,
@@ -465,6 +467,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
           )}
         </div>
+      </div>
       </div>
 
       {/* Team Header */}
