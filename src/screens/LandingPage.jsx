@@ -269,11 +269,7 @@ export default function LandingPage() {
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>
-                          <span style={{ color: m.home_team?.color || "#F8FAFC" }}>{m.home_team?.name}</span>
-                          <span style={{ color: "#64748B" }}> vs </span>
-                          <span style={{ color: m.away_team?.color || "#F8FAFC" }}>{m.away_team?.name}</span>
-                        </div>
+                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
                         <div style={styles.matchMeta}>
                           {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
                           {liveMatchViewers[m.id] > 0 && (
@@ -310,17 +306,13 @@ export default function LandingPage() {
                   const hc = m.home_team?.color || "#3B82F6";
                   return (
                     <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
-                      style={{ ...styles.scoreCard, cursor: "pointer", borderLeft: `3px solid ${hc}` }}>
+                      style={{ ...styles.scoreCard, cursor: "pointer" }}>
                       <div style={{ width: 36, height: 36, borderRadius: 7, background: hc + "22", border: `1.5px solid ${hc}44`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 900, color: hc, lineHeight: 1 }}>{d.getDate()}</div>
                         <div style={{ fontSize: 7, fontWeight: 700, color: hc, textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>
-                          <span style={{ color: m.home_team?.color || "#F8FAFC" }}>{m.home_team?.name}</span>
-                          <span style={{ color: "#64748B" }}> vs </span>
-                          <span style={{ color: m.away_team?.color || "#F8FAFC" }}>{m.away_team?.name}</span>
-                        </div>
+                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
                         <div style={styles.matchMeta}>
                           {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
                           {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -361,9 +353,7 @@ export default function LandingPage() {
                       <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                          <span style={{ color: m.home_team?.color || "#F8FAFC" }}>{m.home_team?.name}</span>
-                          <span style={{ color: "#64748B" }}>vs</span>
-                          <span style={{ color: m.away_team?.color || "#F8FAFC" }}>{m.away_team?.name}</span>
+                          {m.home_team?.name} vs {m.away_team?.name}
                           {m.duration > 0 && <CommentaryIcon />}
                         </div>
                         <div style={styles.matchMeta}>
