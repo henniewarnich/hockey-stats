@@ -22,6 +22,7 @@ import LoginPage from './screens/LoginPage.jsx';
 import UserManagementScreen from './screens/UserManagementScreen.jsx';
 import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
 import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
+import CoachDashboard from './screens/CoachDashboard.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -34,6 +35,7 @@ function getHashRoute() {
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
   if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'login') return { type: 'login' };
+  if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
 }
@@ -85,7 +87,7 @@ export default function App() {
     } else if (profile.role === 'commentator') {
       window.location.hash = '#/record';
     } else if (profile.role === 'coach') {
-      window.location.hash = '';
+      window.location.hash = '#/coach';
     } else {
       window.location.hash = '';
     }
@@ -134,6 +136,14 @@ export default function App() {
     }
     // Team-specific — old commentator page (kept for backward compat)
     return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
+  }
+
+  // Coach area
+  if (route.type === 'coach') {
+    if (!currentUser || currentUser.role !== 'coach') {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} />;
   }
 
   // Admin area

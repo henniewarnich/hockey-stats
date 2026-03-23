@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { logLoginAttempt } from '../utils/audit.js';
+import { getSession, getProfile, isCoachForTeam } from '../utils/auth.js';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -211,8 +212,21 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
-        const storedPin = localStorage.getItem(`coach-pin-${found.id}`);
-        if (storedPin && found.coach_pin && storedPin === found.coach_pin) setIsCoach(true);
+        // Check if logged-in user is an assigned coach for this team
+        const session = await getSession();
+        if (session) {
+          const profile = await getProfile();
+          if (profile && profile.role === 'coach' && !profile.blocked) {
+            const assigned = await isCoachForTeam(profile.id, teamSlug);
+            if (assigned) setIsCoach(true);
+          }
+        }
+
+        // Legacy PIN check fallback
+        if (!session) {
+          const storedPin = localStorage.getItem(`coach-pin-${found.id}`);
+          if (storedPin && found.coach_pin && storedPin === found.coach_pin) setIsCoach(true);
+        }
 
         // Load matches
         const { data: allMatches } = await supabase

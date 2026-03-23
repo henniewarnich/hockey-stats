@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword } from '../utils/auth.js';
+import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword, getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
+import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 
 const ROLES = [
@@ -16,6 +17,10 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const [view, setView] = useState("list"); // list | create | edit
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [allTeams, setAllTeams] = useState([]);
+  const [coachTeamsMap, setCoachTeamsMap] = useState({}); // { coachId: [team, ...] }
+  const [editCoachTeams, setEditCoachTeams] = useState([]); // team IDs for edit view
+  const [teamSearch, setTeamSearch] = useState("");
 
   // Create form state
   const [firstname, setFirstname] = useState("");
@@ -33,7 +38,22 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const isCommAdmin = currentUser?.role === 'commentator_admin';
   const manageableRoles = isAdmin ? ROLES : ROLES.filter(r => r.id === 'commentator');
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(); loadTeams(); }, []);
+
+  const loadTeams = async () => {
+    const { data } = await supabase.from('teams').select('id, name, color, short_name').order('name');
+    setAllTeams(data || []);
+  };
+
+  const loadCoachTeams = async () => {
+    const assignments = await getAllCoachTeams();
+    const map = {};
+    assignments.forEach(a => {
+      if (!map[a.coach_id]) map[a.coach_id] = [];
+      map[a.coach_id].push(a.teams);
+    });
+    setCoachTeamsMap(map);
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -41,6 +61,8 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     // CommAdmin only sees commentators
     setUsers(isAdmin ? data : data.filter(u => u.role === 'commentator'));
     setLoading(false);
+    // Also refresh coach team assignments
+    loadCoachTeams();
   };
 
   const autoUsername = (fn, ln) => {
@@ -83,9 +105,31 @@ export default function UserManagementScreen({ currentUser, onBack }) {
       role: editUser.role,
     });
     if (result.error) { setSaveError(result.error); setSaving(false); return; }
+
+    // Save coach team assignments if this is a coach
+    if (editUser.role === 'coach') {
+      const current = (coachTeamsMap[editUser.id] || []).map(t => t.id);
+      // Remove unassigned
+      for (const tid of current) {
+        if (!editCoachTeams.includes(tid)) await removeCoachTeam(editUser.id, tid);
+      }
+      // Add new
+      for (const tid of editCoachTeams) {
+        if (!current.includes(tid)) await assignCoachTeam(editUser.id, tid);
+      }
+    }
+
     setSaving(false);
     loadUsers();
     setView("list");
+  };
+
+  const openEdit = (u) => {
+    setEditUser({ ...u });
+    setEditCoachTeams((coachTeamsMap[u.id] || []).map(t => t.id));
+    setTeamSearch("");
+    setView("edit");
+    setSaveError("");
   };
 
   const handleToggleBlock = async (user) => {
@@ -190,6 +234,53 @@ export default function UserManagementScreen({ currentUser, onBack }) {
           </div>
         )}
 
+        {/* Coach team assignments */}
+        {editUser.role === 'coach' && isAdmin && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Assigned Teams</div>
+            {/* Selected teams */}
+            {editCoachTeams.length > 0 && (
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                {editCoachTeams.map(tid => {
+                  const t = allTeams.find(x => x.id === tid);
+                  if (!t) return null;
+                  return (
+                    <span key={tid} style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "4px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
+                      background: (t.color || "#8B5CF6") + "22", color: t.color || "#8B5CF6",
+                      border: `1px solid ${(t.color || "#8B5CF6")}44`,
+                    }}>
+                      {t.short_name || t.name}
+                      <span onClick={() => setEditCoachTeams(prev => prev.filter(x => x !== tid))}
+                        style={{ cursor: "pointer", marginLeft: 2, fontSize: 13, lineHeight: 1 }}>×</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {/* Team search + add */}
+            <input style={{ ...S.input, fontSize: 11 }} value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="🔍 Search teams to add..." />
+            {teamSearch.trim() && (
+              <div style={{ maxHeight: 140, overflowY: "auto", marginTop: 4, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg }}>
+                {allTeams.filter(t => !editCoachTeams.includes(t.id) && t.name.toLowerCase().includes(teamSearch.toLowerCase())).map(t => (
+                  <div key={t.id} onClick={() => { setEditCoachTeams(prev => [...prev, t.id]); setTeamSearch(""); }}
+                    style={{ padding: "8px 12px", fontSize: 12, color: theme.text, cursor: "pointer", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 99, background: t.color || "#8B5CF6", flexShrink: 0 }} />
+                    {t.name}
+                  </div>
+                ))}
+                {allTeams.filter(t => !editCoachTeams.includes(t.id) && t.name.toLowerCase().includes(teamSearch.toLowerCase())).length === 0 && (
+                  <div style={{ padding: "8px 12px", fontSize: 11, color: theme.textDim }}>No matching teams</div>
+                )}
+              </div>
+            )}
+            {editCoachTeams.length === 0 && !teamSearch.trim() && (
+              <div style={{ fontSize: 10, color: theme.textDim, marginTop: 4 }}>No teams assigned — search above to add</div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button onClick={() => handleToggleBlock(editUser)} style={{
             flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${editUser.blocked ? "#10B98144" : "#EF444444"}`,
@@ -240,7 +331,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {filtered.map(u => (
-              <div key={u.id} onClick={() => { setEditUser({ ...u }); setView("edit"); setSaveError(""); }}
+              <div key={u.id} onClick={() => openEdit(u)}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
                   background: theme.surface, borderRadius: 10, cursor: "pointer",
@@ -258,6 +349,16 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                     {u.blocked && <span style={{ fontSize: 9, color: "#EF4444", marginLeft: 6 }}>BLOCKED</span>}
                   </div>
                   <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>{u.username} · {u.email}</div>
+                  {u.role === 'coach' && coachTeamsMap[u.id]?.length > 0 && (
+                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3 }}>
+                      {coachTeamsMap[u.id].map(t => (
+                        <span key={t.id} style={{
+                          fontSize: 8, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
+                          background: (t.color || "#8B5CF6") + "22", color: t.color || "#8B5CF6",
+                        }}>{t.short_name || t.name}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 99,

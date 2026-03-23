@@ -158,3 +158,55 @@ export async function listUsersByRole(role) {
   if (error) return [];
   return data;
 }
+
+// ── COACH TEAM ASSIGNMENTS ──────────────────────────
+
+// Get teams assigned to a coach
+export async function getCoachTeams(coachId) {
+  const { data, error } = await supabase
+    .from('coach_teams')
+    .select('team_id, teams(id, name, color, short_name)')
+    .eq('coach_id', coachId);
+  if (error) return [];
+  return data.map(d => d.teams);
+}
+
+// Get all coach_teams records (for admin user list)
+export async function getAllCoachTeams() {
+  const { data, error } = await supabase
+    .from('coach_teams')
+    .select('coach_id, team_id, teams(id, name, color, short_name)');
+  if (error) return [];
+  return data;
+}
+
+// Assign a coach to a team
+export async function assignCoachTeam(coachId, teamId) {
+  const { error } = await supabase
+    .from('coach_teams')
+    .upsert({ coach_id: coachId, team_id: teamId }, { onConflict: 'coach_id,team_id' });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// Remove a coach from a team
+export async function removeCoachTeam(coachId, teamId) {
+  const { error } = await supabase
+    .from('coach_teams')
+    .delete()
+    .eq('coach_id', coachId)
+    .eq('team_id', teamId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// Check if a user is an assigned coach for a specific team (by slug)
+export async function isCoachForTeam(userId, teamSlug) {
+  const { data } = await supabase
+    .from('coach_teams')
+    .select('team_id, teams!inner(name)')
+    .eq('coach_id', userId);
+  if (!data || data.length === 0) return false;
+  const slugify = (n) => n.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+  return data.some(d => slugify(d.teams.name) === teamSlug);
+}

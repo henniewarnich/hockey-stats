@@ -35,13 +35,14 @@ export default function MatchScheduleScreen({ onBack }) {
 
   const load = async () => {
     setLoading(true);
-    const [matches, comms, { data: teams }] = await Promise.all([
+    const [matches, comms, commAdmins, { data: teams }] = await Promise.all([
       fetchUpcomingMatches(),
       listUsersByRole('commentator'),
+      listUsersByRole('commentator_admin'),
       supabase.from('teams').select('*').order('name'),
     ]);
     setUpcoming(matches);
-    setCommentators(comms);
+    setCommentators([...commAdmins, ...comms]);
     setAllTeams(teams || []);
 
     // Load commentator assignments for each match
@@ -232,14 +233,16 @@ export default function MatchScheduleScreen({ onBack }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
               {commentators.map(c => {
                 const sel = selectedComms.includes(c.id);
+                const isCA = c.role === 'commentator_admin';
+                const color = isCA ? "#F59E0B" : "#10B981";
                 return (
                   <button key={c.id} onClick={() => toggleComm(c.id)} style={{
                     padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700,
-                    border: sel ? "2px solid #10B981" : `1px solid ${theme.border}`,
-                    background: sel ? "#10B98122" : theme.bg,
-                    color: sel ? "#10B981" : theme.textMuted, cursor: "pointer",
+                    border: sel ? `2px solid ${color}` : `1px solid ${theme.border}`,
+                    background: sel ? color + "22" : theme.bg,
+                    color: sel ? color : theme.textMuted, cursor: "pointer",
                   }}>
-                    {sel ? "✓ " : ""}{c.firstname} {c.lastname}
+                    {sel ? "✓ " : ""}{c.firstname} {c.lastname}{isCA ? " ★" : ""}
                   </button>
                 );
               })}
