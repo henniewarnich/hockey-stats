@@ -889,7 +889,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                         </div>
                       )}
                       {showReactions && entry.id && (
-                        <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} />
+                        <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} readOnly />
                       )}
                     </div>
                   );

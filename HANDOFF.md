@@ -147,21 +147,10 @@ hockey-stats/
 │   │   └── useReactions.js       # Emoji reaction hook
 │   ├── screens/                  # All screen components
 │   └── utils/                    # Auth, sync, stats, helpers
-├── migration-audit.sql           # Audit log + delete functions
-├── migration-rank-snapshot.sql   # Ranking snapshot function
-├── migration-users.sql           # Profiles + coach_teams
-├── migration-reactions.sql       # Event reactions table
-├── migration-viewers.sql         # Match viewers table
-├── migration-phase2-rls.sql      # RLS policies
-├── migration-fix-trigger.sql     # Improved trigger (now dropped)
-├── migration-festival-to-tournament.sql
-├── migration-prev-ranks.sql      # Previous ranking columns + updated snapshot fn
-├── migration-ranking-date.sql    # Ranking date column for ranking_sets
-├── supabase-schema.sql           # Original schema
 ├── upgrade-scripts/
+│   ├── baseline/                 # Original schema + pre-v7 migrations + README
 │   ├── v7.1.0/                   # migration-prev-ranks.sql + README
 │   └── v7.2.0/                   # migration-ranking-date.sql + README
-└── check-matches-vs-rankings.sql # Diagnostic queries
 ```
 
 ## Session Summary (v6.3.0 → v7.3.2)

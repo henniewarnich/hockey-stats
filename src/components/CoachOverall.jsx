@@ -29,9 +29,9 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, matc
   const n = agg.matchCount;
   const oppColor = "#94A3B8";
 
-  const shotConv = agg.team.shotsOn > 0 ? Math.round(agg.team.goals / agg.team.shotsOn * 100) : 0;
+  const shotConv = (agg.team.shotsOn + agg.team.shotsOff) > 0 ? Math.round(agg.team.goals / (agg.team.shotsOn + agg.team.shotsOff) * 100) : 0;
   const dConv = agg.team.dEntries > 0 ? Math.round((agg.team.shotsOn + agg.team.shotsOff) / agg.team.dEntries * 100) : 0;
-  const oppShotConv = agg.opp.shotsOn > 0 ? Math.round(agg.opp.goals / agg.opp.shotsOn * 100) : 0;
+  const oppShotConv = (agg.opp.shotsOn + agg.opp.shotsOff) > 0 ? Math.round(agg.opp.goals / (agg.opp.shotsOn + agg.opp.shotsOff) * 100) : 0;
   const oppDConv = agg.opp.dEntries > 0 ? Math.round((agg.opp.shotsOn + agg.opp.shotsOff) / agg.opp.dEntries * 100) : 0;
 
   return (

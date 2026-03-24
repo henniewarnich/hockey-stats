@@ -200,7 +200,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const activeQs = quarterData.filter(q => q.status !== "upcoming");
   const totalStat = (team, key) => activeQs.reduce((sum, q) => sum + q[team][key], 0);
   const avgTerritory = (team) => activeQs.length ? Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length) : 0;
-  const convRate = (team) => { const s = totalStat(team, "shotsOn"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
+  const convRate = (team) => { const s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
   const matchInsights = generateMatchInsights(quarterData, teams, homeScore, awayScore);
 
@@ -413,7 +413,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
 
                   {/* Expanded stats */}
                   {isExp && !isUpcoming && (() => {
-                    const qConvRate = (t) => { const s = q[t].shotsOn; const g = q[t].goals; return s > 0 ? Math.round(g / s * 100) : 0; };
+                    const qConvRate = (t) => { const s = q[t].shotsOn + q[t].shotsOff; const g = q[t].goals; return s > 0 ? Math.round(g / s * 100) : 0; };
                     const qDConv = (t) => { const d = q[t].dEntries; const s = q[t].shotsOn + q[t].shotsOff; return d > 0 ? Math.round(s / d * 100) : 0; };
                     const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
                     const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
