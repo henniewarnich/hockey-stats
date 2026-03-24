@@ -23,6 +23,7 @@ import UserManagementScreen from './screens/UserManagementScreen.jsx';
 import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
 import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 import CoachDashboard from './screens/CoachDashboard.jsx';
+import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -241,6 +242,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "users":
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;
+
+    case "rankings":
+      return <RankingsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

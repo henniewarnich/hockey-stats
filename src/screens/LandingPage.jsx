@@ -410,7 +410,7 @@ export default function LandingPage() {
                     <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
                       <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
                       <div style={{ flex: 1 }}>
-                        <div style={styles.teamName}>{t.name}</div>
+                        <div style={styles.teamName}>{t.name} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} prevRank={lr.prevRank} /> : null; })()}</div>
                         {r ? (
                           <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
                         ) : (
