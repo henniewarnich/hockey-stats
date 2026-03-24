@@ -450,3 +450,41 @@ export async function unlockMatch(matchId, userId) {
     .eq('locked_by', userId);
   return !error;
 }
+
+/**
+ * Fetch latest 2 ranking sets and return a map: teamId → { rank, prevRank }
+ * Used for upcoming matches where we want current rankings, not snapshot.
+ */
+export async function fetchLatestRankings() {
+  const { data: sets } = await supabase
+    .from('ranking_sets')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(2);
+  if (!sets || sets.length === 0) return {};
+
+  const latestId = sets[0].id;
+  const prevId = sets.length > 1 ? sets[1].id : null;
+
+  const { data: latest } = await supabase
+    .from('rankings')
+    .select('team_id, position')
+    .eq('ranking_set_id', latestId);
+
+  let prevMap = {};
+  if (prevId) {
+    const { data: prev } = await supabase
+      .from('rankings')
+      .select('team_id, position')
+      .eq('ranking_set_id', prevId);
+    if (prev) prevMap = Object.fromEntries(prev.map(r => [r.team_id, r.position]));
+  }
+
+  const result = {};
+  if (latest) {
+    for (const r of latest) {
+      result[r.team_id] = { rank: r.position, prevRank: prevMap[r.team_id] ?? null };
+    }
+  }
+  return result;
+}

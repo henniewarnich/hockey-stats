@@ -60,6 +60,18 @@ export function exportMatchJSON(game) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+// SAST timezone helpers — all match dates/times are stored as SAST (UTC+2)
+/** Parse a match_date + optional scheduled_time as SAST → correct Date object */
+export function parseSAST(matchDate, scheduledTime) {
+  const time = scheduledTime ? scheduledTime.slice(0, 5) : '12:00';
+  return new Date(`${matchDate}T${time}:00+02:00`);
+}
+
+/** Parse a date-only string as SAST (uses noon to avoid day-rollover in any timezone) */
+export function parseSASTDate(matchDate) {
+  return new Date(`${matchDate}T12:00:00+02:00`);
+}
+
 // Generate unique ID
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 

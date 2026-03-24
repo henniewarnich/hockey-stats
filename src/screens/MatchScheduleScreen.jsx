@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings } from '../utils/sync.js';
+import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
 import { listUsersByRole } from '../utils/auth.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import { parseSAST, parseSASTDate } from '../utils/helpers.js';
+import RankBadge from '../components/RankBadge.jsx';
 import NavLogo from '../components/NavLogo.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
@@ -38,6 +40,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [saving, setSaving] = useState(false);
   const [editMatch, setEditMatch] = useState(null);
   const [matchComms, setMatchComms] = useState({}); // matchId -> [commentator profiles]
+  const [latestRankings, setLatestRankings] = useState({});
 
   const ml = parseInt(matchLength) || 60;
   const inputStyle = { width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -70,6 +73,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       });
     }
     setMatchComms(commsMap);
+    fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
     setLoading(false);
   };
 
@@ -195,7 +199,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   // Countdown helper
   const getCountdown = (matchDate, scheduledTime) => {
     if (!scheduledTime) return null;
-    const kickoff = new Date(`${matchDate}T${scheduledTime}`);
+    const kickoff = parseSAST(matchDate, scheduledTime);
     const now = new Date();
     const diff = kickoff - now;
     if (diff <= 0) return { text: "Now", color: "#10B981" };
@@ -234,9 +238,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC", padding: 20 }}>
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} vs {m.away_team?.name}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
-            {new Date(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+            {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.venue && ` · ${m.venue}`}
           </div>
         </div>
@@ -418,7 +422,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
             {filtered.map(m => {
               const comms = matchComms[m.id] || [];
-              const d = new Date(m.match_date);
+              const d = parseSASTDate(m.match_date);
               const isLive = m.status === 'live';
               const isMyLock = m.locked_by === currentUser?.id;
               const countdown = getCountdown(m.match_date, m.scheduled_time);
@@ -430,7 +434,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: m.home_team?.color }} />
                     <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, flex: 1 }}>
-                      {m.home_team?.name} vs {m.away_team?.name}
+                      {m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                     </div>
                     {isLive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
                     {countdown && !isLive && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}

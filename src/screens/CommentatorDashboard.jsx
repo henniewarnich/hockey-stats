@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updateScheduledMatch, snapshotRankings } from '../utils/sync.js';
+import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updateScheduledMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { parseSASTDate } from '../utils/helpers.js';
+import RankBadge from '../components/RankBadge.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
 export default function CommentatorDashboard({ currentUser, onLogout }) {
@@ -14,6 +16,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   const [awayScore, setAwayScore] = useState(0);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickSaved, setQuickSaved] = useState(false);
+  const [latestRankings, setLatestRankings] = useState({});
 
   useEffect(() => { load(); }, []);
 
@@ -21,6 +24,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
     setLoading(true);
     const data = await fetchCommentatorMatches(currentUser.id);
     setMatches(data);
+    fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
     setLoading(false);
   };
 
@@ -168,9 +172,9 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
 
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} vs {m.away_team?.name}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
-            {new Date(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+            {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
             {m.venue && ` · ${m.venue}`}
           </div>
@@ -267,7 +271,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "#EF4444", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>🔴 Live now</div>
                 {liveMatches.map(m => (
-                  <MatchCard key={m.id} match={m} currentUser={currentUser}
+                  <MatchCard key={m.id} match={m} currentUser={currentUser} latestRankings={latestRankings}
                     onStartLive={() => handleStartLive(m)}
                     onResumeLive={() => handleResumeLive(m)}
                     onCancel={() => handleCancelLive(m)}
@@ -281,7 +285,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
               <div>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>📅 Upcoming</div>
                 {upcomingMatches.map(m => (
-                  <MatchCard key={m.id} match={m} currentUser={currentUser}
+                  <MatchCard key={m.id} match={m} currentUser={currentUser} latestRankings={latestRankings}
                     onStartLive={() => handleStartLive(m)}
                     onQuickScore={() => handleQuickScore(m)}
                   />
@@ -296,7 +300,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
             ) : (
               <div>
                 {completedMatches.map(m => {
-                  const d = new Date(m.match_date);
+                  const d = parseSASTDate(m.match_date);
                   const isMyLock = m.locked_by === currentUser.id;
                   return (
                     <div key={m.id} style={{
@@ -306,7 +310,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-                          {m.home_team?.name} vs {m.away_team?.name}
+                          {m.home_team?.name} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
                         </div>
                         <div style={{ fontSize: 16, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
                       </div>
@@ -338,8 +342,8 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   );
 }
 
-function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel, onResumeLive }) {
-  const d = new Date(m.match_date);
+function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel, onResumeLive, latestRankings = {} }) {
+  const d = parseSASTDate(m.match_date);
   const isLocked = m.locked_by && m.locked_by !== currentUser.id;
   const isMyLock = m.locked_by === currentUser.id;
 
@@ -352,7 +356,7 @@ function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel,
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-          {m.home_team?.name} vs {m.away_team?.name}
+          {m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
       </div>

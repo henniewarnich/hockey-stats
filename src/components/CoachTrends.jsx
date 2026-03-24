@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { getWeekStart } from '../utils/stats.js';
+import { parseSASTDate } from '../utils/helpers.js';
 
 function MiniChart({ data, label, color, suffix = "", showZeroLine = false, invert = false }) {
   if (data.length === 0) return null;
@@ -82,7 +83,7 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
 
   const weeks = Object.keys(weekMap).sort();
   const fmtWeek = (w) => {
-    const d = new Date(w + 'T00:00:00');
+    const d = parseSASTDate(w);
     return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
   };
 
@@ -109,7 +110,7 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
   const rankingData = rankings
     .filter(r => r.ranking_set?.scraped_at)
     .map(r => ({
-      label: new Date(r.ranking_set.scraped_at + 'T00:00:00').toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+      label: parseSASTDate(r.ranking_set.scraped_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
       value: r.position,
     }));
 

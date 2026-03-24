@@ -3,10 +3,11 @@ import { getCoachTeams } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import { parseSASTDate } from '../utils/helpers.js';
 
 const fmtDate = (d) => {
   if (!d) return '';
-  const dt = new Date(d + 'T00:00:00');
+  const dt = parseSASTDate(d);
   return dt.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 const fmtTime = (t) => {

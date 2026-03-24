@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { ensureContrastingColors } from '../utils/helpers.js';
+import { ensureContrastingColors, parseSAST, parseSASTDate } from '../utils/helpers.js';
 import { computeMatchStats } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
+import { fetchLatestRankings } from '../utils/sync.js';
 import { useReactions } from '../hooks/useReactions.js';
 import ReactionBar from '../components/ReactionBar.jsx';
+import RankBadge from '../components/RankBadge.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
@@ -164,6 +166,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
   const [loadingStats, setLoadingStats] = useState(false);
+  const [latestRankings, setLatestRankings] = useState({});
   const { counts, myReactions, toggleReaction, loadReactions } = useReactions(liveMatch?.id || selectedMatch?.id);
 
   // Ensure contrasting team colors for live and selected matches
@@ -228,8 +231,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         const live = data.find(m => m.status === 'live');
         const ended = data.filter(m => m.status === 'ended');
         const upcoming = data.filter(m => m.status === 'upcoming').sort((a, b) => {
-          const da = new Date(a.match_date + 'T' + (a.scheduled_time || '00:00'));
-          const db = new Date(b.match_date + 'T' + (b.scheduled_time || '00:00'));
+          const da = parseSAST(a.match_date, a.scheduled_time || '00:00');
+          const db = parseSAST(b.match_date, b.scheduled_time || '00:00');
           return da - db;
         });
         setMatches(ended);
@@ -292,12 +295,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           const live = allMatches.find(m => m.status === 'live');
           const ended = allMatches.filter(m => m.status === 'ended');
           const upcoming = allMatches.filter(m => m.status === 'upcoming').sort((a, b) => {
-            const da = new Date(a.match_date + 'T' + (a.scheduled_time || '00:00'));
-            const db = new Date(b.match_date + 'T' + (b.scheduled_time || '00:00'));
+            const da = parseSAST(a.match_date, a.scheduled_time || '00:00');
+            const db = parseSAST(b.match_date, b.scheduled_time || '00:00');
             return da - db;
           });
           setMatches(ended);
           setUpcomingMatches(upcoming);
+
+          // Fetch latest rankings for upcoming match badges
+          fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
 
           // Auto-open a specific match if navigated from landing page
           if (initialMatchId) {
@@ -705,7 +711,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             upcomingMatches.map(m => {
               const isHome = m.home_team?.id === team.id;
               const opp = isHome ? m.away_team : m.home_team;
-              const d = new Date(m.match_date + 'T00:00:00');
+              const d = parseSASTDate(m.match_date);
               return (
                 <div key={m.id} style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4,
@@ -719,8 +725,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     <div style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>
-                      {isHome ? 'vs' : '@'} {opp?.name || 'TBD'}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
+                      {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} {(() => { const r = latestRankings[opp?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                     </div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
                       {d.toLocaleDateString("en-ZA", { weekday: "short" })}
@@ -763,7 +769,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             const isHome = m.home_team?.id === team.id;
             const rc = resultColor(m);
             const rl = resultLabel(m);
-            const d = new Date(m.match_date);
+            const d = parseSASTDate(m.match_date);
             const hasStats = m.duration > 0;
             return (
               <div key={m.id} style={{
@@ -773,7 +779,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 <div onClick={() => handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer" }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 5 }}>{isHome ? "vs" : "@"} {opp?.name}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 5 }}>{isHome ? "vs" : "@"} {opp?.name} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                       {hasStats && <span title="Full stats + commentary" style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>}
                     </div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
@@ -804,17 +810,17 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{selectedMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{selectedMatch.home_team?.name} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
                 <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{selectedMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{selectedMatch.away_team?.name} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
               <div style={{ textAlign: "center", marginTop: 6, fontSize: 11, color: "#94A3B8" }}>
-                {new Date(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                {parseSASTDate(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                 {selectedMatch.venue && ` · ${selectedMatch.match_type ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
               </div>
               {totalViewers > 0 && (

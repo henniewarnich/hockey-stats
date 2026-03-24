@@ -3,6 +3,8 @@ import { supabase } from '../utils/supabase.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
 import { logLoginAttempt } from '../utils/audit.js';
+import { parseSASTDate } from '../utils/helpers.js';
+import RankBadge from '../components/RankBadge.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -534,12 +536,12 @@ export default function CommentatorPage({ teamSlug, onBack }) {
             const isHome = m.home_team?.id === team.id;
             const rc = resultColor(m);
             const rl = resultLabel(m);
-            const d = new Date(m.match_date);
+            const d = parseSASTDate(m.match_date);
             return (
               <div key={m.id} style={{ display: "flex", alignItems: "center", padding: "12px 12px", gap: 10, background: "#1E293B", borderRadius: 10, marginBottom: 4 }}>
                 <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {opp?.name} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} /></div>
                   <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                   </div>

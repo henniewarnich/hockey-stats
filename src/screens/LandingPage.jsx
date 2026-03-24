@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { parseSAST, parseSASTDate } from '../utils/helpers.js';
+import { fetchLatestRankings } from '../utils/sync.js';
+import RankBadge from '../components/RankBadge.jsx';
 
 export default function LandingPage() {
   const [teams, setTeams] = useState([]);
@@ -13,6 +16,7 @@ export default function LandingPage() {
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
   const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results | teams
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
+  const [latestRankings, setLatestRankings] = useState({});
 
   // Global presence tracking
   useEffect(() => {
@@ -66,6 +70,9 @@ export default function LandingPage() {
         if (allMatches) setMatches(allMatches);
         if (live) setLiveMatches(live);
         if (upcoming) setUpcomingMatches(upcoming);
+
+        // Fetch latest rankings for upcoming/live badges
+        fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
 
         // Auto-select best tab
         if (live && live.length > 0) setActiveTab("live");
@@ -150,7 +157,7 @@ export default function LandingPage() {
 
   const getCountdown = (matchDate, scheduledTime) => {
     if (!scheduledTime) return null;
-    const kickoff = new Date(`${matchDate}T${scheduledTime}`);
+    const kickoff = parseSAST(matchDate, scheduledTime);
     const now = new Date();
     const diff = kickoff - now;
     if (diff <= 0) return { text: "Now", color: "#10B981" };
@@ -288,7 +295,7 @@ export default function LandingPage() {
                         <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
                         <div style={styles.matchMeta}>
                           {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
                           {liveMatchViewers[m.id] > 0 && (
@@ -320,7 +327,7 @@ export default function LandingPage() {
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No upcoming matches scheduled"}</div>
               ) : (
                 filtered.map(m => {
-                  const d = new Date(m.match_date + 'T00:00:00');
+                  const d = parseSASTDate(m.match_date);
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   const hc = m.home_team?.color || "#3B82F6";
                   return (
@@ -331,7 +338,7 @@ export default function LandingPage() {
                         <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
                         <div style={styles.matchMeta}>
                           {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                           {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -365,7 +372,7 @@ export default function LandingPage() {
               ) : (
                 filtered.slice(0, 20).map(m => {
                   const homeR = resultBadge(m, m.home_team?.id);
-                  const d = new Date(m.match_date);
+                  const d = parseSASTDate(m.match_date);
                   const homeSlug = teamSlug(m.home_team?.name || "");
                   return (
                     <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
@@ -373,7 +380,7 @@ export default function LandingPage() {
                       <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                          {m.home_team?.name} vs {m.away_team?.name}
+                          {m.home_team?.name} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
                           {m.duration > 0 && <CommentaryIcon />}
                         </div>
                         <div style={styles.matchMeta}>
