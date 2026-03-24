@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.1.0 | Date: 24 March 2026**
+**Version: 7.3.2 | Date: 24 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -23,7 +23,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 | Commentator | `#/record` | Dashboard with assigned matches, quick score + live, viewer count |
 | Comm Admin | `#/admin` | Everything commentator + schedule matches, manage assigned matches |
 | Coach | `#/coach` | Dashboard → team pages with Overall/Matches/Trends/Live Stats tabs |
-| Admin | `#/admin` | Full access: teams, users, matches, schedule, history |
+| Admin | `#/admin` | Full access: teams, users, matches, schedule, rankings, history |
 
 ### Landing Page (`kykie.net`)
 - 4 tabs: Live / Upcoming / Results / Teams
@@ -50,6 +50,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - `CommentatorDashboard.jsx` — Commentator's assigned matches
 - `CoachDashboard.jsx` — Coach's assigned teams + upcoming
 - `UserManagementScreen.jsx` — Admin user CRUD with Active/Blocked tabs
+- `RankingsScreen.jsx` — Admin ranking set management + per-team position editing
 - `LoginPage.jsx` — Remembers last username
 
 ### Supabase Tables
@@ -61,7 +62,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - `match_commentators` — Commentator-to-match assignments
 - `event_reactions` — Emoji reactions (match_event_id, emoji, viewer_id)
 - `match_viewers` — Persistent viewer tracking per match
-- `ranking_sets` — Ranking snapshots (scraped_at, source_url, notes)
+- `ranking_sets` — Ranking snapshots (scraped_at, ranking_date, source_url, notes)
 - `rankings` — Team positions within a ranking set (position, points)
 - `audit_log` — All delete actions logged
 
@@ -84,6 +85,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - `src/components/CoachOverall.jsx` — Season aggregated stats (conversion rates, stat bars, per-match averages)
 - `src/components/CoachTrends.jsx` — Weekly trend charts (ranking, GD, territory, possession, D-entries, short corners)
 - `src/components/RankBadge.jsx` — Inline rank badge with trend indicator (▲improved / ▼dropped / #unchanged)
+- `src/components/MiniChart.jsx` — Shared SVG trend chart with value labels, supports compact mode (CoachTrends + CoachDashboard)
 
 ### Important Notes
 - **Trigger disabled**: `on_auth_user_created` trigger was dropped. Profile creation is handled app-side via `create_profile` RPC.
@@ -119,7 +121,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 ```
 hockey-stats/
 ├── index.html                    # Source HTML (translate=no)
-├── package.json                  # v7.1.0
+├── package.json                  # v7.3.2
 ├── vite.config.js
 ├── docs/                         # Built output (GitHub Pages)
 ├── src/
@@ -135,6 +137,7 @@ hockey-stats/
 │   │   ├── PausePopup.jsx        # Pause reason selector
 │   │   ├── ReactionBar.jsx       # Emoji reaction buttons
 │   │   ├── RankBadge.jsx         # Inline rank + trend badge
+│   │   ├── MiniChart.jsx         # Shared SVG trend chart (compact + full)
 │   │   ├── Scoreboard.jsx        # Match scoreboard
 │   │   └── TeamPicker.jsx        # Team selection
 │   ├── hooks/
@@ -153,11 +156,15 @@ hockey-stats/
 ├── migration-fix-trigger.sql     # Improved trigger (now dropped)
 ├── migration-festival-to-tournament.sql
 ├── migration-prev-ranks.sql      # Previous ranking columns + updated snapshot fn
+├── migration-ranking-date.sql    # Ranking date column for ranking_sets
 ├── supabase-schema.sql           # Original schema
+├── upgrade-scripts/
+│   ├── v7.1.0/                   # migration-prev-ranks.sql + README
+│   └── v7.2.0/                   # migration-ranking-date.sql + README
 └── check-matches-vs-rankings.sql # Diagnostic queries
 ```
 
-## Session Summary (v6.3.0 → v7.1.0)
+## Session Summary (v6.3.0 → v7.3.2)
 
 ### Phase 3 Features
 - Coach-team assignment, coach dashboard, upcoming matches
@@ -209,3 +216,50 @@ hockey-stats/
 - Wired into all match card locations: LandingPage (Live/Upcoming/Results), TeamPage (upcoming/results/detail header), CommentatorDashboard (MatchCard/completed/quick score), MatchScheduleScreen (list/quick score), CommentatorPage (results)
 - Team page shows opponent rank only; landing page shows both teams
 - Zero performance impact on past matches (data already in `select *`), one extra query for upcoming
+
+### v7.1.1 — Trends Chart Fix
+- MiniChart value labels on all data points
+- Ranking data sorted client-side (ascending by scraped_at) — fixes newest-left bug
+- Chart height increased to accommodate value labels above dots
+
+### v7.2.0 — Rankings Admin + Teams Tab Badges
+- New `RankingsScreen` (admin only): list ranking sets, edit positions per team, add missing teams
+- Migration `migration-ranking-date.sql`: adds `ranking_date` column to `ranking_sets`
+- Rankings nav item on admin HomeScreen (🏆)
+- Rank badges on Teams tab (LandingPage)
+- Search + filter (All/Ranked/Unranked) on ranking editor
+- Visual tags: green NEW for additions, amber CHANGED for edits
+
+### v7.2.2 — Coach Insights Colour Restyle
+- Fixed green/grey palette for CoachLiveScreen (HC=#22C55E, AC=#64748B)
+- No team colours in coach insights — always green=home, grey=away
+- Team names white, team abbreviations green/grey
+- Insight icons: `+` (strength), `!` (weakness), `■` (info) — no emoji
+- Left border accent on match insight cards
+- Stat bars, territory/possession bars all green vs grey
+
+### v7.3.0 — Coach Dashboard Tabs + Opposition Scouting
+- CoachDashboard rewritten: Upcoming/Results tabs replace "View Stats →" link
+- Results tab with W/D/L badges, opponent rank, scores, tap to view detail
+- Opposition scouting panel on upcoming matches: form dots (last 5 W/D/L), GF:GA ratio
+- Default tab auto-selects based on data availability
+- Team name/icon still navigates to full team stats page
+
+### v7.3.1 — Opposition Trend Charts
+- Extracted `MiniChart` into shared component (`src/components/MiniChart.jsx`)
+- `compact` prop for embedded use (smaller height, no card wrapper)
+- CoachDashboard scouting panel now shows Ranking + GD MiniCharts per opponent
+- Ranking history fetched in one batched query for all opponents
+- Weekly GD computed client-side from existing match data
+- Fallback: "No match history available" when no data exists
+- Stale `audit_matches` trigger discovered and documented (must be dropped manually — see Known Issues)
+
+### Known Issues to Watch (updated)
+- **Stale `audit_matches` trigger**: A broken trigger on the `matches` table fires `log_audit()` which references columns that don't exist in `audit_log`. Must be manually dropped: `DROP TRIGGER audit_matches ON matches;`. App audit logging uses RPC functions, not this trigger.
+
+### v7.3.2 — MiniChart Fixes + Upgrade Scripts
+- Fixed value labels clipping at chart edges (first point left-aligned, last right-aligned)
+- Flat data (all values identical) or single data point now shows header only, no chart
+- Trend indicator hidden when unchanged (no more "— 0" display)
+- Increased padding in compact mode
+- Upgrade scripts organized into `upgrade-scripts/v7.1.0/` and `upgrade-scripts/v7.2.0/` with READMEs
