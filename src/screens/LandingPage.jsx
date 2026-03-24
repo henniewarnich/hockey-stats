@@ -17,6 +17,7 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results | teams
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
+  const [showUpcoming, setShowUpcoming] = useState(20);
 
   // Global presence tracking
   useEffect(() => {
@@ -83,21 +84,13 @@ export default function LandingPage() {
     };
     load();
 
-    // Poll live + upcoming every 10s
+    // Poll live matches only every 10s (upcoming rarely changes)
     const poll = setInterval(async () => {
       try {
-        const [{ data: live }, { data: upcoming }] = await Promise.all([
-          supabase.from('matches')
-            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-            .eq('status', 'live'),
-          supabase.from('matches')
-            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-            .eq('status', 'upcoming')
-            .order('match_date', { ascending: true })
-            .order('scheduled_time', { ascending: true }),
-        ]);
+        const { data: live } = await supabase.from('matches')
+          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .eq('status', 'live');
         if (live) setLiveMatches(live);
-        if (upcoming) setUpcomingMatches(upcoming);
       } catch {}
     }, 10000);
     return () => clearInterval(poll);
@@ -226,11 +219,11 @@ export default function LandingPage() {
             <input
               style={styles.searchInput}
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setShowUpcoming(20); }}
               placeholder="Search..."
             />
             {search && (
-              <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+              <button onClick={() => { setSearch(""); setShowUpcoming(20); }} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
             )}
             <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
               display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
@@ -326,7 +319,8 @@ export default function LandingPage() {
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No upcoming matches scheduled"}</div>
               ) : (
-                filtered.map(m => {
+                <>
+                {filtered.slice(0, showUpcoming).map(m => {
                   const d = parseSASTDate(m.match_date);
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   const hc = m.home_team?.color || "#3B82F6";
@@ -351,7 +345,14 @@ export default function LandingPage() {
                       </div>
                     </div>
                   );
-                })
+                })}
+                {filtered.length > showUpcoming && (
+                  <div onClick={() => setShowUpcoming(prev => prev + 20)}
+                    style={{ textAlign: "center", padding: "10px 0", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>
+                    Show more ({filtered.length - showUpcoming} remaining)
+                  </div>
+                )}
+                </>
               )}
             </div>
             );

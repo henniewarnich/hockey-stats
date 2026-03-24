@@ -4,6 +4,19 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 
+const timeAgo = (ts) => {
+  if (!ts) return null;
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+};
+
 const ROLES = [
   { id: 'admin', label: 'Admin', color: '#EF4444' },
   { id: 'commentator_admin', label: 'Comm Admin', color: '#F59E0B' },
@@ -384,6 +397,11 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                     {u.firstname} {u.lastname}
                   </div>
                   <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>{u.username} · {u.email}</div>
+                  {u.last_seen_at && (
+                    <div style={{ fontSize: 9, color: timeAgo(u.last_seen_at).startsWith('Just') || timeAgo(u.last_seen_at).match(/^\d+[mh]/) ? "#10B981" : "#64748B", marginTop: 2 }}>
+                      Last seen {timeAgo(u.last_seen_at)}
+                    </div>
+                  )}
                   {u.role === 'coach' && coachTeamsMap[u.id]?.length > 0 && (
                     <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3 }}>
                       {coachTeamsMap[u.id].map(t => (

@@ -80,7 +80,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
     upserts.forEach(r => { map[r.team_id] = { position: r.position, points: r.points }; });
     setOriginal({ ...map });
     setRankings({ ...map });
-    logAudit('ranking_update', 'ranking', editSet.id, { upserts: upserts.length, deletes: deletes.length, date: editSet.ranking_date });
+    await logAudit('ranking_update', 'ranking', editSet.id, { upserts: upserts.length, deletes: deletes.length, date: editSet.ranking_date });
     setSaving(false);
     load();
   };

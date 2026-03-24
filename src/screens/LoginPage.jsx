@@ -19,7 +19,7 @@ export default function LoginPage({ onLogin }) {
     if (result.error) {
       setError("Invalid username or password");
       setLoading(false);
-      logAudit('login_failed', 'auth', null, { username: username.trim() });
+      await logAudit('login_failed', 'auth', null, { username: username.trim() });
       return;
     }
 
@@ -46,11 +46,11 @@ export default function LoginPage({ onLogin }) {
     if (profile.blocked) {
       setError("Your account has been blocked. Contact an admin.");
       setLoading(false);
-      logAudit('login_blocked', 'auth', profile.id, { username: username.trim() });
+      await logAudit('login_blocked', 'auth', profile.id, { username: username.trim() });
       return;
     }
 
-    logAuditAs(profile.id, 'login', 'auth', profile.id, { name: `${profile.firstname} ${profile.lastname}`, role: profile.role });
+    await logAuditAs(profile.id, 'login', 'auth', profile.id, { name: `${profile.firstname} ${profile.lastname}`, role: profile.role });
     setLoading(false);
     onLogin(profile);
   };

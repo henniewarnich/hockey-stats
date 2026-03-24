@@ -27,12 +27,16 @@ export async function signIn(usernameOrEmail, password) {
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
+  // Stamp last seen
+  if (data.user?.id) {
+    supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', data.user.id).then(() => {});
+  }
   return { user: data.user, session: data.session };
 }
 
 // Sign out
 export async function signOut() {
-  logAudit('logout', 'auth');
+  await logAudit('logout', 'auth');
   await supabase.auth.signOut();
 }
 
@@ -127,7 +131,7 @@ export async function createUser({ firstname, lastname, username, email, passwor
   const { data: verify } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
   if (!verify) return { error: 'Profile creation failed unexpectedly.' };
 
-  logAudit('user_create', 'user', data.user.id, { firstname, lastname, username, email, role });
+  await logAudit('user_create', 'user', data.user.id, { firstname, lastname, username, email, role });
   return { user: data.user };
 }
 
@@ -138,7 +142,7 @@ export async function updateProfile(userId, updates) {
     .update(updates)
     .eq('id', userId);
   if (error) return { error: error.message };
-  logAudit('user_update', 'user', userId, updates);
+  await logAudit('user_update', 'user', userId, updates);
   return { success: true };
 }
 
@@ -159,13 +163,13 @@ export async function resetPassword(userId, newPassword) {
 
   const data = await res.json();
   if (!res.ok) return { error: data.error || 'Failed to reset password' };
-  logAudit('password_reset', 'user', userId);
+  await logAudit('password_reset', 'user', userId);
   return { success: true };
 }
 
 // Block/unblock a user
 export async function toggleBlockUser(userId, blocked) {
-  logAudit(blocked ? 'user_block' : 'user_unblock', 'user', userId);
+  await logAudit(blocked ? 'user_block' : 'user_unblock', 'user', userId);
   return updateProfile(userId, { blocked });
 }
 
@@ -217,7 +221,7 @@ export async function assignCoachTeam(coachId, teamId) {
     .from('coach_teams')
     .upsert({ coach_id: coachId, team_id: teamId }, { onConflict: 'coach_id,team_id' });
   if (error) return { error: error.message };
-  logAudit('coach_assign', 'team', teamId, { coach_id: coachId });
+  await logAudit('coach_assign', 'team', teamId, { coach_id: coachId });
   return { success: true };
 }
 
@@ -229,7 +233,7 @@ export async function removeCoachTeam(coachId, teamId) {
     .eq('coach_id', coachId)
     .eq('team_id', teamId);
   if (error) return { error: error.message };
-  logAudit('coach_unassign', 'team', teamId, { coach_id: coachId });
+  await logAudit('coach_unassign', 'team', teamId, { coach_id: coachId });
   return { success: true };
 }
 
