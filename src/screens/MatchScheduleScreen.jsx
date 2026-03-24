@@ -16,6 +16,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [allTeams, setAllTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showCount, setShowCount] = useState(20);
 
   // Live match
   const [activeMatch, setActiveMatch] = useState(null);
@@ -411,7 +412,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         {/* Search */}
         <div style={{ marginTop: 10 }}>
           <input style={{ width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 12, outline: "none", boxSizing: "border-box" }}
-            value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search matches..." />
+            value={search} onChange={e => { setSearch(e.target.value); setShowCount(20); }} placeholder="🔍 Search matches..." />
         </div>
 
         {loading ? (
@@ -420,7 +421,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{search.trim() ? "No matches found" : "No upcoming matches"}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-            {filtered.map(m => {
+            {filtered.slice(0, showCount).map(m => {
               const comms = matchComms[m.id] || [];
               const d = parseSASTDate(m.match_date);
               const isLive = m.status === 'live';
@@ -471,6 +472,12 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                 </div>
               );
             })}
+            {filtered.length > showCount && (
+              <div onClick={() => setShowCount(prev => prev + 20)}
+                style={{ textAlign: "center", padding: "10px 0", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>
+                Show more ({filtered.length - showCount} remaining)
+              </div>
+            )}
           </div>
         )}
       </div>

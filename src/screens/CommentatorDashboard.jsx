@@ -17,6 +17,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickSaved, setQuickSaved] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
+  const [showCount, setShowCount] = useState(20);
 
   useEffect(() => { load(); }, []);
 
@@ -52,7 +53,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
     const taggedUnassigned = unassigned.map(m => ({ ...m, _canAction: true, _unassigned: true }));
     // Also show assigned-to-others as view-only
     const viewOnly = (allUpcoming || []).filter(m => assignedMatchIds.has(m.id) && !assignedIds.has(m.id))
-      .map(m => ({ ...m, _canAction: false }));
+      .map(m => ({ ...m, _canAction: false, _assignedOther: true }));
 
     const all = [...taggedAssigned, ...taggedUnassigned, ...viewOnly];
     // Deduplicate by id
@@ -307,9 +308,10 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
                 <div style={{ fontSize: 10, fontWeight: 800, color: "#EF4444", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>🔴 Live now</div>
                 {liveMatches.map(m => (
                   <MatchCard key={m.id} match={m} currentUser={currentUser} latestRankings={latestRankings}
-                    onStartLive={m._canAction ? () => handleStartLive(m) : null}
-                    onResumeLive={m._canAction ? () => handleResumeLive(m) : null}
-                    onCancel={m._canAction ? () => handleCancelLive(m) : null}
+                    canAction={m._canAction !== false}
+                    onStartLive={() => handleStartLive(m)}
+                    onResumeLive={() => handleResumeLive(m)}
+                    onCancel={() => handleCancelLive(m)}
                   />
                 ))}
               </div>
@@ -318,13 +320,20 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
             {/* Upcoming matches */}
             {upcomingMatches.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>📅 Upcoming</div>
-                {upcomingMatches.map(m => (
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>📅 Upcoming ({upcomingMatches.length})</div>
+                {upcomingMatches.slice(0, showCount).map(m => (
                   <MatchCard key={m.id} match={m} currentUser={currentUser} latestRankings={latestRankings}
-                    onStartLive={m._canAction ? () => handleStartLive(m) : null}
-                    onQuickScore={m._canAction ? () => handleQuickScore(m) : null}
+                    canAction={m._canAction !== false}
+                    onStartLive={() => handleStartLive(m)}
+                    onQuickScore={() => handleQuickScore(m)}
                   />
                 ))}
+                {upcomingMatches.length > showCount && (
+                  <div onClick={() => setShowCount(prev => prev + 20)}
+                    style={{ textAlign: "center", padding: "10px 0", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>
+                    Show more ({upcomingMatches.length - showCount} remaining)
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -377,17 +386,17 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   );
 }
 
-function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel, onResumeLive, latestRankings = {} }) {
+function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQuickScore, onCancel, onResumeLive, latestRankings = {} }) {
   const d = parseSASTDate(m.match_date);
   const isLocked = m.locked_by && m.locked_by !== currentUser.id;
   const isMyLock = m.locked_by === currentUser.id;
-  const canAction = !!(onStartLive || onQuickScore);
+  const disabled = !canAction || isLocked;
 
   return (
     <div style={{
       background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4,
       border: m.status === 'live' ? "1px solid #EF444444" : "1px solid #334155",
-      opacity: isLocked ? 0.5 : !canAction && m.status === 'upcoming' ? 0.6 : 1,
+      opacity: disabled ? 0.6 : 1,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
@@ -396,6 +405,7 @@ function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel,
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
         {m._unassigned && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#F59E0B22", color: "#F59E0B", fontWeight: 700 }}>OPEN</span>}
+        {m._assignedOther && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#3B82F622", color: "#3B82F6", fontWeight: 700 }}>ASSIGNED</span>}
       </div>
       <div style={{ fontSize: 10, color: "#64748B", marginBottom: 6 }}>
         {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
@@ -404,19 +414,20 @@ function MatchCard({ match: m, currentUser, onStartLive, onQuickScore, onCancel,
         {" · "}{m.match_length}min
       </div>
       {isLocked && <div style={{ fontSize: 9, color: "#EF4444", marginBottom: 4 }}>🔒 Started by another commentator</div>}
-      {!canAction && !isLocked && m.status === 'upcoming' && (
-        <div style={{ fontSize: 9, color: "#64748B", marginBottom: 4 }}>Assigned to another commentator</div>
-      )}
-      {canAction && !isLocked && m.status === 'upcoming' && (
+      {m.status === 'upcoming' && (
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={onStartLive} style={{
+          <button onClick={disabled ? undefined : onStartLive} style={{
             flex: 1, padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700, border: "none",
-            background: "#F59E0B", color: "#0B0F1A", cursor: "pointer",
+            background: disabled ? "#334155" : "#F59E0B", color: disabled ? "#64748B" : "#0B0F1A",
+            cursor: disabled ? "default" : "pointer",
           }}>🏑 Start Live</button>
-          <button onClick={onQuickScore} style={{
-            flex: 1, padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700,
-            border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", cursor: "pointer",
-          }}>💾 Quick Score</button>
+          {onQuickScore && (
+            <button onClick={disabled ? undefined : onQuickScore} style={{
+              flex: 1, padding: 8, borderRadius: 8, fontSize: 11, fontWeight: 700,
+              border: `1px solid ${disabled ? "#334155" : "#334155"}`, background: disabled ? "#1E293B" : "#0B0F1A",
+              color: disabled ? "#475569" : "#F8FAFC", cursor: disabled ? "default" : "pointer",
+            }}>💾 Quick Score</button>
+          )}
         </div>
       )}
       {isMyLock && m.status === 'live' && (
