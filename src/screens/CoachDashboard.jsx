@@ -5,7 +5,9 @@ import { fetchLatestRankings } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import { getWeekStart } from '../utils/stats.js';
 import RankBadge from '../components/RankBadge.jsx';
+import MiniChart from '../components/MiniChart.jsx';
 
 const fmtDate = (d) => {
   if (!d) return '';
@@ -22,6 +24,8 @@ export default function CoachDashboard({ currentUser, onLogout }) {
   const [teamTabs, setTeamTabs] = useState({});
   const [latestRankings, setLatestRankings] = useState({});
   const [oppForm, setOppForm] = useState({});
+  const [oppRankings, setOppRankings] = useState({});
+  const [oppGD, setOppGD] = useState({});
 
   useEffect(() => { loadData(); }, [currentUser]);
 
@@ -94,9 +98,11 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           .limit(100);
 
         const form = {};
+        const gdByOpp = {};
         oppIds.forEach(oid => {
-          const matches = (oppMatches || []).filter(m => m.home_team_id === oid || m.away_team_id === oid).slice(0, 5);
-          const results = matches.map(m => {
+          const ms = (oppMatches || []).filter(m => m.home_team_id === oid || m.away_team_id === oid);
+          const recent = ms.slice(0, 5);
+          const results = recent.map(m => {
             const isHome = m.home_team_id === oid;
             const gf = isHome ? m.home_score : m.away_score;
             const ga = isHome ? m.away_score : m.home_score;
@@ -105,8 +111,46 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           const gf = results.reduce((s, r) => s + r.gf, 0);
           const ga = results.reduce((s, r) => s + r.ga, 0);
           form[oid] = { results, gf, ga, played: results.length };
+
+          // Weekly GD (oldest first)
+          const weekMap = {};
+          ms.forEach(m => {
+            const week = getWeekStart(m.match_date);
+            if (!weekMap[week]) weekMap[week] = { gf: 0, ga: 0 };
+            const isHome = m.home_team_id === oid;
+            weekMap[week].gf += isHome ? m.home_score : m.away_score;
+            weekMap[week].ga += isHome ? m.away_score : m.home_score;
+          });
+          const weeks = Object.keys(weekMap).sort();
+          gdByOpp[oid] = weeks.map(w => ({
+            label: parseSASTDate(w).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+            value: weekMap[w].gf - weekMap[w].ga,
+          }));
         });
         setOppForm(form);
+        setOppGD(gdByOpp);
+
+        // Fetch ranking history for all opponents (one batched query)
+        const { data: oppRanks } = await supabase
+          .from('rankings')
+          .select('team_id, position, ranking_set:ranking_sets!ranking_set_id(scraped_at)')
+          .in('team_id', [...oppIds]);
+        const ranksByOpp = {};
+        (oppRanks || []).forEach(r => {
+          if (!r.ranking_set?.scraped_at) return;
+          if (!ranksByOpp[r.team_id]) ranksByOpp[r.team_id] = [];
+          ranksByOpp[r.team_id].push(r);
+        });
+        // Sort and format
+        const rankDataByOpp = {};
+        Object.entries(ranksByOpp).forEach(([tid, ranks]) => {
+          ranks.sort((a, b) => a.ranking_set.scraped_at.localeCompare(b.ranking_set.scraped_at));
+          rankDataByOpp[tid] = ranks.map(r => ({
+            label: parseSASTDate(r.ranking_set.scraped_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
+            value: r.position,
+          }));
+        });
+        setOppRankings(rankDataByOpp);
       }
     }
 
@@ -255,20 +299,36 @@ export default function CoachDashboard({ currentUser, onLogout }) {
                             </div>
 
                             {/* Opposition scouting */}
-                            {form && form.played > 0 && (
+                            {(form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
                               <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-                                      {opp?.name} · Last {form.played}
+                                {form && form.played > 0 && (
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                    <div>
+                                      <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
+                                        {opp?.name} · Last {form.played}
+                                      </div>
+                                      <FormDots form={form} />
                                     </div>
-                                    <FormDots form={form} />
+                                    <div style={{ textAlign: "right" }}>
+                                      <div style={{ fontSize: 11, fontWeight: 800, color: "#F8FAFC", fontFamily: "monospace" }}>{form.gf}:{form.ga}</div>
+                                      <div style={{ fontSize: 8, color: "#64748B" }}>GF:GA</div>
+                                    </div>
                                   </div>
-                                  <div style={{ textAlign: "right" }}>
-                                    <div style={{ fontSize: 11, fontWeight: 800, color: "#F8FAFC", fontFamily: "monospace" }}>{form.gf}:{form.ga}</div>
-                                    <div style={{ fontSize: 8, color: "#64748B" }}>GF:GA</div>
+                                )}
+                                {oppRankings[oppId]?.length > 0 && (
+                                  <div style={{ marginTop: form?.played > 0 ? 8 : 0, paddingTop: form?.played > 0 ? 8 : 0, borderTop: form?.played > 0 ? "1px solid #1E293B" : "none" }}>
+                                    <MiniChart data={oppRankings[oppId]} label="Ranking" color="#F59E0B" invert compact />
                                   </div>
-                                </div>
+                                )}
+                                {oppGD[oppId]?.length > 0 && (
+                                  <div style={{ marginTop: 4, paddingTop: 6, borderTop: "1px solid #1E293B" }}>
+                                    <MiniChart data={oppGD[oppId]} label="Goal difference" color="#F59E0B" showZeroLine compact />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
+                                <div style={{ fontSize: 9, color: "#475569", textAlign: "center" }}>No match history available</div>
                               </div>
                             )}
                           </div>

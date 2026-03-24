@@ -2,59 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { getWeekStart } from '../utils/stats.js';
 import { parseSASTDate } from '../utils/helpers.js';
-
-function MiniChart({ data, label, color, suffix = "", showZeroLine = false, invert = false }) {
-  if (data.length === 0) return null;
-  const vals = data.map(d => d.value);
-  const min = Math.min(...vals, 0);
-  const max = Math.max(...vals, 1);
-  const range = max - min || 1;
-  const W = 300, H = 90, PAD = 24;
-  const plotTop = 14, plotBot = 14;
-  const plotH = H - plotTop - plotBot;
-
-  const points = data.map((d, i) => {
-    const x = PAD + (data.length === 1 ? (W - PAD * 2) / 2 : (i / (data.length - 1)) * (W - PAD * 2));
-    const y = plotTop + plotH - ((d.value - min) / range) * plotH;
-    return { x, y, ...d };
-  });
-
-  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const zeroY = range > 0 ? plotTop + plotH - ((0 - min) / range) * plotH : H / 2;
-  const latest = points[points.length - 1];
-  const prev = points.length >= 2 ? points[points.length - 2] : null;
-  const trend = prev ? (latest.value - prev.value) : 0;
-  const trendColor = invert
-    ? (trend < 0 ? "#10B981" : trend > 0 ? "#EF4444" : "#64748B")
-    : (trend > 0 ? "#10B981" : trend < 0 ? "#EF4444" : "#64748B");
-
-  return (
-    <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", fontFamily: "monospace" }}>{latest?.value}{suffix}</span>
-          {prev && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: trendColor }}>
-              {trend > 0 ? "▲" : trend < 0 ? "▼" : "—"} {Math.abs(trend)}{suffix}
-            </span>
-          )}
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
-        {showZeroLine && <line x1={PAD} y1={zeroY} x2={W - PAD} y2={zeroY} stroke="#334155" strokeWidth="0.5" strokeDasharray="3,3" />}
-        <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r={3} fill={color} />
-            <text x={p.x} y={p.y - 7} textAnchor="middle" fill={color} fontSize="9" fontWeight="800">{p.value}{suffix}</text>
-            <text x={p.x} y={H - 1} textAnchor="middle" fill="#475569" fontSize="7" fontWeight="600">{p.label}</text>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
+import MiniChart from './MiniChart.jsx';
 
 export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor }) {
   const [rankings, setRankings] = useState([]);
