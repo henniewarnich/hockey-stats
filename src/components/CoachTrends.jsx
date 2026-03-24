@@ -9,17 +9,18 @@ function MiniChart({ data, label, color, suffix = "", showZeroLine = false, inve
   const min = Math.min(...vals, 0);
   const max = Math.max(...vals, 1);
   const range = max - min || 1;
-  const W = 300, H = 80, PAD = 24;
-  const plotW = W - PAD * 2, plotH = H - 12;
+  const W = 300, H = 90, PAD = 24;
+  const plotTop = 14, plotBot = 14;
+  const plotH = H - plotTop - plotBot;
 
   const points = data.map((d, i) => {
-    const x = PAD + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
-    const y = 6 + plotH - ((d.value - min) / range) * plotH;
+    const x = PAD + (data.length === 1 ? (W - PAD * 2) / 2 : (i / (data.length - 1)) * (W - PAD * 2));
+    const y = plotTop + plotH - ((d.value - min) / range) * plotH;
     return { x, y, ...d };
   });
 
   const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const zeroY = range > 0 ? 6 + plotH - ((0 - min) / range) * plotH : H / 2;
+  const zeroY = range > 0 ? plotTop + plotH - ((0 - min) / range) * plotH : H / 2;
   const latest = points[points.length - 1];
   const prev = points.length >= 2 ? points[points.length - 2] : null;
   const trend = prev ? (latest.value - prev.value) : 0;
@@ -46,6 +47,7 @@ function MiniChart({ data, label, color, suffix = "", showZeroLine = false, inve
         {points.map((p, i) => (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r={3} fill={color} />
+            <text x={p.x} y={p.y - 7} textAnchor="middle" fill={color} fontSize="9" fontWeight="800">{p.value}{suffix}</text>
             <text x={p.x} y={H - 1} textAnchor="middle" fill="#475569" fontSize="7" fontWeight="600">{p.label}</text>
           </g>
         ))}
@@ -109,6 +111,7 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
   // Rankings by week
   const rankingData = rankings
     .filter(r => r.ranking_set?.scraped_at)
+    .sort((a, b) => a.ranking_set.scraped_at.localeCompare(b.ranking_set.scraped_at))
     .map(r => ({
       label: parseSASTDate(r.ranking_set.scraped_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
       value: r.position,
