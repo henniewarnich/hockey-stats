@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
-import { logLoginAttempt } from '../utils/audit.js';
+import { logAudit } from '../utils/audit.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
@@ -130,22 +130,22 @@ export default function CommentatorPage({ teamSlug, onBack }) {
     if (isGlobalMode) {
       if (globalCommPin && pin === globalCommPin) {
         setVerified(true); sessionStorage.setItem('commentator-global', 'true'); setPinError(false);
-        logLoginAttempt({ pinType: 'global_commentator', success: true });
+        logAudit('pin_login', 'auth', null, { type: 'global_commentator', success: true });
       } else {
         setPinError(true);
-        logLoginAttempt({ pinType: 'global_commentator', success: false });
+        logAudit('pin_login_failed', 'auth', null, { type: 'global_commentator' });
       }
     } else {
       if (!team) return;
       if (team.commentator_pin && pin === team.commentator_pin) {
         setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: true });
+        logAudit('pin_login', 'auth', team.id, { type: 'commentator', team: team.name, success: true });
       } else if (globalCommPin && pin === globalCommPin) {
         setVerified(true); sessionStorage.setItem(`commentator-${team.id}`, 'true'); setPinError(false);
-        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: true });
+        logAudit('pin_login', 'auth', team.id, { type: 'commentator', team: team.name, success: true });
       } else {
         setPinError(true);
-        logLoginAttempt({ pinType: 'commentator', teamName: team.name, success: false });
+        logAudit('pin_login_failed', 'auth', team.id, { type: 'commentator', team: team.name });
       }
     }
   };

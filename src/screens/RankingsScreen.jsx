@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import { logAudit } from '../utils/audit.js';
 import NavLogo from '../components/NavLogo.jsx';
 
 export default function RankingsScreen({ onBack, currentUser }) {
@@ -79,6 +80,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
     upserts.forEach(r => { map[r.team_id] = { position: r.position, points: r.points }; });
     setOriginal({ ...map });
     setRankings({ ...map });
+    logAudit('ranking_update', 'ranking', editSet.id, { upserts: upserts.length, deletes: deletes.length, date: editSet.ranking_date });
     setSaving(false);
     load();
   };

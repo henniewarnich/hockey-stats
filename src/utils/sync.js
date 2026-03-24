@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { logAudit } from './audit.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
@@ -276,6 +277,7 @@ export async function createLiveMatch(config) {
     .single();
 
   if (error) { console.error('Create live match error:', error); return null; }
+  logAudit('match_start_live', 'match', data.id, { home: config.home?.name, away: config.away?.name, matchType: config.matchType });
   return { ...data, pin };
 }
 
@@ -294,6 +296,7 @@ export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
     .update({ home_score: homeScore, away_score: awayScore, status: 'ended', duration })
     .eq('id', matchId);
   if (error) console.error('End live match error:', error);
+  if (!error) logAudit('match_end', 'match', matchId, { homeScore, awayScore, duration });
   return !error;
 }
 
@@ -353,6 +356,8 @@ export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, schedul
 
   if (error) { console.error('Schedule match error:', error); return null; }
 
+  logAudit('match_schedule', 'match', data.id, { homeTeamId, awayTeamId, matchDate, matchType, venue });
+
   // Snapshot rankings from latest ranking_set
   await snapshotRankings(data.id);
 
@@ -380,17 +385,17 @@ export async function updateScheduledMatch(matchId, updates) {
     .update(updates)
     .eq('id', matchId);
   if (error) console.error('Update scheduled match error:', error);
+  if (!error) logAudit('match_update', 'match', matchId, updates);
   return !error;
 }
 
 export async function assignCommentators(matchId, commentatorIds) {
-  // Remove existing assignments
   await supabase.from('match_commentators').delete().eq('match_id', matchId);
-  // Insert new
   if (commentatorIds?.length > 0) {
     const rows = commentatorIds.map(cid => ({ match_id: matchId, commentator_id: cid }));
     await supabase.from('match_commentators').insert(rows);
   }
+  logAudit('commentator_assign', 'match', matchId, { commentator_ids: commentatorIds });
 }
 
 export async function fetchUpcomingMatches() {
@@ -429,7 +434,6 @@ export async function fetchCommentatorMatches(commentatorId) {
 }
 
 export async function lockMatch(matchId, userId) {
-  // First-to-start locks — only if not already locked
   const { data, error } = await supabase
     .from('matches')
     .update({ locked_by: userId })
@@ -438,16 +442,17 @@ export async function lockMatch(matchId, userId) {
     .select()
     .single();
   if (error) return null;
+  logAudit('match_lock', 'match', matchId);
   return data;
 }
 
 export async function unlockMatch(matchId, userId) {
-  // Only the user who locked it can unlock
   const { error } = await supabase
     .from('matches')
     .update({ locked_by: null, status: 'upcoming' })
     .eq('id', matchId)
     .eq('locked_by', userId);
+  if (!error) logAudit('match_unlock', 'match', matchId);
   return !error;
 }
 

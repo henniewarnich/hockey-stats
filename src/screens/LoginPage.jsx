@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { signIn, getProfile } from '../utils/auth.js';
-import { logLoginAttempt } from '../utils/audit.js';
+import { logAudit, logAuditAs } from '../utils/audit.js';
 import { APP_VERSION } from '../utils/constants.js';
 
 export default function LoginPage({ onLogin }) {
@@ -19,7 +19,7 @@ export default function LoginPage({ onLogin }) {
     if (result.error) {
       setError("Invalid username or password");
       setLoading(false);
-      logLoginAttempt({ pinType: 'user_login', teamName: username, success: false });
+      logAudit('login_failed', 'auth', null, { username: username.trim() });
       return;
     }
 
@@ -46,11 +46,11 @@ export default function LoginPage({ onLogin }) {
     if (profile.blocked) {
       setError("Your account has been blocked. Contact an admin.");
       setLoading(false);
-      logLoginAttempt({ pinType: 'user_login', teamName: username, success: false });
+      logAudit('login_blocked', 'auth', profile.id, { username: username.trim() });
       return;
     }
 
-    logLoginAttempt({ pinType: 'user_login', teamName: `${profile.firstname} ${profile.lastname} (${profile.role})`, success: true });
+    logAuditAs(profile.id, 'login', 'auth', profile.id, { name: `${profile.firstname} ${profile.lastname}`, role: profile.role });
     setLoading(false);
     onLogin(profile);
   };
