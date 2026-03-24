@@ -497,7 +497,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
           </svg>
-          {isCoach ? '← Dashboard' : 'kykie'}
+          {isCoach ? '← Dashboard' : '← kykie'}
         </button>
         {/* Refresh + Login / Logout */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

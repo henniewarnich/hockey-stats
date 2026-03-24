@@ -102,10 +102,12 @@ export default function LandingPage() {
   matches.filter(m => m.match_type !== 'friendly').forEach(m => {
     [m.home_team, m.away_team].forEach((t, i) => {
       if (!t) return;
-      if (!teamRecords[t.id]) teamRecords[t.id] = { p: 0, w: 0, d: 0, l: 0 };
+      if (!teamRecords[t.id]) teamRecords[t.id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
       const my = i === 0 ? m.home_score : m.away_score;
       const their = i === 0 ? m.away_score : m.home_score;
       teamRecords[t.id].p++;
+      teamRecords[t.id].gf += my;
+      teamRecords[t.id].ga += their;
       if (my > their) teamRecords[t.id].w++;
       else if (my === their) teamRecords[t.id].d++;
       else teamRecords[t.id].l++;
@@ -351,24 +353,46 @@ export default function LandingPage() {
                       </div>
                       {isExp && (
                         <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", display: "flex", gap: 6, borderTop: "1px solid #33415544" }}>
-                          {[[m.home_team, homeSlug, hc], [m.away_team, awaySlug, ac]].map(([t, slug, c]) => (
-                            <div key={slug} onClick={() => { window.location.hash = `#/team/${slug}`; }}
+                          {[[m.home_team, homeSlug, hc], [m.away_team, awaySlug, ac]].map(([t, slug, c]) => {
+                            const rec = teamRecords[t?.id];
+                            return (
+                            <div key={slug} onClick={(e) => { e.stopPropagation(); window.location.hash = `#/team/${slug}`; }}
                               style={{
-                                flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+                                flex: 1, padding: "8px 10px",
                                 background: "#0B0F1A", borderRadius: 8, cursor: "pointer",
                                 border: `1px solid ${c}33`,
                               }}>
-                              <div style={{
-                                width: 28, height: 28, borderRadius: 7, background: c + "22", border: `1.5px solid ${c}44`,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
-                              }}>{t?.name?.charAt(0)}</div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
-                                <div style={{ fontSize: 9, color: "#64748B" }}>View stats →</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: 7, background: c + "22", border: `1.5px solid ${c}44`,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
+                                }}>{t?.name?.charAt(0)}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                                </div>
                               </div>
+                              {rec ? (
+                                <div style={{ display: "flex", justifyContent: "space-between", textAlign: "center", marginBottom: 4 }}>
+                                  {[["P", rec.p, "#F8FAFC"], ["W", rec.w, "#10B981"], ["D", rec.d, "#64748B"], ["L", rec.l, "#EF4444"]].map(([lbl, val, clr]) => (
+                                    <div key={lbl}>
+                                      <div style={{ fontSize: 13, fontWeight: 900, color: clr }}>{val}</div>
+                                      <div style={{ fontSize: 7, fontWeight: 700, color: "#475569" }}>{lbl}</div>
+                                    </div>
+                                  ))}
+                                  {[["GF", rec.gf], ["GA", rec.ga], ["GD", rec.gf - rec.ga]].map(([lbl, val]) => (
+                                    <div key={lbl}>
+                                      <div style={{ fontSize: 13, fontWeight: 900, color: "#F8FAFC" }}>{val}</div>
+                                      <div style={{ fontSize: 7, fontWeight: 700, color: "#475569" }}>{lbl}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 9, color: "#475569", textAlign: "center", marginBottom: 4 }}>No matches yet</div>
+                              )}
+                              <div style={{ fontSize: 9, color: c, fontWeight: 700, textAlign: "center" }}>View stats →</div>
                             </div>
-                          ))}
+                          );})}
                         </div>
                       )}
                     </div>
