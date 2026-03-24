@@ -18,48 +18,46 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   const [quickSaved, setQuickSaved] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [showCount, setShowCount] = useState(20);
+  const [tab, setTab] = useState("upcoming");
+  const [search, setSearch] = useState("");
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     setLoading(true);
-    // Fetch assigned matches
-    const assigned = await fetchCommentatorMatches(currentUser.id);
-    const assignedIds = new Set(assigned.map(m => m.id));
-
-    // Fetch all upcoming/live matches to find unassigned ones
+    // Fetch all upcoming/live matches with commentator assignments joined
     const { data: allUpcoming } = await supabase
       .from('matches')
-      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), match_commentators(commentator_id)')
       .in('status', ['upcoming', 'live'])
       .order('match_date', { ascending: true });
 
-    // Find which upcoming matches have ANY commentator assigned
-    const upcomingIds = (allUpcoming || []).map(m => m.id);
-    let assignedMatchIds = new Set();
-    if (upcomingIds.length > 0) {
-      const { data: allAssignments } = await supabase
-        .from('match_commentators')
-        .select('match_id')
-        .in('match_id', upcomingIds);
-      assignedMatchIds = new Set((allAssignments || []).map(a => a.match_id));
-    }
+    // Tag each match
+    const tagged = (allUpcoming || []).map(m => {
+      const comms = m.match_commentators || [];
+      const assignedToMe = comms.some(c => c.commentator_id === currentUser.id);
+      const assignedToAnyone = comms.length > 0;
+      return {
+        ...m,
+        _canAction: assignedToMe || !assignedToAnyone,
+        _unassigned: !assignedToAnyone,
+        _assignedOther: assignedToAnyone && !assignedToMe,
+      };
+    });
 
-    // Unassigned = upcoming matches with no commentator at all
-    const unassigned = (allUpcoming || []).filter(m => !assignedMatchIds.has(m.id) && !assignedIds.has(m.id));
-
-    // Tag all matches
-    const taggedAssigned = assigned.map(m => ({ ...m, _canAction: true }));
-    const taggedUnassigned = unassigned.map(m => ({ ...m, _canAction: true, _unassigned: true }));
-    // Also show assigned-to-others as view-only
-    const viewOnly = (allUpcoming || []).filter(m => assignedMatchIds.has(m.id) && !assignedIds.has(m.id))
-      .map(m => ({ ...m, _canAction: false, _assignedOther: true }));
-
-    const all = [...taggedAssigned, ...taggedUnassigned, ...viewOnly];
-    // Deduplicate by id
+    // Also fetch completed matches assigned to me
+    const assigned = await fetchCommentatorMatches(currentUser.id);
+    const completedAssigned = assigned.filter(m => m.status === 'ended');
+    
+    // Merge: upcoming/live (all) + completed (mine only)
     const seen = new Set();
-    const deduped = all.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
-    setMatches(deduped);
+    const all = [...tagged, ...completedAssigned].filter(m => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+
+    setMatches(all);
     fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
     setLoading(false);
   };
@@ -243,10 +241,15 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
   }
 
   // ── MAIN DASHBOARD ──
-  const upcomingMatches = matches.filter(m => m.status === 'upcoming');
-  const liveMatches = matches.filter(m => m.status === 'live');
-  const completedMatches = matches.filter(m => m.status === 'ended');
-  const [tab, setTab] = useState("upcoming");
+  const q = search.trim().toLowerCase();
+  const filtered = q ? matches.filter(m =>
+    (m.home_team?.name || "").toLowerCase().includes(q) ||
+    (m.away_team?.name || "").toLowerCase().includes(q) ||
+    (m.venue || "").toLowerCase().includes(q)
+  ) : matches;
+  const upcomingMatches = filtered.filter(m => m.status === 'upcoming');
+  const liveMatches = filtered.filter(m => m.status === 'live');
+  const completedMatches = filtered.filter(m => m.status === 'ended');
 
   return (
     <div style={{
@@ -290,6 +293,14 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
             background: tab === k ? "#F59E0B22" : "#1E293B", color: tab === k ? "#F59E0B" : "#64748B",
           }}>{l}</button>
         ))}
+      </div>
+
+      {/* Search */}
+      <div style={{ margin: "0 16px 8px", position: "relative" }}>
+        <input type="text" value={search} onChange={e => { setSearch(e.target.value); setShowCount(20); }}
+          placeholder="🔍 Search matches..."
+          style={{ width: "100%", padding: "8px 32px 8px 10px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+        {search && <button onClick={() => { setSearch(""); setShowCount(20); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>}
       </div>
 
       <div style={{ padding: "0 16px 20px" }}>
