@@ -28,7 +28,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
     // Fetch all upcoming/live matches with commentator assignments joined
     const { data: allUpcoming } = await supabase
       .from('matches')
-      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), match_commentators(commentator_id)')
+      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), match_commentators(commentator_id, commentator:profiles!commentator_id(firstname, lastname))')
       .in('status', ['upcoming', 'live'])
       .order('match_date', { ascending: true });
 
@@ -37,11 +37,14 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
       const comms = m.match_commentators || [];
       const assignedToMe = comms.some(c => c.commentator_id === currentUser.id);
       const assignedToAnyone = comms.length > 0;
+      const assigneeName = comms.length > 0 ? comms.map(c => `${c.commentator?.firstname || ''} ${c.commentator?.lastname || ''}`).join(', ').trim() : null;
       return {
         ...m,
         _canAction: assignedToMe || !assignedToAnyone,
         _unassigned: !assignedToAnyone,
+        _assignedMe: assignedToMe,
         _assignedOther: assignedToAnyone && !assignedToMe,
+        _assigneeName: assigneeName,
       };
     });
 
@@ -416,7 +419,8 @@ function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQui
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
         {m._unassigned && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#F59E0B22", color: "#F59E0B", fontWeight: 700 }}>OPEN</span>}
-        {m._assignedOther && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#3B82F622", color: "#3B82F6", fontWeight: 700 }}>ASSIGNED</span>}
+        {m._assignedMe && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#10B98122", color: "#10B981", fontWeight: 700 }}>{m._assigneeName || 'You'}</span>}
+        {m._assignedOther && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#3B82F622", color: "#3B82F6", fontWeight: 700 }}>{m._assigneeName || 'ASSIGNED'}</span>}
       </div>
       <div style={{ fontSize: 10, color: "#64748B", marginBottom: 6 }}>
         {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}

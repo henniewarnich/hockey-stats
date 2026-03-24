@@ -103,6 +103,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **localStorage phase-out** — Deprioritised: local-first pattern provides offline resilience for dodgy venue WiFi. Current merge logic works. Could tighten merge/sync UX if needed.
 
 ### Medium Priority
+- **Public crowd-sourced results** — Allow public users (no login) to submit match scores via Quick Score. Matches created with `status: 'pending'`, `submitted_type: 'public'`. Admin/CommAdmin/Commentator see "Pending (N)" tab to review, edit, approve or reject. Approved matches get `status: 'ended'`, `approved_by` set to approver. Pending matches excluded from stats. New columns on `matches`: `submitted_by`, `submitted_type`, `approved_by`, `approved_at`. Same pattern for public team suggestions (`teams.status: 'pending'|'active'`). Estimated effort: ~1 full session (migration, public form, approval workflow, stats filtering, RLS for anonymous inserts).
 - **PDF export** — Match reports for coaches
 - **Dashboard/analytics** — Aggregate stats across all teams (admin view)
 - **Rankings UI** — Display SA school rankings as standalone page (ranking badges on match cards done in v7.1.0)
