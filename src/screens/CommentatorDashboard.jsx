@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updateScheduledMatch } from '../utils/sync.js';
+import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updateScheduledMatch, snapshotRankings } from '../utils/sync.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
@@ -35,6 +35,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
       }
       // Update status to live
       await updateScheduledMatch(m.id, { status: 'live' });
+      await snapshotRankings(m.id);
       // Open the live recorder
       setActiveMatch({
         supabaseId: m.id,
@@ -104,6 +105,8 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
       duration: 0,
       locked_by: currentUser.id,
     });
+
+    await snapshotRankings(quickScoreMatch.id);
 
     setQuickSaving(false);
     setQuickSaved(true);

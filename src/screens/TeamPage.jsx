@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { ensureContrastingColors } from '../utils/helpers.js';
+import { computeMatchStats } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import { useReactions } from '../hooks/useReactions.js';
 import ReactionBar from '../components/ReactionBar.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
+import CoachOverall from '../components/CoachOverall.jsx';
+import CoachTrends from '../components/CoachTrends.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -159,6 +162,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [refreshing, setRefreshing] = useState(false);
   const [matchViewers, setMatchViewers] = useState(0);
   const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
+  const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
+  const [loadingStats, setLoadingStats] = useState(false);
   const { counts, myReactions, toggleReaction, loadReactions } = useReactions(liveMatch?.id || selectedMatch?.id);
 
   // Ensure contrasting team colors for live and selected matches
@@ -271,6 +276,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             if (assigned) {
               setIsCoach(true);
               setCoachProfile(profile);
+              setTab("overall");
             }
           }
         }
@@ -366,6 +372,45 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, [team, liveMatch, tab]);
+
+  // Load all match events for coach stats (Overall + Trends)
+  useEffect(() => {
+    if (!isCoach || !team || matches.length === 0) return;
+    const endedWithDuration = matches.filter(m => m.status === 'ended' && m.duration > 0);
+    if (endedWithDuration.length === 0) return;
+    
+    setLoadingStats(true);
+    const matchIds = endedWithDuration.map(m => m.id);
+    
+    (async () => {
+      // Fetch all events in batches of 20 matches
+      const allEvents = {};
+      for (let i = 0; i < matchIds.length; i += 20) {
+        const batch = matchIds.slice(i, i + 20);
+        const { data } = await supabase
+          .from('match_events')
+          .select('match_id, team, event, match_time')
+          .in('match_id', batch);
+        if (data) {
+          data.forEach(e => {
+            if (!allEvents[e.match_id]) allEvents[e.match_id] = [];
+            allEvents[e.match_id].push({ team: e.team, event: e.event, time: e.match_time });
+          });
+        }
+      }
+      
+      // Compute stats per match
+      const statsMap = {};
+      endedWithDuration.forEach(m => {
+        const events = allEvents[m.id] || [];
+        if (events.length > 0) {
+          statsMap[m.id] = computeMatchStats(events, team.id, m.home_team_id);
+        }
+      });
+      setMatchStatsMap(statsMap);
+      setLoadingStats(false);
+    })();
+  }, [isCoach, team, matches.length]);
 
   const handleCoachLogout = async () => {
     await signOut();
@@ -498,7 +543,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               <span style={{ animation: "pulse-dot 2s infinite", marginRight: 4 }}>●</span> {isCoach ? "Live Stats" : "Live"}
             </button>
           )}
-          {upcomingMatches.length > 0 && (
+          {isCoach && (
+            <button onClick={() => setTab("overall")} style={{
+              flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+              background: tab === "overall" ? "#334155" : "#1E293B", color: tab === "overall" ? "#F8FAFC" : "#64748B",
+            }}>Overall</button>
+          )}
+          {!isCoach && upcomingMatches.length > 0 && (
             <button onClick={() => setTab("upcoming")} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
               background: tab === "upcoming" ? "#F59E0B22" : "#1E293B", color: tab === "upcoming" ? "#F59E0B" : "#64748B",
@@ -507,7 +558,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           <button onClick={() => setTab("results")} style={{
             flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
             background: tab === "results" ? "#334155" : "#1E293B", color: tab === "results" ? "#F8FAFC" : "#64748B",
-          }}>Results ({matches.length})</button>
+          }}>{isCoach ? "Matches" : `Results (${matches.length})`}</button>
+          {isCoach && (
+            <button onClick={() => setTab("trends")} style={{
+              flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+              background: tab === "trends" ? "#334155" : "#1E293B", color: tab === "trends" ? "#F8FAFC" : "#64748B",
+            }}>Trends</button>
+          )}
         </div>
       </div>
       )}
@@ -609,6 +666,34 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* ═══ OVERALL TAB (Coach) ═══ */}
+      {tab === "overall" && isCoach && !selectedMatch && (
+        loadingStats ? (
+          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading stats...</div>
+        ) : (
+          <CoachOverall
+            matchStatsList={Object.values(matchStatsMap)}
+            teamName={team.name}
+            teamColor={team.color}
+            matchCount={matches.filter(m => m.duration > 0).length}
+          />
+        )
+      )}
+
+      {/* ═══ TRENDS TAB (Coach) ═══ */}
+      {tab === "trends" && isCoach && !selectedMatch && (
+        loadingStats ? (
+          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading trends...</div>
+        ) : (
+          <CoachTrends
+            matches={matches}
+            matchStatsMap={matchStatsMap}
+            teamId={team.id}
+            teamColor={team.color}
+          />
+        )
       )}
 
       {/* ═══ UPCOMING TAB ═══ */}

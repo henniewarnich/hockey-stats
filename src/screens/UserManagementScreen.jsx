@@ -33,6 +33,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
+  const [userTab, setUserTab] = useState("active");
 
   // Which roles can this user manage?
   const isAdmin = currentUser?.role === 'admin';
@@ -144,6 +145,9 @@ export default function UserManagementScreen({ currentUser, onBack }) {
 
   const roleColor = (r) => ROLES.find(x => x.id === r)?.color || "#64748B";
   const roleLabel = (r) => ROLES.find(x => x.id === r)?.label || r;
+  const activeUsers = filtered.filter(u => !u.blocked);
+  const blockedUsers = filtered.filter(u => u.blocked);
+  const displayUsers = userTab === "active" ? activeUsers : blockedUsers;
 
   // ── CREATE VIEW ──
   if (view === "create") return (
@@ -301,6 +305,24 @@ export default function UserManagementScreen({ currentUser, onBack }) {
           }}>🔑 Reset Password</button>
         </div>
 
+        <button onClick={async () => {
+          if (!confirm(`Permanently delete ${editUser.firstname} ${editUser.lastname}? This cannot be undone.`)) return;
+          const { error } = await supabase.rpc('delete_user', { p_id: editUser.id });
+          if (error) {
+            if (error.message.includes('foreign key') || error.message.includes('violates') || error.message.includes('referenced')) {
+              setSaveError(`Cannot delete — this user has match history. Use "Block User" instead.`);
+            } else {
+              setSaveError(`Delete failed: ${error.message}`);
+            }
+            return;
+          }
+          setView("list"); loadUsers();
+        }} style={{
+          width: "100%", padding: 10, borderRadius: 10, border: "1px solid #EF444444",
+          background: "#EF444411", color: "#EF4444",
+          fontSize: 11, fontWeight: 700, cursor: "pointer", marginBottom: 12,
+        }}>🗑 Delete User Permanently</button>
+
         {saveError && <div style={{ fontSize: 11, color: "#EF4444", marginBottom: 10, textAlign: "center" }}>{saveError}</div>}
         {saveSuccess && <div style={{ fontSize: 11, color: "#10B981", marginBottom: 10, textAlign: "center" }}>{saveSuccess}</div>}
 
@@ -312,6 +334,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   );
 
   // ── LIST VIEW ──
+
   return (
     <div style={S.app}>
       <div style={S.nav}>
@@ -321,22 +344,34 @@ export default function UserManagementScreen({ currentUser, onBack }) {
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => setView("create")}>+ New User</button>
 
-        <div style={{ marginTop: 12, marginBottom: 12 }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", marginTop: 10, marginBottom: 10, borderRadius: 8, overflow: "hidden", border: `1px solid ${theme.border}` }}>
+          <button onClick={() => setUserTab("active")} style={{
+            flex: 1, padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+            background: userTab === "active" ? "#33415577" : "#1E293B", color: userTab === "active" ? "#F8FAFC" : "#64748B",
+          }}>Active ({activeUsers.length})</button>
+          <button onClick={() => setUserTab("blocked")} style={{
+            flex: 1, padding: "8px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+            background: userTab === "blocked" ? "#EF444422" : "#1E293B", color: userTab === "blocked" ? "#EF4444" : "#64748B",
+          }}>Blocked ({blockedUsers.length})</button>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
           <input style={{ ...S.input, fontSize: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search users..." />
         </div>
 
         {loading ? (
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>Loading...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>No users found</div>
+        ) : displayUsers.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{userTab === "blocked" ? "No blocked users" : "No users found"}</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {filtered.map(u => (
+            {displayUsers.map(u => (
               <div key={u.id} onClick={() => openEdit(u)}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
                   background: theme.surface, borderRadius: 10, cursor: "pointer",
-                  border: `1px solid ${theme.border}`, opacity: u.blocked ? 0.5 : 1,
+                  border: `1px solid ${theme.border}`,
                 }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: 8, background: roleColor(u.role) + "22",
@@ -347,7 +382,6 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
                     {u.firstname} {u.lastname}
-                    {u.blocked && <span style={{ fontSize: 9, color: "#EF4444", marginLeft: 6 }}>BLOCKED</span>}
                   </div>
                   <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>{u.username} · {u.email}</div>
                   {u.role === 'coach' && coachTeamsMap[u.id]?.length > 0 && (

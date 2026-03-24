@@ -185,11 +185,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleDeleteGame = async (id) => {
     // Delete from local storage
     store.deleteGame(id);
-    // Delete from Supabase (events cascade via FK)
+    // Delete from Supabase via audited function
     try {
-      await supabase.from('match_events').delete().eq('match_id', id);
-      await supabase.from('match_commentators').delete().eq('match_id', id);
-      await supabase.from('matches').delete().eq('id', id);
+      await supabase.rpc('delete_match', { p_match_id: id, p_user_id: currentUser?.id });
     } catch {}
     setScreen("history");
   };

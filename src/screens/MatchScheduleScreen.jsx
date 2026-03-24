@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch } from '../utils/sync.js';
+import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings } from '../utils/sync.js';
 import { listUsersByRole } from '../utils/auth.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
@@ -106,6 +106,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         matchDate, scheduledTime: scheduledTime || null,
         matchLength: ml, breakFormat, matchType,
         venue: venue.trim() || null, commentatorIds: selectedComms,
+        createdBy: currentUser?.id,
       });
     }
     setSaving(false);
@@ -130,8 +131,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   };
 
   const handleDelete = async (matchId) => {
-    await supabase.from('match_commentators').delete().eq('match_id', matchId);
-    await supabase.from('matches').delete().eq('id', matchId).eq('status', 'upcoming');
+    const { data, error } = await supabase.rpc('delete_match', { p_match_id: matchId, p_user_id: currentUser?.id });
+    if (error) { alert(`Delete failed: ${error.message}`); return; }
+    if (data && data !== 'ok') { alert(data); return; }
     load();
   };
 
@@ -144,6 +146,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     const locked = await lockMatch(m.id, currentUser.id);
     if (!locked) { alert("Another user has already started this match."); load(); return; }
     await updateScheduledMatch(m.id, { status: 'live' });
+    await snapshotRankings(m.id);
     setActiveMatch({
       supabaseId: m.id,
       home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
@@ -185,6 +188,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       alert("Another user has already scored this match."); setQuickSaving(false); load(); return;
     }
     await updateScheduledMatch(quickScoreMatch.id, { home_score: homeScore, away_score: awayScore, status: 'ended', duration: 0, locked_by: currentUser.id });
+    await snapshotRankings(quickScoreMatch.id);
     setQuickSaving(false); setQuickScoreMatch(null); load();
   };
 
@@ -455,7 +459,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                       <button onClick={() => handleStartLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#F59E0B", color: "#0B0F1A", cursor: "pointer" }}>🏑 Start Live</button>
                       <button onClick={() => handleQuickScore(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>💾 Quick Score</button>
                       <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
-                      <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>🗑</button>
+                      {(currentUser?.role === 'admin' || m.created_by === currentUser?.id) && (
+                        <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>🗑</button>
+                      )}
                     </div>
                   )}
                 </div>

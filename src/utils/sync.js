@@ -333,7 +333,7 @@ export function subscribeLiveMatch(matchId, onMatchUpdate, onNewEvent) {
 
 // ─── MATCH SCHEDULING ────────────────────────────────
 
-export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, scheduledTime, matchLength, breakFormat, matchType, venue, commentatorIds }) {
+export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, scheduledTime, matchLength, breakFormat, matchType, venue, commentatorIds, createdBy }) {
   const { data, error } = await supabase
     .from('matches')
     .insert({
@@ -346,11 +346,15 @@ export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, schedul
       match_type: matchType || 'league',
       venue: venue || null,
       status: 'upcoming',
+      created_by: createdBy || null,
     })
     .select()
     .single();
 
   if (error) { console.error('Schedule match error:', error); return null; }
+
+  // Snapshot rankings from latest ranking_set
+  await snapshotRankings(data.id);
 
   // Assign commentators
   if (commentatorIds?.length > 0) {
@@ -359,6 +363,15 @@ export async function scheduleMatch({ homeTeamId, awayTeamId, matchDate, schedul
   }
 
   return data;
+}
+
+// Snapshot latest rankings onto a match
+export async function snapshotRankings(matchId) {
+  try {
+    await supabase.rpc('snapshot_match_rankings', { p_match_id: matchId });
+  } catch (err) {
+    console.warn('Snapshot rankings failed:', err);
+  }
 }
 
 export async function updateScheduledMatch(matchId, updates) {
