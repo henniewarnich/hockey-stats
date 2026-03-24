@@ -4,7 +4,7 @@ import { logLoginAttempt } from '../utils/audit.js';
 import { APP_VERSION } from '../utils/constants.js';
 
 export default function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(() => localStorage.getItem('kykie-last-user') || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +22,9 @@ export default function LoginPage({ onLogin }) {
       logLoginAttempt({ pinType: 'user_login', teamName: username, success: false });
       return;
     }
+
+    // Remember username on success
+    localStorage.setItem('kykie-last-user', username.trim());
 
     // Fetch profile — try by user ID first, then by email/username
     const { getProfileById, getProfileByEmail, getProfileByUsername } = await import('../utils/auth.js');
@@ -83,7 +86,7 @@ export default function LoginPage({ onLogin }) {
           value={username}
           onChange={e => { setUsername(e.target.value); setError(""); }}
           placeholder="john.smith or john@school.co.za"
-          autoFocus
+          autoFocus={!username}
           autoCapitalize="none"
           autoCorrect="off"
           style={{
@@ -105,6 +108,7 @@ export default function LoginPage({ onLogin }) {
             onChange={e => { setPassword(e.target.value); setError(""); }}
             type={showPassword ? "text" : "password"}
             placeholder="Enter password"
+            autoFocus={!!username}
             style={{
               flex: 1, padding: 12, borderRadius: 10,
               border: error ? "2px solid #EF4444" : "1px solid #334155",
