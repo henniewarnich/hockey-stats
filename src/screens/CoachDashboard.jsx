@@ -1,79 +1,150 @@
 import { useState, useEffect } from 'react';
 import { getCoachTeams } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
+import { fetchLatestRankings } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import RankBadge from '../components/RankBadge.jsx';
 
 const fmtDate = (d) => {
   if (!d) return '';
   const dt = parseSASTDate(d);
   return dt.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
 };
-const fmtTime = (t) => {
-  if (!t) return '';
-  return t.slice(0, 5);
-};
+const fmtTime = (t) => t ? t.slice(0, 5) : '';
 
 export default function CoachDashboard({ currentUser, onLogout }) {
   const [teams, setTeams] = useState([]);
   const [upcomingByTeam, setUpcomingByTeam] = useState({});
+  const [resultsByTeam, setResultsByTeam] = useState({});
   const [loading, setLoading] = useState(true);
+  const [teamTabs, setTeamTabs] = useState({});
+  const [latestRankings, setLatestRankings] = useState({});
+  const [oppForm, setOppForm] = useState({});
 
-  useEffect(() => {
-    loadData();
-  }, [currentUser]);
+  useEffect(() => { loadData(); }, [currentUser]);
 
   const loadData = async () => {
     if (!currentUser) return;
     setLoading(true);
 
-    // Get assigned teams
     const myTeams = await getCoachTeams(currentUser.id);
     setTeams(myTeams);
 
-    // Get upcoming matches for these teams
     if (myTeams.length > 0) {
       const teamIds = myTeams.map(t => t.id);
       const today = new Date().toISOString().split('T')[0];
 
-      const { data: matches } = await supabase
-        .from('matches')
-        .select('id, home_team_id, away_team_id, match_date, scheduled_time, venue, status, home_score, away_score, home_team:teams!matches_home_team_id_fkey(name, color, short_name), away_team:teams!matches_away_team_id_fkey(name, color, short_name)')
-        .or(teamIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
-        .in('status', ['upcoming', 'live', 'paused'])
-        .gte('match_date', today)
-        .order('match_date', { ascending: true })
-        .order('scheduled_time', { ascending: true });
+      const [{ data: upcoming }, { data: ended }] = await Promise.all([
+        supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id, match_date, scheduled_time, venue, status, home_score, away_score, home_team:teams!matches_home_team_id_fkey(id, name, color), away_team:teams!matches_away_team_id_fkey(id, name, color)')
+          .or(teamIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+          .in('status', ['upcoming', 'live', 'paused'])
+          .gte('match_date', today)
+          .order('match_date', { ascending: true })
+          .order('scheduled_time', { ascending: true }),
+        supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id, match_date, scheduled_time, venue, status, home_score, away_score, duration, home_rank, away_rank, home_prev_rank, away_prev_rank, match_type, home_team:teams!matches_home_team_id_fkey(id, name, color), away_team:teams!matches_away_team_id_fkey(id, name, color)')
+          .or(teamIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+          .eq('status', 'ended')
+          .order('match_date', { ascending: false })
+          .limit(50),
+      ]);
 
-      // Group by team
-      const grouped = {};
-      teamIds.forEach(tid => { grouped[tid] = []; });
-      (matches || []).forEach(m => {
+      const groupUp = {}, groupRes = {};
+      teamIds.forEach(tid => { groupUp[tid] = []; groupRes[tid] = []; });
+      (upcoming || []).forEach(m => {
         teamIds.forEach(tid => {
-          if (m.home_team_id === tid || m.away_team_id === tid) {
-            grouped[tid].push(m);
-          }
+          if (m.home_team_id === tid || m.away_team_id === tid) groupUp[tid].push(m);
         });
       });
-      setUpcomingByTeam(grouped);
+      (ended || []).forEach(m => {
+        teamIds.forEach(tid => {
+          if (m.home_team_id === tid || m.away_team_id === tid) groupRes[tid].push(m);
+        });
+      });
+      setUpcomingByTeam(groupUp);
+      setResultsByTeam(groupRes);
+
+      const tabs = {};
+      teamIds.forEach(tid => { tabs[tid] = groupUp[tid].length > 0 ? 'upcoming' : 'results'; });
+      setTeamTabs(tabs);
+
+      fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
+
+      // Get recent form for all opponents
+      const oppIds = new Set();
+      (upcoming || []).forEach(m => {
+        teamIds.forEach(tid => {
+          const oppId = m.home_team_id === tid ? m.away_team_id : (m.away_team_id === tid ? m.home_team_id : null);
+          if (oppId) oppIds.add(oppId);
+        });
+      });
+
+      if (oppIds.size > 0) {
+        const { data: oppMatches } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id, home_score, away_score, match_date')
+          .eq('status', 'ended')
+          .or([...oppIds].map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+          .order('match_date', { ascending: false })
+          .limit(100);
+
+        const form = {};
+        oppIds.forEach(oid => {
+          const matches = (oppMatches || []).filter(m => m.home_team_id === oid || m.away_team_id === oid).slice(0, 5);
+          const results = matches.map(m => {
+            const isHome = m.home_team_id === oid;
+            const gf = isHome ? m.home_score : m.away_score;
+            const ga = isHome ? m.away_score : m.home_score;
+            return { result: gf > ga ? 'W' : gf < ga ? 'L' : 'D', gf, ga };
+          });
+          const gf = results.reduce((s, r) => s + r.gf, 0);
+          const ga = results.reduce((s, r) => s + r.ga, 0);
+          form[oid] = { results, gf, ga, played: results.length };
+        });
+        setOppForm(form);
+      }
     }
 
     setLoading(false);
   };
 
   const slugify = (n) => n.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+  const goToTeam = (team) => { window.location.hash = `#/team/${slugify(team.name)}`; };
 
-  const goToTeam = (team) => {
-    window.location.hash = `#/team/${slugify(team.name)}`;
+  const resultBadge = (m, teamId) => {
+    const isHome = m.home_team_id === teamId;
+    const gf = isHome ? m.home_score : m.away_score;
+    const ga = isHome ? m.away_score : m.home_score;
+    if (gf > ga) return { label: 'W', color: '#10B981' };
+    if (gf < ga) return { label: 'L', color: '#EF4444' };
+    return { label: 'D', color: '#64748B' };
+  };
+
+  const FormDots = ({ form }) => {
+    if (!form || form.results.length === 0) return null;
+    return (
+      <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+        {form.results.map((r, i) => (
+          <div key={i} style={{
+            width: 14, height: 14, borderRadius: 3, fontSize: 8, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: r.result === 'W' ? '#10B98122' : r.result === 'L' ? '#EF444422' : '#64748B22',
+            color: r.result === 'W' ? '#10B981' : r.result === 'L' ? '#EF4444' : '#64748B',
+          }}>{r.result}</div>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
     return (
       <div style={S.app}>
-        <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: theme.textDim }}>
-          Loading...
-        </div>
+        <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: theme.textDim }}>Loading...</div>
       </div>
     );
   }
@@ -82,7 +153,6 @@ export default function CoachDashboard({ currentUser, onLogout }) {
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-      {/* Header */}
       <div style={{ padding: "16px 20px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -96,7 +166,7 @@ export default function CoachDashboard({ currentUser, onLogout }) {
             <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 10, color: theme.textDim, textAlign: "right" }}>
+            <div style={{ fontSize: 10, color: theme.textDim }}>
               {currentUser.firstname}
               <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", borderRadius: 99, background: "#8B5CF622", color: "#8B5CF6", fontWeight: 700 }}>Coach</span>
             </div>
@@ -120,69 +190,132 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {teams.map(team => {
               const upcoming = upcomingByTeam[team.id] || [];
+              const results = resultsByTeam[team.id] || [];
+              const tab = teamTabs[team.id] || 'upcoming';
+
               return (
-                <div key={team.id} style={{
-                  background: theme.surface, borderRadius: 12, border: `1px solid ${theme.border}`,
-                  overflow: "hidden",
-                }}>
-                  {/* Team header — clickable */}
-                  <div onClick={() => goToTeam(team)} style={{
-                    padding: "14px 16px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 12,
-                    borderBottom: upcoming.length > 0 ? `1px solid ${theme.border}` : "none",
-                  }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: (team.color || "#8B5CF6") + "22",
-                      border: `2px solid ${(team.color || "#8B5CF6")}44`,
+                <div key={team.id} style={{ background: theme.surface, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
+                  {/* Team header */}
+                  <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                    <div onClick={() => goToTeam(team)} style={{
+                      width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                      background: (team.color || "#8B5CF6") + "22", border: `2px solid ${(team.color || "#8B5CF6")}44`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 16, fontWeight: 800, color: team.color || "#8B5CF6",
                     }}>{team.short_name || team.name.charAt(0)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: theme.text }}>{team.name}</div>
+                    <div style={{ flex: 1 }} onClick={() => goToTeam(team)}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: theme.text, cursor: "pointer" }}>
+                        {team.name} {(() => { const r = latestRankings[team.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                      </div>
                       <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2 }}>
-                        {upcoming.length > 0
-                          ? `${upcoming.length} upcoming match${upcoming.length !== 1 ? 'es' : ''}`
-                          : 'No upcoming matches'}
+                        {upcoming.length > 0 ? `${upcoming.length} upcoming` : 'No upcoming'}
+                        {results.length > 0 ? ` · ${results.length} result${results.length !== 1 ? 's' : ''}` : ''}
                       </div>
                     </div>
-                    <div style={{ fontSize: 10, color: "#8B5CF6", fontWeight: 700 }}>View Stats →</div>
                   </div>
 
-                  {/* Upcoming matches */}
-                  {upcoming.length > 0 && (
-                    <div style={{ padding: "8px 12px" }}>
-                      {upcoming.slice(0, 3).map(m => {
+                  {/* Tabs */}
+                  <div style={{ display: "flex", borderTop: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}` }}>
+                    {[['upcoming', `Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}`], ['results', `Results${results.length > 0 ? ` (${results.length})` : ''}`]].map(([k, label]) => (
+                      <button key={k} onClick={() => setTeamTabs(prev => ({ ...prev, [team.id]: k }))}
+                        style={{
+                          flex: 1, padding: "8px 0", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                          background: tab === k ? "#334155" : "transparent",
+                          color: tab === k ? "#F8FAFC" : "#64748B",
+                        }}>{label}</button>
+                    ))}
+                  </div>
+
+                  {/* Upcoming tab */}
+                  {tab === 'upcoming' && (
+                    <div style={{ padding: "6px 12px 10px" }}>
+                      {upcoming.length === 0 ? (
+                        <div style={{ padding: "16px 0", textAlign: "center", color: theme.textDim, fontSize: 11 }}>No upcoming matches</div>
+                      ) : upcoming.slice(0, 5).map(m => {
                         const isHome = m.home_team_id === team.id;
                         const opp = isHome ? m.away_team : m.home_team;
+                        const oppId = opp?.id;
                         const isLive = m.status === 'live' || m.status === 'paused';
+                        const oppRank = latestRankings[oppId];
+                        const form = oppForm[oppId];
+
                         return (
-                          <div key={m.id} style={{
-                            padding: "8px 4px", display: "flex", alignItems: "center", gap: 8,
-                            borderBottom: `1px solid ${theme.border}22`,
-                          }}>
-                            {isLive && (
-                              <span style={{ fontSize: 8, color: "#10B981", fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122", animation: "pulse 2s infinite" }}>LIVE</span>
-                            )}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                {isHome ? 'vs' : '@'} {opp?.name || 'TBD'}
+                          <div key={m.id} style={{ padding: "10px 4px", borderBottom: `1px solid ${theme.border}22` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {isLive && <span style={{ fontSize: 8, color: "#10B981", fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122" }}>LIVE</span>}
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
+                                  {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
+                                </div>
+                                <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
+                                  {fmtDate(m.match_date)}{m.scheduled_time ? ` · ${fmtTime(m.scheduled_time)}` : ''}{m.venue ? ` · ${m.venue}` : ''}
+                                </div>
                               </div>
-                              <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
-                                {fmtDate(m.match_date)}{m.scheduled_time ? ` · ${fmtTime(m.scheduled_time)}` : ''}{m.venue ? ` · ${m.venue}` : ''}
-                              </div>
+                              {isLive && <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>{m.home_score} - {m.away_score}</div>}
                             </div>
-                            {isLive && (
-                              <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>
-                                {m.home_score} - {m.away_score}
+
+                            {/* Opposition scouting */}
+                            {form && form.played > 0 && (
+                              <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
+                                      {opp?.name} · Last {form.played}
+                                    </div>
+                                    <FormDots form={form} />
+                                  </div>
+                                  <div style={{ textAlign: "right" }}>
+                                    <div style={{ fontSize: 11, fontWeight: 800, color: "#F8FAFC", fontFamily: "monospace" }}>{form.gf}:{form.ga}</div>
+                                    <div style={{ fontSize: 8, color: "#64748B" }}>GF:GA</div>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
                         );
                       })}
-                      {upcoming.length > 3 && (
-                        <div style={{ fontSize: 10, color: theme.textDim, padding: "6px 4px", textAlign: "center" }}>
-                          + {upcoming.length - 3} more
+                      {upcoming.length > 5 && (
+                        <div style={{ fontSize: 10, color: theme.textDim, padding: "6px 4px", textAlign: "center" }}>+ {upcoming.length - 5} more</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Results tab */}
+                  {tab === 'results' && (
+                    <div style={{ padding: "6px 12px 10px" }}>
+                      {results.length === 0 ? (
+                        <div style={{ padding: "16px 0", textAlign: "center", color: theme.textDim, fontSize: 11 }}>No results yet</div>
+                      ) : results.slice(0, 5).map(m => {
+                        const isHome = m.home_team_id === team.id;
+                        const opp = isHome ? m.away_team : m.home_team;
+                        const rl = resultBadge(m, team.id);
+                        const d = parseSASTDate(m.match_date);
+
+                        return (
+                          <div key={m.id} onClick={() => { window.location.hash = `#/team/${slugify(team.name)}?match=${m.id}`; }}
+                            style={{ padding: "8px 4px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${theme.border}22`, cursor: "pointer" }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: 5, fontSize: 9, fontWeight: 900,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              background: rl.color + "22", color: rl.color, flexShrink: 0,
+                            }}>{rl.label}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
+                                {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
+                              </div>
+                              <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
+                                {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                {m.venue && ` · ${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>{m.home_score}–{m.away_score}</div>
+                            <span style={{ fontSize: 10, color: "#334155" }}>›</span>
+                          </div>
+                        );
+                      })}
+                      {results.length > 5 && (
+                        <div onClick={() => goToTeam(team)} style={{ fontSize: 10, color: "#8B5CF6", padding: "8px 4px", textAlign: "center", cursor: "pointer", fontWeight: 600 }}>
+                          View all {results.length} results →
                         </div>
                       )}
                     </div>
@@ -193,7 +326,6 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           </div>
         )}
 
-        {/* Footer */}
         <div style={{ marginTop: 30, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <div style={{ fontSize: 10, color: theme.textDimmer }}>v{APP_VERSION}</div>
           <button onClick={() => { window.location.hash = ''; }} style={{
