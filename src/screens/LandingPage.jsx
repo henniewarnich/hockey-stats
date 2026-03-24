@@ -18,6 +18,7 @@ export default function LandingPage() {
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
+  const [expandedUpcoming, setExpandedUpcoming] = useState(null);
 
   // Global presence tracking
   useEffect(() => {
@@ -323,26 +324,53 @@ export default function LandingPage() {
                 {filtered.slice(0, showUpcoming).map(m => {
                   const d = parseSASTDate(m.match_date);
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  const awaySlug = m.away_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   const hc = m.home_team?.color || "#3B82F6";
+                  const ac = m.away_team?.color || "#EF4444";
+                  const isExp = expandedUpcoming === m.id;
                   return (
-                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
-                      style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 7, background: hc, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{d.getDate()}</div>
-                        <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
-                        <div style={styles.matchMeta}>
-                          {d.toLocaleDateString("en-ZA", { weekday: "short" })}
-                          {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                          {m.match_type && ` · ${m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)}`}
+                    <div key={m.id} style={{ marginBottom: 4 }}>
+                      <div onClick={() => setExpandedUpcoming(isExp ? null : m.id)}
+                        style={{ ...styles.scoreCard, cursor: "pointer", borderRadius: isExp ? "10px 10px 0 0" : 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 7, background: hc, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{d.getDate()}</div>
+                          <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                          <div style={styles.matchMeta}>
+                            {d.toLocaleDateString("en-ZA", { weekday: "short" })}
+                            {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                            {m.match_type && ` · ${m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)}`}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          {(() => { const cd = getCountdown(m.match_date, m.scheduled_time); return cd ? <div style={{ fontSize: 10, fontWeight: 700, color: cd.color, fontFamily: "monospace" }}>{cd.text}</div> : null; })()}
+                          {m.venue && <div style={{ fontSize: 9, color: "#475569", fontWeight: 600 }}>{m.venue}</div>}
                         </div>
                       </div>
-                      <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        {(() => { const cd = getCountdown(m.match_date, m.scheduled_time); return cd ? <div style={{ fontSize: 10, fontWeight: 700, color: cd.color, fontFamily: "monospace" }}>{cd.text}</div> : null; })()}
-                        {m.venue && <div style={{ fontSize: 9, color: "#475569", fontWeight: 600 }}>{m.venue}</div>}
-                      </div>
+                      {isExp && (
+                        <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", display: "flex", gap: 6, borderTop: "1px solid #33415544" }}>
+                          {[[m.home_team, homeSlug, hc], [m.away_team, awaySlug, ac]].map(([t, slug, c]) => (
+                            <div key={slug} onClick={() => { window.location.hash = `#/team/${slug}`; }}
+                              style={{
+                                flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+                                background: "#0B0F1A", borderRadius: 8, cursor: "pointer",
+                                border: `1px solid ${c}33`,
+                              }}>
+                              <div style={{
+                                width: 28, height: 28, borderRadius: 7, background: c + "22", border: `1.5px solid ${c}44`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
+                              }}>{t?.name?.charAt(0)}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                                <div style={{ fontSize: 9, color: "#64748B" }}>View stats →</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
