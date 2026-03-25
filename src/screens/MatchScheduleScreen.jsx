@@ -481,7 +481,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
               const comms = matchComms[m.id] || [];
               const d = parseSASTDate(m.match_date);
               const isLive = m.status === 'live';
-              const isMyLock = m.locked_by === currentUser?.id;
+              const isMyLock = m.locked_by === currentUser?.id || m.created_by === currentUser?.id;
               const countdown = getCountdown(m.match_date, m.scheduled_time);
               return (
                 <div key={m.id} style={{

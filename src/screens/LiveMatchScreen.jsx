@@ -14,7 +14,7 @@ import DPopup from '../components/DPopup.jsx';
 import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 
-export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate }) {
+export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo } = matchConfig;
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(home.color, away.color);
   const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
@@ -63,9 +63,10 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       setLiveMatchId(existingMatchId);
       return;
     }
-    createLiveMatch(matchConfig).then(result => {
+    createLiveMatch(matchConfig, currentUser?.id).then(result => {
       if (result) {
         setLiveMatchId(result.id);
+        if (onMatchCreated) onMatchCreated(result.id);
         console.log('Live match created:', result.id);
       }
     }).catch(err => console.warn('Could not create live match:', err));

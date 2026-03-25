@@ -402,7 +402,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
               <div>
                 {completedMatches.map(m => {
                   const d = parseSASTDate(m.match_date);
-                  const isMyLock = m.locked_by === currentUser.id;
+                  const isMyLock = m.locked_by === currentUser.id || m.created_by === currentUser.id;
                   return (
                     <div key={m.id} style={{
                       background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4,
@@ -449,8 +449,8 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
 
 function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQuickScore, onCancel, onResumeLive, latestRankings = {} }) {
   const d = parseSASTDate(m.match_date);
-  const isLocked = m.locked_by && m.locked_by !== currentUser.id;
-  const isMyLock = m.locked_by === currentUser.id;
+  const isLocked = m.locked_by && m.locked_by !== currentUser.id && m.created_by !== currentUser.id;
+  const isMyLock = m.locked_by === currentUser.id || m.created_by === currentUser.id;
   const disabled = !canAction || isLocked;
 
   return (

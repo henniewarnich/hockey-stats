@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.13 | Date: 25 March 2026**
+**Version: 7.9.14 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -228,3 +228,20 @@ All applied as of v7.9.12. Run v7.9.13 migration before deploying.
 - Includes database schemas, revenue projections, pricing psychology, volume estimates
 
 - Migration: `upgrade-scripts/v7.9.13/migration-sponsors.sql`
+
+## Session Summary (v7.9.14) — 25 March 2026
+
+### Bug Fix: Duplicate matches on Live ↔ Live Pro switch
+- **Root cause**: App.jsx New Match flow never passed `existingMatchId` to LiveMatchScreen and never updated `matchConfig` after match creation — each mode switch remounted and called `createLiveMatch` again
+- **Fix**: `onMatchCreated` callback updates `matchConfig.supabaseId`; `existingMatchId={matchConfig.supabaseId}` now passed through; subsequent mode switches reuse the same match
+
+### Bug Fix: Can't resume own match started via New Match
+- **Root cause**: `createLiveMatch` didn't set `locked_by` or `created_by` — Match Schedule didn't recognise the admin as owner
+- **Fix**: `createLiveMatch(config, userId)` now sets both `locked_by` and `created_by`; Match Schedule checks `locked_by || created_by` for resume eligibility
+
+### Changes
+- `sync.js`: `createLiveMatch` accepts `userId` param, sets `locked_by` + `created_by`
+- `LiveMatchScreen.jsx`: accepts `currentUser` + `onMatchCreated` props, passes userId to createLiveMatch
+- `App.jsx`: passes `existingMatchId`, `currentUser`, `onMatchCreated` to LiveMatchScreen
+- `MatchScheduleScreen.jsx`: `isMyLock` checks both `locked_by` and `created_by`
+- No migration needed

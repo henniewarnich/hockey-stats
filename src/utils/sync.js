@@ -254,7 +254,7 @@ async function findOrCreateTeam(team) {
 
 // ─── LIVE MATCH (for future real-time) ───────────────
 
-export async function createLiveMatch(config) {
+export async function createLiveMatch(config, userId) {
   const homeTeam = await findOrCreateTeam(config.home);
   const awayTeam = await findOrCreateTeam(config.away);
   if (!homeTeam || !awayTeam) return null;
@@ -273,6 +273,8 @@ export async function createLiveMatch(config) {
       match_type: config.matchType || 'league',
       status: 'live',
       share_pin: pin,
+      locked_by: userId || null,
+      created_by: userId || null,
     })
     .select()
     .single();

@@ -66,8 +66,64 @@ ALTER TABLE sponsors ADD COLUMN reviewed_at TIMESTAMPTZ;
 
 ## Phase 3 — Self-Service Payments (Future)
 
-### Payment Integration
-- **PayFast** (SA preferred) or **Stripe** for international
+### Payment Integration — Yoco Checkout API
+- **Why Yoco**: SA-focused, no monthly fees, 2.55–2.95% local card fees, Apple Pay/Google Pay, PCI compliant hosted checkout
+- **Docs**: https://developer.yoco.com/guides/online-payments/accepting-a-payment
+- **Min payment**: R2
+
+**Flow:**
+1. Sponsor selects package on kykie → clicks "Pay"
+2. Supabase Edge Function creates checkout session via `POST https://payments.yoco.com/api/checkouts` (amount, currency, successUrl, cancelUrl, metadata with sponsor_id + package_id)
+3. Sponsor redirected to Yoco hosted payment page (card details handled by Yoco — zero PCI burden)
+4. On success → Yoco sends webhook to Supabase Edge Function → activates sponsorship
+5. **Important**: Never trust successUrl for verification — always use webhook for payment confirmation
+
+**Technical requirements:**
+- 2× Supabase Edge Functions: `create-checkout` (called from frontend) and `yoco-webhook` (receives payment confirmation)
+- Yoco API keys stored in Supabase secrets (sk_test_ for dev, sk_live_ for prod)
+- Webhook registration in Yoco dashboard pointing to Edge Function URL
+- Test mode available with test card details (no real money moved)
+
+**Edge Function: create-checkout (pseudo-code):**
+```javascript
+// POST /functions/v1/create-checkout
+const response = await fetch('https://payments.yoco.com/api/checkouts', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${YOCO_SECRET_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    amount: packagePrice,       // in cents (R500 = 50000)
+    currency: 'ZAR',
+    successUrl: 'https://kykie.net/#/sponsor/payment-success',
+    cancelUrl: 'https://kykie.net/#/sponsor/payment-cancelled',
+    failureUrl: 'https://kykie.net/#/sponsor/payment-failed',
+    metadata: { sponsor_id, package_id, user_id },
+  }),
+});
+// Return { id, redirectUrl } to frontend
+// Frontend does: window.location.href = redirectUrl
+```
+
+**Edge Function: yoco-webhook (pseudo-code):**
+```javascript
+// POST /functions/v1/yoco-webhook
+// Yoco sends { type: 'payment.succeeded', payload: { ... } }
+const { metadata } = event.payload;
+await supabase.from('sponsor_payments').insert({
+  sponsor_id: metadata.sponsor_id,
+  amount: event.payload.amount / 100,
+  payment_provider: 'yoco',
+  payment_reference: event.payload.id,
+  status: 'completed',
+});
+await supabase.from('sponsors').update({
+  active: true,
+  approval_status: 'pending_review',
+}).eq('id', metadata.sponsor_id);
+```
+
 - Tiered pricing packages:
   | Package | Duration | Price |
   |---------|----------|-------|
@@ -84,7 +140,7 @@ CREATE TABLE sponsor_payments (
   sponsor_id UUID REFERENCES sponsors(id) NOT NULL,
   amount NUMERIC NOT NULL,
   currency TEXT DEFAULT 'ZAR',
-  payment_provider TEXT,        -- 'payfast' | 'stripe'
+  payment_provider TEXT,        -- 'yoco'
   payment_reference TEXT,
   status TEXT DEFAULT 'pending', -- 'pending' | 'completed' | 'refunded'
   created_at TIMESTAMPTZ DEFAULT now()
@@ -103,11 +159,11 @@ CREATE TABLE sponsor_packages (
 ```
 
 ### Billing Flow
-1. Sponsor selects package → pays via PayFast/Stripe
-2. Webhook confirms payment → creates sponsorship row
+1. Sponsor selects package → pays via Yoco Checkout (redirected to hosted page)
+2. Yoco webhook confirms payment → Edge Function creates sponsorship row
 3. Sponsor uploads artwork → enters approval queue
 4. Approved → goes live
-5. Expiry: end_date reached → auto-deactivates, sends renewal reminder email
+5. Expiry: end_date reached → auto-deactivates, sends renewal reminder email via Resend
 
 ---
 

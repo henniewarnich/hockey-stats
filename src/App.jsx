@@ -380,7 +380,10 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
               ↓ Switch to Live
             </button>
           </div>
-          <LiveMatchScreen matchConfig={matchConfig} onSaveGame={handleSaveGame} onNavigate={navigate} />
+          <LiveMatchScreen matchConfig={matchConfig} existingMatchId={matchConfig.supabaseId || null}
+            onSaveGame={handleSaveGame} onNavigate={navigate}
+            currentUser={currentUser}
+            onMatchCreated={(id) => setMatchConfig(prev => ({ ...prev, supabaseId: id }))} />
         </div>
       );
 
