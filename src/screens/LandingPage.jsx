@@ -5,8 +5,13 @@ import { parseSAST, parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import RankBadge from '../components/RankBadge.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
+import AdminDashboardPanel from '../components/AdminDashboardPanel.jsx';
+import CommDashboardPanel from '../components/CommDashboardPanel.jsx';
+import CoachDashboardPanel from '../components/CoachDashboardPanel.jsx';
+import CrowdDashboardPanel from '../components/CrowdDashboardPanel.jsx';
+import RoleSwitcher from '../components/RoleSwitcher.jsx';
 
-export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
+export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
@@ -15,7 +20,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
   const [loading, setLoading] = useState(true);
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
-  const [activeTab, setActiveTab] = useState("live"); // live | upcoming | results | teams
+  const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
@@ -77,10 +82,12 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
         // Fetch latest rankings for upcoming/live badges
         fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
 
-        // Auto-select best tab
-        if (live && live.length > 0) setActiveTab("live");
-        else if (upcoming && upcoming.length > 0) setActiveTab("upcoming");
-        else setActiveTab("results");
+        // Auto-select best tab (only if not directed to a specific tab)
+        if (!initialTab) {
+          if (live && live.length > 0) setActiveTab("live");
+          else if (upcoming && upcoming.length > 0) setActiveTab("upcoming");
+          else setActiveTab("results");
+        }
       } catch (err) { console.error('Landing load error:', err); }
       setLoading(false);
     };
@@ -189,8 +196,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
             <div style={styles.logo}>kykie</div>
           </div>
           {currentUser ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ fontSize: 10, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+              {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
               <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "#EF444411", border: "1px solid #EF444444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Sign out</button>
             </div>
           ) : (
@@ -222,6 +230,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
         <div style={{ padding: "0 16px 6px" }}>
           <div style={{ display: "flex", gap: 0, justifyContent: "center", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "0 auto" }}>
             {[
+              ...(currentUser ? [{ id: "dashboard", label: "Dashboard", color: "#8B5CF6" }] : []),
               { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
               { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
               { id: "results", label: "Results", count: matches.length },
@@ -292,6 +301,27 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
+
+          {/* ═══ DASHBOARD TAB ═══ */}
+          {activeTab === "dashboard" && currentUser && (() => {
+            const role = currentUser.role;
+            return (
+              <div>
+                {(role === 'admin' || role === 'commentator_admin') && (
+                  <AdminDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
+                )}
+                {(role === 'commentator') && (
+                  <CommDashboardPanel currentUser={currentUser} />
+                )}
+                {(role === 'coach') && (
+                  <CoachDashboardPanel currentUser={currentUser} />
+                )}
+                {(role === 'crowd') && (
+                  <CrowdDashboardPanel />
+                )}
+              </div>
+            );
+          })()}
 
           {/* ═══ LIVE TAB ═══ */}
           {activeTab === "live" && (() => {

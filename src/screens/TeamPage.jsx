@@ -275,12 +275,17 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         const session = await getSession();
         if (session) {
           const profile = await getProfile();
-          if (profile && profile.role === 'coach' && !profile.blocked) {
-            const assigned = await isCoachForTeam(profile.id, teamSlug);
-            if (assigned) {
-              setIsCoach(true);
-              setCoachProfile(profile);
-              setTab("overall");
+          if (profile && !profile.blocked) {
+            // Check if user has coach role (active role from sessionStorage OR in roles array)
+            const activeRole = sessionStorage.getItem('kykie-active-role') || profile.role;
+            const hasCoachRole = activeRole === 'coach' || profile.roles?.includes('coach');
+            if (hasCoachRole) {
+              const assigned = await isCoachForTeam(profile.id, teamSlug);
+              if (assigned) {
+                setIsCoach(true);
+                setCoachProfile(profile);
+                setTab("overall");
+              }
             }
           }
         }

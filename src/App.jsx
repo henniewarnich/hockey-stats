@@ -120,13 +120,10 @@ export default function App() {
 
   const handleLogin = (profile) => {
     setCurrentUser(profile);
-    // Route based on role
+    sessionStorage.setItem('kykie-user-id', profile.id);
+    // Admin/CommAdmin need #/admin for sub-screen routing, others go to landing
     if (profile.role === 'admin' || profile.role === 'commentator_admin') {
       window.location.hash = '#/admin';
-    } else if (profile.role === 'commentator') {
-      window.location.hash = '#/record';
-    } else if (profile.role === 'coach') {
-      window.location.hash = '#/coach';
     } else {
       window.location.hash = '';
     }
@@ -145,13 +142,10 @@ export default function App() {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
     setCurrentUser(prev => ({ ...prev, role: newRole }));
-    // Navigate to the appropriate screen for the new role
+    setScreen("home");
+    // Admin needs #/admin for sub-screens, others stay on landing
     if (newRole === 'admin' || newRole === 'commentator_admin') {
       window.location.hash = '#/admin';
-    } else if (newRole === 'commentator') {
-      window.location.hash = '#/record';
-    } else if (newRole === 'coach') {
-      window.location.hash = '#/coach';
     } else {
       window.location.hash = '';
     }
@@ -173,20 +167,23 @@ export default function App() {
   }
 
   if (route.type === 'landing') {
-    return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed} />;
+    return <LandingPage
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      emailConfirmed={emailConfirmed}
+      initialTab={currentUser ? "dashboard" : null}
+      onRoleSwitch={currentUser ? handleRoleSwitch : null}
+    />;
   }
 
   if (route.type === 'login') {
     if (currentUser) {
-      // Already logged in — redirect to role's home (if known)
-      const target = currentUser.role === 'admin' || currentUser.role === 'commentator_admin' ? '#/admin'
-        : currentUser.role === 'commentator' ? '#/record'
-        : currentUser.role === 'coach' ? '#/coach' : null;
-      if (target && window.location.hash !== target) {
+      // Already logged in — redirect to landing (dashboard tab auto-selects)
+      const target = currentUser.role === 'admin' || currentUser.role === 'commentator_admin' ? '#/admin' : '#/';
+      if (window.location.hash !== target) {
         window.location.hash = target;
         return <LoginPage onLogin={handleLogin} />;
       }
-      // Unknown role — allow login page to show so user can re-auth
     }
     return <LoginPage onLogin={handleLogin} />;
   }
@@ -226,17 +223,17 @@ export default function App() {
     if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    // If no slug — show the commentator dashboard
-    if (!route.slug) {
-      return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
-    }
     // Team-specific — old commentator page (kept for backward compat)
-    return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
+    if (route.slug) {
+      return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
+    }
+    // Commentator dashboard — show full standalone dashboard for live recording
+    return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
   }
 
-  // Coach area
+  // Coach area — standalone coach dashboard for team detail views
   if (route.type === 'coach') {
-    if (!currentUser || currentUser.role !== 'coach') {
+    if (!currentUser || !['admin', 'commentator_admin', 'coach'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
@@ -247,17 +244,30 @@ export default function App() {
     if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
+    // Admin sub-screens (not home) — use AppContent
+    if (screen !== 'home') {
+      return (
+        <AppContent
+          store={store} screen={screen} setScreen={setScreen}
+          matchConfig={matchConfig} setMatchConfig={setMatchConfig}
+          reviewGame={reviewGame} setReviewGame={setReviewGame}
+          currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
+        />
+      );
+    }
+    // Admin home — show LandingPage with dashboard tab
     return (
-      <AppContent
-        store={store} screen={screen} setScreen={setScreen}
-        matchConfig={matchConfig} setMatchConfig={setMatchConfig}
-        reviewGame={reviewGame} setReviewGame={setReviewGame}
-        currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
+      <LandingPage
+        currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
+        initialTab="dashboard" onRoleSwitch={handleRoleSwitch}
+        onNavigate={(target) => setScreen(target)}
       />
     );
   }
 
-  return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed} />;
+  // Default landing — pass onRoleSwitch for logged-in users
+  return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
+    onRoleSwitch={handleRoleSwitch} initialTab={currentUser ? "dashboard" : null} />;
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
@@ -337,7 +347,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
   switch (screen) {
     case "home":
-      return <HomeScreen teamCount={store.teams.length} gameCount={store.games.length} onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError} currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch} />;
+      return <LandingPage currentUser={currentUser} onLogout={onLogout} onNavigate={navigate} onRoleSwitch={onRoleSwitch} initialTab="dashboard" />;
 
     case "users":
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;

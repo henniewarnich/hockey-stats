@@ -55,7 +55,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const load = async () => {
     setLoading(true);
     const [matches, comms, commAdmins, { data: teams }] = await Promise.all([
-      supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).then(r => r.data || []),
+      supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).order('scheduled_time', { ascending: true }).then(r => r.data || []),
       listUsersByRole('commentator'),
       listUsersByRole('commentator_admin'),
       supabase.from('teams').select('*').order('name'),

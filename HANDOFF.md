@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.15 | Date: 25 March 2026**
+**Version: 7.9.19 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -256,4 +256,57 @@ All applied as of v7.9.12. Run v7.9.13 migration before deploying.
 - "View all on kykie →" link when >5 matches
 - Added to top of Admin HomeScreen (above nav cards)
 - Added to CommentatorDashboard (between header and "My Matches" tabs)
+- No migration needed
+
+## Session Summary (v7.9.16) — 25 March 2026
+
+### Dashboard Button on Landing Page
+- Logged-in users now see a "Dashboard" button next to their name on the public landing page
+- Routes back to role-specific dashboard: Admin → #/admin, Commentator → #/record, Coach → #/coach
+- Fixes the issue where navigating to the public view left users with no way to return to their dashboard
+- No migration needed
+
+## Session Summary (v7.9.17) — 25 March 2026
+
+### Bug Fix: Multi-role users lose coach access on TeamPage
+- **Root cause**: TeamPage checked `profile.role === 'coach'` from the database, but RoleSwitcher only updates sessionStorage — so admin users who switched to coach role weren't recognised
+- **Fix**: TeamPage now checks sessionStorage active role AND `profile.roles[]` array. If either includes 'coach' and user is assigned to the team via `coach_teams`, coach view activates
+- Fixes: "View all results →" from CoachDashboard no longer shows "Login" on the team page
+- No migration needed
+
+## Session Summary (v7.9.18) — 25 March 2026
+
+### Unified Landing Page with Dashboard Tab
+- **Major UX change**: All logged-in users now see a "Dashboard" tab as the first tab on the landing page
+- No more separate screens per role — public view (Live/Upcoming/Results/Teams) is always one tab away
+- RoleSwitcher visible in the header on all views — switch roles without navigating away
+- Dashboard tab content per role:
+  - **Admin/Comm Admin**: nav cards to all admin tools (schedule, new match, teams, users, rankings, pending, health, sponsors)
+  - **Commentator**: "My Matches" summary with live/upcoming, "Open full dashboard →" link, demo button
+  - **Coach**: team cards with W/D/L records and rankings, tap to open team page
+  - **Crowd**: contribution stats + submit actions (result, upcoming, suggest team)
+
+### New Components
+- `AdminDashboardPanel.jsx` — admin nav cards with counts
+- `CommDashboardPanel.jsx` — commentator match summary
+- `CoachDashboardPanel.jsx` — coach team overview
+- `CrowdDashboardPanel.jsx` — crowd submit actions
+
+### Routing Changes
+- Admin `#/admin` home now renders LandingPage with Dashboard tab (sub-screens still use AppContent)
+- Non-admin logged-in users on `#/` get Dashboard tab auto-selected
+- Role switch updates hash correctly (admin→`#/admin`, others→`#/`)
+- Login redirects admin to `#/admin`, others to `#/`
+- Eliminated separate HomeScreen as admin entry point (still exists but no longer primary)
+- No migration needed
+
+## Session Summary (v7.9.19) — 25 March 2026
+
+### Match Schedule Sort Order
+- Both MatchScheduleScreen and CommentatorDashboard now sort by `match_date` ASC then `scheduled_time` ASC
+- Earliest kickoff appears at the top
+
+### Commentator Countdown
+- CommentatorDashboard MatchCard now shows countdown timer (same as MatchScheduleScreen)
+- Color-coded: red (<1h), amber (1-24h), grey (>1 day), green ("Now" when past kickoff)
 - No migration needed

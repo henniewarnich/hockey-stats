@@ -3,7 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updateScheduledMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { parseSASTDate } from '../utils/helpers.js';
+import { parseSASTDate, parseSAST } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
@@ -48,7 +48,8 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
       .from('matches')
       .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), match_commentators(commentator_id, commentator:profiles!commentator_id(firstname, lastname))')
       .in('status', ['upcoming', 'live'])
-      .order('match_date', { ascending: true });
+      .order('match_date', { ascending: true })
+      .order('scheduled_time', { ascending: true });
 
     // Tag each match
     const tagged = (allUpcoming || []).map(m => {
@@ -459,6 +460,20 @@ function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQui
   const isMyLock = m.locked_by === currentUser.id || m.created_by === currentUser.id;
   const disabled = !canAction || isLocked;
 
+  // Countdown
+  const countdown = (() => {
+    if (!m.scheduled_time || m.status === 'live') return null;
+    const kickoff = parseSAST(m.match_date, m.scheduled_time);
+    const diff = kickoff - new Date();
+    if (diff <= 0) return { text: "Now", color: "#10B981" };
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
+    if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
+    return { text: `${mins}m`, color: "#EF4444" };
+  })();
+
   return (
     <div style={{
       background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 4,
@@ -471,6 +486,7 @@ function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQui
           {m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
+        {countdown && m.status !== 'live' && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}
         {m._unassigned && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#F59E0B22", color: "#F59E0B", fontWeight: 700 }}>OPEN</span>}
         {m._assignedMe && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#10B98122", color: "#10B981", fontWeight: 700 }}>{m._assigneeName || 'You'}</span>}
         {m._assignedOther && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#3B82F622", color: "#3B82F6", fontWeight: 700 }}>{m._assigneeName || 'ASSIGNED'}</span>}
