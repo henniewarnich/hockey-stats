@@ -172,6 +172,23 @@ export async function resetPassword(userId, newPassword) {
   return { success: true };
 }
 
+// Request password reset email (self-service)
+export async function requestPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/',
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// Update own password (used after clicking reset link)
+export async function updateOwnPassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  await logAudit('password_self_reset', 'auth');
+  return { success: true };
+}
+
 // Block/unblock a user
 export async function toggleBlockUser(userId, blocked) {
   await logAudit(blocked ? 'user_block' : 'user_unblock', 'user', userId);

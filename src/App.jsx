@@ -23,6 +23,7 @@ import UserManagementScreen from './screens/UserManagementScreen.jsx';
 import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
 import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 import CoachDashboard from './screens/CoachDashboard.jsx';
+import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -48,6 +49,7 @@ export default function App() {
   const [reviewGame, setReviewGame] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const store = useMatchStore();
 
   // Listen for hash changes
@@ -80,6 +82,9 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
       }
     });
     return () => subscription.unsubscribe();
@@ -123,6 +128,15 @@ export default function App() {
     }
   };
 
+  // ── PASSWORD RECOVERY ──
+  if (passwordRecovery) {
+    return <ResetPasswordScreen onDone={() => {
+      setPasswordRecovery(false);
+      setCurrentUser(null);
+      window.location.hash = '#/login';
+    }} />;
+  }
+
   // ── PUBLIC ROUTES (no auth needed) ──
 
   if (route.type === 'team') {
@@ -135,12 +149,15 @@ export default function App() {
 
   if (route.type === 'login') {
     if (currentUser) {
-      // Already logged in — redirect immediately without rendering blank
+      // Already logged in — redirect to role's home (if known)
       const target = currentUser.role === 'admin' || currentUser.role === 'commentator_admin' ? '#/admin'
         : currentUser.role === 'commentator' ? '#/record'
-        : currentUser.role === 'coach' ? '#/coach' : '';
-      if (window.location.hash !== target) window.location.hash = target;
-      return <LoginPage onLogin={handleLogin} />;
+        : currentUser.role === 'coach' ? '#/coach' : null;
+      if (target && window.location.hash !== target) {
+        window.location.hash = target;
+        return <LoginPage onLogin={handleLogin} />;
+      }
+      // Unknown role — allow login page to show so user can re-auth
     }
     return <LoginPage onLogin={handleLogin} />;
   }

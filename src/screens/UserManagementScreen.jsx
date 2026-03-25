@@ -22,7 +22,6 @@ const ROLES = [
   { id: 'commentator_admin', label: 'Comm Admin', color: '#F59E0B' },
   { id: 'commentator', label: 'Commentator', color: '#10B981' },
   { id: 'coach', label: 'Coach', color: '#8B5CF6' },
-  { id: 'viewer', label: 'Viewer', color: '#64748B' },
 ];
 
 export default function UserManagementScreen({ currentUser, onBack }) {
