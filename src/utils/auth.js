@@ -172,6 +172,42 @@ export async function resetPassword(userId, newPassword) {
   return { success: true };
 }
 
+// Self-register as a crowd user (public registration)
+export async function registerCrowdUser({ email, password, firstname, lastname, username, alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_team_ids }) {
+  // Pre-check: username uniqueness
+  const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
+  if (existing) return { error: `Username "${username}" is already taken.` };
+
+  // Create auth user
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) return { error: error.message };
+
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return { error: `Email "${email}" is already registered.` };
+  }
+
+  if (!data.user) return { error: 'Registration failed.' };
+
+  // Create profile via SECURITY DEFINER function
+  const { error: profileErr } = await supabase.rpc('register_crowd_profile', {
+    p_id: data.user.id,
+    p_email: email.toLowerCase().trim(),
+    p_firstname: firstname.trim(),
+    p_lastname: lastname.trim(),
+    p_username: username.toLowerCase().trim(),
+    p_alias_nickname: alias_nickname?.trim() || null,
+    p_date_of_birth: date_of_birth || null,
+    p_biological_gender: biological_gender || null,
+    p_home_town: home_town?.trim() || null,
+    p_sport_interest: sport_interest || [],
+    p_supporting_team_ids: supporting_team_ids || [],
+  });
+
+  if (profileErr) return { error: `Account created but profile failed: ${profileErr.message}` };
+
+  return { user: data.user };
+}
+
 // Request password reset email (self-service)
 export async function requestPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {

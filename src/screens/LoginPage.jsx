@@ -107,6 +107,9 @@ export default function LoginPage({ onLogin }) {
             <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>
               We sent a password reset link to <span style={{ color: "#F8FAFC", fontWeight: 600 }}>{resetEmail}</span>. Click the link in the email to set a new password.
             </div>
+            <div style={{ fontSize: 11, color: "#64748B", marginTop: 10, lineHeight: 1.5 }}>
+              Can't find it? Check your spam or junk folder.
+            </div>
             <button onClick={() => { setForgotMode(false); setResetSent(false); setResetEmail(''); setError(''); }} style={{
               marginTop: 24, background: "none", border: "1px solid #334155", borderRadius: 10, padding: "10px 20px",
               color: "#94A3B8", fontSize: 12, cursor: "pointer",
@@ -221,8 +224,14 @@ export default function LoginPage({ onLogin }) {
             {loading ? "Signing in..." : "Sign In"}
           </button>
 
+          <button onClick={() => { window.location.hash = '#/register'; }} style={{
+            marginTop: 12, background: "none", border: "1px solid #334155", borderRadius: 10,
+            padding: "10px 20px", color: "#94A3B8", fontSize: 11, cursor: "pointer",
+            width: "100%", maxWidth: 280,
+          }}>Don't have an account? <span style={{ color: "#F59E0B", fontWeight: 700 }}>Register</span></button>
+
           <button onClick={() => { window.location.hash = ''; }} style={{
-            marginTop: 16, background: "none", border: "none", color: "#475569", fontSize: 10,
+            marginTop: 12, background: "none", border: "none", color: "#475569", fontSize: 10,
             cursor: "pointer", textDecoration: "underline",
           }}>← Back to kykie</button>
         </>

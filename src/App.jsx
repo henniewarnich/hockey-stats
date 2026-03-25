@@ -24,6 +24,7 @@ import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
 import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 import CoachDashboard from './screens/CoachDashboard.jsx';
 import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
+import RegisterPage from './screens/RegisterPage.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -37,6 +38,7 @@ function getHashRoute() {
   if (hash.startsWith('record/')) return { type: 'record', slug: hash.replace('record/', '') };
   if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'login') return { type: 'login' };
+  if (hash === 'register') return { type: 'register' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -160,6 +162,10 @@ export default function App() {
       // Unknown role — allow login page to show so user can re-auth
     }
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  if (route.type === 'register') {
+    return <RegisterPage />;
   }
 
   // ── AUTH-REQUIRED ROUTES ──
