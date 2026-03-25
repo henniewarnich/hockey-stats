@@ -118,7 +118,11 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
   const filteredTeams = (search) => teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
 
-  const TeamSelector = ({ label, value, search, setSearch, onSelect }) => (
+  const labelStyle = { fontSize: 11, color: '#94A3B8', marginBottom: 4 };
+  const inputStyle = { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+  const btnStyle = (bg) => ({ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: bg, color: bg === '#F59E0B' ? '#0B0F1A' : '#F8FAFC', fontSize: 14, fontWeight: 700, cursor: 'pointer' });
+
+  const renderTeamSelector = (label, value, search, setSearch, onSelect) => (
     <div style={{ marginBottom: 12 }}>
       <div style={labelStyle}>{label}</div>
       {value ? (
@@ -131,7 +135,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
         <>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search teams..."
             style={{ ...inputStyle, marginBottom: 4 }} />
-          {search.length >= 2 && (
+          {search.length >= 1 && (
             <div style={{ maxHeight: 120, overflowY: 'auto', borderRadius: 6, border: '1px solid #1E293B' }}>
               {filteredTeams(search).map(t => (
                 <div key={t.id} onClick={() => { onSelect(t); setSearch(''); }}
@@ -149,10 +153,6 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
       )}
     </div>
   );
-
-  const labelStyle = { fontSize: 11, color: '#94A3B8', marginBottom: 4 };
-  const inputStyle = { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
-  const btnStyle = (bg) => ({ width: '100%', padding: 14, borderRadius: 10, border: 'none', background: bg, color: bg === '#F59E0B' ? '#0B0F1A' : '#F8FAFC', fontSize: 14, fontWeight: 700, cursor: 'pointer' });
 
   return (
     <div style={{
@@ -271,8 +271,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
             {mode === 'result' ? 'Submit a Result' : 'Add Upcoming Match'}
           </div>
 
-          <TeamSelector label="Home Team *" value={homeTeam} search={homeSearch} setSearch={setHomeSearch} onSelect={setHomeTeam} />
-          <TeamSelector label="Away Team *" value={awayTeam} search={awaySearch} setSearch={setAwaySearch} onSelect={setAwayTeam} />
+          {renderTeamSelector("Home Team *", homeTeam, homeSearch, setHomeSearch, setHomeTeam)}
+          {renderTeamSelector("Away Team *", awayTeam, awaySearch, setAwaySearch, setAwayTeam)}
 
           {mode === 'result' && (
             <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center', justifyContent: 'center' }}>
