@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
+import LiveModeChooser from '../components/LiveModeChooser.jsx';
 
 function isDuplicateMatch(games, homeId, awayId, date) {
   const dateStr = new Date(date).toISOString().slice(0, 10);
@@ -17,7 +18,7 @@ function isDuplicateMatch(games, homeId, awayId, date) {
 }
 
 const MODES = [
-  { id: "full", icon: "🏑", title: "Live Match", desc: "Record live with full stats" },
+  { id: "full", icon: "🏑", title: "Live Match", desc: "Live or Live Pro — choose your mode" },
   { id: "quick", icon: "⚡", title: "Quick Score", desc: "Just teams, date & final score" },
   { id: "import", icon: "📦", title: "JSON Import", desc: "Load an exported match file" },
   { id: "demo", icon: "🎮", title: "Demo Match", desc: "Try the recorder, data discarded" },
@@ -57,6 +58,22 @@ function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
 
 export default function MatchSetupScreen({ teams, games, onStart, onImportGame, onBack, onManageTeams }) {
   const [mode, setMode] = useState(null);
+  const [liveMode, setLiveMode] = useState(null); // 'lite' | 'pro'
+  const [showChooser, setShowChooser] = useState(false);
+
+  const handleModeClick = (id) => {
+    if (id === 'full') {
+      setShowChooser(true);
+    } else {
+      setMode(id);
+    }
+  };
+
+  const handleLiveModeChosen = (chosenMode) => {
+    setLiveMode(chosenMode);
+    setShowChooser(false);
+    setMode('full');
+  };
 
   if (!mode) {
     return (
@@ -65,24 +82,26 @@ export default function MatchSetupScreen({ teams, games, onStart, onImportGame, 
         <div style={S.page}>
           <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>Choose how to create a match</div>
           {MODES.map(m => (
-            <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => setMode(m.id)}>
+            <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => handleModeClick(m.id)}>
               <div style={{ fontSize: 28 }}>{m.icon}</div>
               <div><div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div><div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>{m.desc}</div></div>
             </div>
           ))}
         </div>
+        <LiveModeChooser show={showChooser} onSelect={handleLiveModeChosen} onClose={() => setShowChooser(false)} />
       </div>
     );
   }
 
-  if (mode === "full") return <FullMatchSetup teams={teams} games={games} onStart={onStart} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
+  if (mode === "full") return <FullMatchSetup teams={teams} games={games} onStart={onStart} onBack={() => setMode(null)} onManageTeams={onManageTeams} liveMode={liveMode} />;
   if (mode === "quick") return <QuickScoreSetup teams={teams} games={games} onSave={onImportGame} onBack={() => setMode(null)} onManageTeams={onManageTeams} />;
   if (mode === "import") return <JsonImportSetup onImport={onImportGame} onBack={() => setMode(null)} />;
   if (mode === "demo") return <DemoSetup onStart={onStart} onBack={() => setMode(null)} />;
 }
 
 // ═══ FULL MATCH ═══
-function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
+function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams, liveMode }) {
+  const navTitle = liveMode === 'lite' ? 'Live Match' : liveMode === 'pro' ? 'Live Pro Match' : 'Live Match';
   const [setupHome, setSetupHome] = useState(null);
   const [setupAway, setSetupAway] = useState(null);
   const [matchLength, setMatchLength] = useState("60");
@@ -98,7 +117,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div><NavLogo /></div>
+        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>{navTitle}</div><NavLogo /></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -110,7 +129,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Live Match</div><NavLogo /></div>
+      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>{navTitle}</div><NavLogo /></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
@@ -187,7 +206,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams }) {
         )}
 
         <button style={{ ...S.btn(theme.accent, theme.bg), opacity: canStart && !duplicate ? 1 : 0.4 }}
-          onClick={() => canStart && !duplicate && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate })}>
+          onClick={() => canStart && !duplicate && onStart({ home: setupHome, away: setupAway, matchLength: ml, breakFormat, matchType, venue: venue.trim(), date: matchDate, liveMode })}>
           🏑 Start Match
         </button>
       </div>

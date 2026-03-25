@@ -265,7 +265,14 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     setScreen(target);
   };
 
-  const handleStartMatch = (config) => { setMatchConfig(config); setScreen("choose_live_mode"); };
+  const handleStartMatch = (config) => {
+    setMatchConfig(config);
+    if (config.liveMode) {
+      setScreen(config.liveMode === 'lite' ? 'live_lite' : 'live');
+    } else {
+      setScreen("choose_live_mode");
+    }
+  };
   const handleLiveModeChosen = (mode) => {
     if (mode === 'lite') setScreen("live_lite");
     else setScreen("live");

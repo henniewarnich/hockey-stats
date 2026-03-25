@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.8 | Date: 25 March 2026**
+**Version: 7.9.11 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -118,10 +118,48 @@ upgrade-scripts/v7.7.0/          — Crowd registration fields + register_crowd_
 upgrade-scripts/v7.9.0/          — Crowd submissions columns + approval RPCs + RLS
 upgrade-scripts/v7.9.0/          — Updated delete_user RPC
 ```
-All applied as of v7.9.8.
+All applied as of v7.9.10.
 
 ## Known Issues
 - **Score flip**: Team page shows home-away order, not viewed-team-first (TODO)
 - **Commentator timer resume**: After refresh, timer starts from 0 (eventSeqRef also resets)
 - **RLS complexity**: Multiple overlapping policies — new features may need policy updates
 - **Spam folder**: Resend emails may land in spam initially; DMARC helps over time
+
+## Session Summary (v7.6.0 → v7.9.10) — 25 March 2026
+
+### Email & Auth
+- Resend domain verification + Afrihost DNS (DKIM, SPF, MX, DMARC)
+- Supabase SMTP configuration
+- Forgot password flow (request → email → reset screen)
+- Public registration (2-step, crowd role, extra profile fields)
+- Email confirmation detection + banner on landing page
+
+### Crowd Features
+- Crowd submissions: results, upcoming matches, team suggestions (all pending)
+- Admin pending approvals screen with approve/reject
+- Fuzzy team name matching on suggest
+- Duplicate match detection (same teams, same day)
+- Per-tab contextual buttons (register prompts or + action buttons)
+- Live match gating (login required)
+
+### Live Recording
+- Live Lite mode (LiveLiteScreen) — simple tap scoring
+- Live Mode Chooser popup on ALL live entry points (New Match, Match Schedule, Commentator Dashboard)
+- Switch between Live ↔ Live Pro within first 5 minutes
+- Crowd users cannot go live — admin/commentator only
+
+### Admin
+- System Health Dashboard (DB size, row counts, activity, users by role)
+- Pending Approvals with count badge on HomeScreen
+- Updated delete_user RPC for new FK columns
+- Block/unblock UI feedback fix
+- Viewer role removed from user management
+
+### Bug Fixes
+- Login flash loop for unknown roles
+- Team search input losing focus (component-inside-render)
+- Teams blank on landing (NULL status filter)
+- React infinite re-render (live-lite useEffect removed)
+- lockMatch false positive — same user can now re-lock own match
+- New Match (Admin) now shows Live/Live Pro chooser

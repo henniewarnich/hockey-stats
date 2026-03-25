@@ -1,5 +1,5 @@
 # kykie.net — Next Session Planning
-**Date: 25 March 2026 | Current Version: 7.9.8**
+**Date: 25 March 2026 | Current Version: 7.9.10**
 
 ## Immediate Bug Fixes (Do First)
 
@@ -115,7 +115,7 @@ ALTER TABLE teams ADD COLUMN gender TEXT DEFAULT 'girls';
 - **Email**: Resend (kykie.net verified, eu-west-1)
 
 ## Files to Provide to Next Session
-1. **`hockey-stats-v7.9.8.zip`** — Full source + built docs/
+1. **`hockey-stats-v7.9.10.zip`** — Full source + built docs/
 2. **`HANDOFF.md`** — Complete project state
 3. **This file** (`next-session-planning.md`) — Context and plans
 

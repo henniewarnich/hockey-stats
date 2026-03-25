@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { updateLiveScore, pushLiveEvent, endLiveMatch, lockMatch, updateScheduledMatch, snapshotRankings } from '../utils/sync.js';
 import { logAudit } from '../utils/audit.js';
 import { fmt } from '../utils/helpers.js';
+import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import PausePopup from '../components/PausePopup.jsx';
@@ -24,6 +25,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const [events, setEvents] = useState([]);
   const [showPause, setShowPause] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [lastClicked, setLastClicked] = useState(null); // { team, eventId }
   const [matchId, setMatchId] = useState(match.supabaseId || null);
   const [starting, setStarting] = useState(!match.supabaseId);
   const [error, setError] = useState('');
@@ -112,6 +114,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
       }
     }
 
+    setLastClicked({ team, eventId: event.id });
     const evt = { team, event: eventText, detail: event.id, time: timer.matchTime };
     setEvents(prev => [evt, ...prev]);
     if (matchId) pushLiveEvent(matchId, evt, seq);
@@ -207,85 +210,71 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
           {/* Event rows */}
           {EVENTS.map(evt => (
             <div key={evt.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
-              <button
-                onClick={() => timer.running && handleEvent('home', evt)}
-                disabled={!timer.running}
-                style={{
-                  padding: '12px 8px', borderRadius: 10, border: 'none', cursor: timer.running ? 'pointer' : 'default',
-                  background: evt.isGoal ? '#F59E0B' : '#1E293B',
-                  color: evt.isGoal ? '#0B0F1A' : '#CBD5E1',
-                  fontSize: 13, fontWeight: evt.isGoal ? 800 : 600,
-                  opacity: timer.running ? 1 : 0.4,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <span style={{ fontSize: 16 }}>{evt.icon}</span> {evt.label}
-              </button>
-              <button
-                onClick={() => timer.running && handleEvent('away', evt)}
-                disabled={!timer.running}
-                style={{
-                  padding: '12px 8px', borderRadius: 10, border: 'none', cursor: timer.running ? 'pointer' : 'default',
-                  background: evt.isGoal ? '#F59E0B' : '#1E293B',
-                  color: evt.isGoal ? '#0B0F1A' : '#CBD5E1',
-                  fontSize: 13, fontWeight: evt.isGoal ? 800 : 600,
-                  opacity: timer.running ? 1 : 0.4,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <span style={{ fontSize: 16 }}>{evt.icon}</span> {evt.label}
-              </button>
+              {['home', 'away'].map(side => {
+                const isActive = lastClicked?.team === side && lastClicked?.eventId === evt.id;
+                return (
+                  <button
+                    key={side}
+                    onClick={() => timer.running && handleEvent(side, evt)}
+                    disabled={!timer.running}
+                    style={{
+                      padding: '12px 8px', borderRadius: 10, border: 'none', cursor: timer.running ? 'pointer' : 'default',
+                      background: isActive ? '#F59E0B' : '#1E293B',
+                      color: isActive ? '#0B0F1A' : '#CBD5E1',
+                      fontSize: 13, fontWeight: isActive ? 800 : 600,
+                      opacity: timer.running ? 1 : 0.4,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{evt.icon}</span> {evt.label}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
       )}
 
       {/* Controls */}
-      <div style={{ padding: '4px 12px 8px', display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', padding: '4px 12px 8px', flexWrap: 'wrap' }}>
         {timer.matchState === 'idle' && (
-          <button onClick={handleStart} style={{ ...btnStyle('#10B981'), flex: 1, color: '#F8FAFC' }}>
+          <button onClick={handleStart} style={S.btnSm(theme.success, '#FFF')}>
             ▶ Start Match
           </button>
         )}
         {timer.running && (
           <>
-            <button onClick={() => setShowPause(true)} style={{ ...btnStyle('#F59E0B'), flex: 1, color: '#0B0F1A' }}>
-              ⏸ Pause
-            </button>
-            <button onClick={handleUndo} disabled={events.length === 0} style={{ ...btnStyle('#334155'), padding: '10px 14px', opacity: events.length === 0 ? 0.3 : 1 }}>
-              ↩
-            </button>
-            <button onClick={() => setShowEndConfirm(true)} style={{ ...btnStyle('#EF4444'), padding: '10px 14px', color: '#F8FAFC' }}>
-              🏁
-            </button>
+            <button onClick={() => setShowPause(true)} style={S.btnSm(theme.accent, theme.bg)}>⏸ Pause</button>
+            <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, '#FFF')}>⏹ End</button>
+            {events.length > 0 && <button onClick={handleUndo} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>↩ Undo</button>}
           </>
         )}
         {timer.matchState === 'paused' && (
           <>
-            <button onClick={handleResume} style={{ ...btnStyle('#10B981'), flex: 1, color: '#F8FAFC' }}>
-              ▶ Resume
-            </button>
-            <button onClick={() => setShowEndConfirm(true)} style={{ ...btnStyle('#EF4444'), padding: '10px 14px', color: '#F8FAFC' }}>
-              🏁
-            </button>
+            <button onClick={handleResume} style={S.btnSm(theme.success, '#FFF')}>▶ Resume</button>
+            <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, '#FFF')}>⏹ End</button>
+            {events.length > 0 && <button onClick={handleUndo} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>↩ Undo</button>}
           </>
         )}
         {timer.matchState === 'ended' && (
-          <button onClick={() => onEnd?.({ matchId, homeScore, awayScore, duration: timer.matchTime })} style={{ ...btnStyle('#334155'), flex: 1 }}>
+          <button onClick={() => onEnd?.({ matchId, homeScore, awayScore, duration: timer.matchTime })} style={S.btnSm(theme.surface, theme.textMuted)}>
             ← Done
           </button>
         )}
       </div>
 
-      {/* Promote to Live Pro */}
-      {promoAvailable && timer.matchState !== 'idle' && (
+      {/* Switch to Live Pro */}
+      {promoAvailable && timer.matchState !== 'ended' && (
         <div style={{ padding: '0 12px 8px' }}>
           <button onClick={handlePromote} style={{
             width: '100%', padding: 10, borderRadius: 10, border: '1px solid #8B5CF644',
             background: '#8B5CF611', color: '#8B5CF6', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
-            ⬆ Switch to Live Pro ({Math.floor(promoRemaining / 60)}:{String(promoRemaining % 60).padStart(2, '0')} remaining)
+            {timer.matchState === 'idle'
+              ? '⬆ Switch to Live Pro'
+              : `⬆ Switch to Live Pro (${Math.floor(promoRemaining / 60)}:${String(promoRemaining % 60).padStart(2, '0')} remaining)`}
           </button>
         </div>
       )}
