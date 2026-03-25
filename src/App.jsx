@@ -27,6 +27,7 @@ import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
 import RegisterPage from './screens/RegisterPage.jsx';
 import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
+import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -47,6 +48,7 @@ function getHashRoute() {
     return { type: 'submit', mode: params.get('mode') };
   }
   if (hash === 'pending') return { type: 'pending' };
+  if (hash === 'health') return { type: 'health' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -329,6 +331,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "pending":
       return <PendingApprovalsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
+
+    case "health":
+      return <SystemHealthScreen onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

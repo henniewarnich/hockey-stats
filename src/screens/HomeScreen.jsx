@@ -66,6 +66,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
             ["users", "🔑", "Users", "Manage user accounts"],
             ["rankings", "🏆", "Rankings", "Manage team rankings"],
             ["pending", "📋", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
+            ["health", "🩺", "System Health", "Database, users & activity"],
           ] : []),
         ].map(([screen, icon, title, sub]) => (
           <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => onNavigate(screen)}>
