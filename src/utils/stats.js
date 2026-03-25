@@ -103,3 +103,33 @@ export function getWeekStart(date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
   return new Date(d.setDate(diff)).toISOString().slice(0, 10);
 }
+
+// Convert match_stats rows (from archive) into the same format as computeMatchStats
+// rows: array of { team, quarter, goals, shots_on, ... } for a single match
+// teamId + homeTeamId: to determine which side is "team" vs "opp"
+export function statsFromArchive(rows, teamId, homeTeamId) {
+  const teamSide = teamId === homeTeamId ? 'home' : 'away';
+  const oppSide = teamSide === 'home' ? 'away' : 'home';
+
+  const toStats = (row) => ({
+    goals: row?.goals || 0,
+    dEntries: row?.d_entries || 0,
+    shotsOn: row?.shots_on || 0,
+    shotsOff: row?.shots_off || 0,
+    shortCorners: row?.short_corners || 0,
+    longCorners: row?.long_corners || 0,
+    turnoversWon: row?.turnovers_won || 0,
+    possLost: row?.poss_lost || 0,
+    territory: row?.territory_pct || 0,
+  });
+
+  const teamTotals = rows.find(r => r.team === teamSide && (r.quarter === 0 || r.quarter === null));
+  const oppTotals = rows.find(r => r.team === oppSide && (r.quarter === 0 || r.quarter === null));
+
+  return {
+    team: toStats(teamTotals),
+    opp: toStats(oppTotals),
+    teamSide,
+    oppSide,
+  };
+}

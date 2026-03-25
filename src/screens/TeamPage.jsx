@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { ensureContrastingColors, parseSAST, parseSASTDate } from '../utils/helpers.js';
-import { computeMatchStats } from '../utils/stats.js';
+import { computeMatchStats, statsFromArchive } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { useReactions } from '../hooks/useReactions.js';
@@ -405,12 +405,33 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         }
       }
       
-      // Compute stats per match
+      // Find matches missing events (pruned) — try archived stats
+      const missingIds = matchIds.filter(id => !allEvents[id] || allEvents[id].length === 0);
+      const archivedStats = {};
+      if (missingIds.length > 0) {
+        for (let i = 0; i < missingIds.length; i += 20) {
+          const batch = missingIds.slice(i, i + 20);
+          const { data } = await supabase
+            .from('match_stats')
+            .select('*')
+            .in('match_id', batch);
+          if (data) {
+            data.forEach(r => {
+              if (!archivedStats[r.match_id]) archivedStats[r.match_id] = [];
+              archivedStats[r.match_id].push(r);
+            });
+          }
+        }
+      }
+
+      // Compute stats per match — events first, fallback to archive
       const statsMap = {};
       endedWithDuration.forEach(m => {
         const events = allEvents[m.id] || [];
         if (events.length > 0) {
           statsMap[m.id] = computeMatchStats(events, team.id, m.home_team_id);
+        } else if (archivedStats[m.id]) {
+          statsMap[m.id] = statsFromArchive(archivedStats[m.id], team.id, m.home_team_id);
         }
       });
       setMatchStatsMap(statsMap);
@@ -787,7 +808,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                       {m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                     </div>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{isHome ? m.home_score : m.away_score}–{isHome ? m.away_score : m.home_score}</div>
                   <span style={{ fontSize: 12, color: "#334155" }}>›</span>
                 </div>
               </div>

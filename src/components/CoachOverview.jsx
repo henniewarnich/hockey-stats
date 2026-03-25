@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { computeMatchStats, aggregateStats, STATS, INVERTED } from '../utils/stats.js';
+import { computeMatchStats, aggregateStats, statsFromArchive, STATS, INVERTED } from '../utils/stats.js';
 
 export default function CoachOverview({ team, matches }) {
   const [allEvents, setAllEvents] = useState({});
+  const [archivedStats, setArchivedStats] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,6 +19,18 @@ export default function CoachOverview({ team, matches }) {
         grouped[e.match_id].push({ ...e, time: e.match_time });
       });
       setAllEvents(grouped);
+
+      // Fallback: fetch archived stats for matches without events
+      const missingIds = matchIds.filter(id => !grouped[id] || grouped[id].length === 0);
+      if (missingIds.length > 0) {
+        const { data: archData } = await supabase.from('match_stats').select('*').in('match_id', missingIds);
+        const archGrouped = {};
+        (archData || []).forEach(r => {
+          if (!archGrouped[r.match_id]) archGrouped[r.match_id] = [];
+          archGrouped[r.match_id].push(r);
+        });
+        setArchivedStats(archGrouped);
+      }
       setLoading(false);
     };
     loadEvents();
@@ -25,13 +38,16 @@ export default function CoachOverview({ team, matches }) {
 
   if (loading) return <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading stats...</div>;
 
-  const matchesWithEvents = matches.filter(m => m.duration > 0 && allEvents[m.id]?.length > 0);
-  if (matchesWithEvents.length === 0) return <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No match data with events yet</div>;
+  const matchesWithData = matches.filter(m => m.duration > 0 && (allEvents[m.id]?.length > 0 || archivedStats[m.id]?.length > 0));
+  if (matchesWithData.length === 0) return <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No match data with events yet</div>;
 
-  // Compute per-match stats
-  const perMatch = matchesWithEvents.map(m => {
+  // Compute per-match stats — events first, fallback to archive
+  const perMatch = matchesWithData.map(m => {
     const events = allEvents[m.id];
-    return computeMatchStats(events, team.id, m.home_team_id || m.home_team?.id);
+    if (events?.length > 0) {
+      return computeMatchStats(events, team.id, m.home_team_id || m.home_team?.id);
+    }
+    return statsFromArchive(archivedStats[m.id], team.id, m.home_team_id || m.home_team?.id);
   });
 
   const agg = aggregateStats(perMatch);

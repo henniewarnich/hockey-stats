@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
+import { computeStats, getQuarters } from './stats.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
@@ -297,7 +298,66 @@ export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
     .eq('id', matchId);
   if (error) console.error('End live match error:', error);
   if (!error) await logAudit('match_end', 'match', matchId, { homeScore, awayScore, duration });
+  // Archive stats in background (fire-and-forget)
+  if (!error) archiveMatchStats(matchId).catch(e => console.error('Archive stats error:', e));
   return !error;
+}
+
+// Pre-compute and store match stats so raw events can be pruned later
+export async function archiveMatchStats(matchId) {
+  // Fetch match metadata
+  const { data: match } = await supabase
+    .from('matches')
+    .select('break_format, match_length, duration, stats_archived')
+    .eq('id', matchId)
+    .single();
+  if (!match || match.stats_archived) return false;
+
+  // Fetch all events
+  const { data: rawEvents } = await supabase
+    .from('match_events')
+    .select('team, event, match_time, detail')
+    .eq('match_id', matchId)
+    .order('match_time');
+  if (!rawEvents || rawEvents.length === 0) return false;
+
+  const events = rawEvents.map(e => ({ team: e.team, event: e.event, time: e.match_time, detail: e.detail }));
+  const rows = [];
+
+  // Compute totals for home and away
+  for (const side of ['home', 'away']) {
+    const s = computeStats(events, side, 0, 999999);
+    rows.push({
+      match_id: matchId, team: side, quarter: 0,
+      goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
+      d_entries: s.dEntries, short_corners: s.shortCorners,
+      long_corners: s.longCorners, turnovers_won: s.turnoversWon,
+      poss_lost: s.possLost, territory_pct: s.territory,
+    });
+  }
+
+  // Compute per-quarter stats
+  const quarters = getQuarters(events, match.break_format || 'quarters', match.match_length || 60, match.duration || 0);
+  for (const q of quarters) {
+    for (const side of ['home', 'away']) {
+      const s = computeStats(events, side, q.start, q.end);
+      rows.push({
+        match_id: matchId, team: side, quarter: parseInt(q.label.replace(/\D/g, '')) || quarters.indexOf(q) + 1,
+        goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
+        d_entries: s.dEntries, short_corners: s.shortCorners,
+        long_corners: s.longCorners, turnovers_won: s.turnoversWon,
+        poss_lost: s.possLost, territory_pct: s.territory,
+      });
+    }
+  }
+
+  // Upsert stats rows
+  const { error } = await supabase.from('match_stats').upsert(rows, { onConflict: 'match_id,team,quarter' });
+  if (error) { console.error('Archive match stats error:', error); return false; }
+
+  // Mark match as archived
+  await supabase.from('matches').update({ stats_archived: true }).eq('id', matchId);
+  return true;
 }
 
 export async function pushLiveEvent(matchId, event, seq) {

@@ -27,9 +27,10 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [lastClicked, setLastClicked] = useState(null); // { team, eventId }
   const [matchId, setMatchId] = useState(match.supabaseId || null);
-  const [starting, setStarting] = useState(!match.supabaseId);
+  const [starting, setStarting] = useState(!match.supabaseId && !match.isDemo);
   const [error, setError] = useState('');
   const seqRef = useRef(0);
+  const isDemo = match.isDemo;
 
   const homeTeam = match.home;
   const awayTeam = match.away;
@@ -38,9 +39,9 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
 
   // Initialize: lock match and set live if starting from scheduled
   useEffect(() => {
+    if (isDemo) return;
     const init = async () => {
       if (match.supabaseId) {
-        // Starting from an existing scheduled match
         const locked = await lockMatch(match.supabaseId, currentUser.id);
         if (!locked) {
           setError('Another user is already recording this match.');
@@ -49,7 +50,6 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
         await updateScheduledMatch(match.supabaseId, { status: 'live' });
         await snapshotRankings(match.supabaseId);
 
-        // Resume: fetch existing events to get seq
         const { data: existingEvents } = await supabase
           .from('match_events')
           .select('*')
@@ -58,7 +58,6 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
           .limit(1);
         if (existingEvents?.length > 0) {
           seqRef.current = existingEvents[0].seq;
-          // Also fetch match score
           const { data: m } = await supabase.from('matches').select('home_score, away_score').eq('id', match.supabaseId).single();
           if (m) { setHomeScore(m.home_score || 0); setAwayScore(m.away_score || 0); }
         }
@@ -72,14 +71,14 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
 
   // Push score updates to Supabase
   useEffect(() => {
-    if (matchId && timer.matchState !== 'idle') {
+    if (matchId && !isDemo && timer.matchState !== 'idle') {
       updateLiveScore(matchId, homeScore, awayScore);
     }
   }, [homeScore, awayScore]);
 
   const handleStart = () => {
     timer.start();
-    logAudit('live_lite_start', 'match', matchId);
+    if (!isDemo) logAudit('live_lite_start', 'match', matchId);
   };
 
   const handlePause = (reason) => {
@@ -88,7 +87,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
     const seq = ++seqRef.current;
     const evt = { team: 'neutral', event: `Paused: ${reason}`, detail: reason, time: timer.matchTime };
     setEvents(prev => [evt, ...prev]);
-    if (matchId) pushLiveEvent(matchId, evt, seq);
+    if (matchId && !isDemo) pushLiveEvent(matchId, evt, seq);
   };
 
   const handleResume = () => {
@@ -96,7 +95,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
     const seq = ++seqRef.current;
     const evt = { team: 'neutral', event: 'Resumed', time: timer.matchTime };
     setEvents(prev => [evt, ...prev]);
-    if (matchId) pushLiveEvent(matchId, evt, seq);
+    if (matchId && !isDemo) pushLiveEvent(matchId, evt, seq);
   };
 
   const handleEvent = (team, event) => {
@@ -117,28 +116,26 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
     setLastClicked({ team, eventId: event.id });
     const evt = { team, event: eventText, detail: event.id, time: timer.matchTime };
     setEvents(prev => [evt, ...prev]);
-    if (matchId) pushLiveEvent(matchId, evt, seq);
+    if (matchId && !isDemo) pushLiveEvent(matchId, evt, seq);
   };
 
   const handleUndo = () => {
     if (events.length === 0) return;
     const lastEvt = events[0];
-    // If it was a goal, decrement score
     if (lastEvt.detail === 'goal') {
       if (lastEvt.team === 'home') setHomeScore(s => Math.max(0, s - 1));
       if (lastEvt.team === 'away') setAwayScore(s => Math.max(0, s - 1));
     }
     setEvents(prev => prev.slice(1));
-    // Note: we don't delete from Supabase — just push a correction event
     const seq = ++seqRef.current;
     const undoEvt = { team: 'neutral', event: `Undo: ${lastEvt.event}`, detail: 'undo', time: timer.matchTime };
-    if (matchId) pushLiveEvent(matchId, undoEvt, seq);
+    if (matchId && !isDemo) pushLiveEvent(matchId, undoEvt, seq);
   };
 
   const handleEndMatch = async () => {
     timer.end();
     setShowEndConfirm(false);
-    if (matchId) {
+    if (matchId && !isDemo) {
       await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime);
     }
     if (onEnd) onEnd({ matchId, homeScore, awayScore, duration: timer.matchTime });
@@ -180,8 +177,8 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px 0' }}>
-        <div style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1 }}>
-          Live
+        <div style={{ flex: 1, fontSize: 10, fontWeight: 700, color: isDemo ? '#8B5CF6' : '#64748B', textTransform: 'uppercase', letterSpacing: 1 }}>
+          {isDemo ? '🎮 Demo' : 'Live'}
         </div>
         <div style={{ fontSize: 9, padding: '2px 8px', borderRadius: 99, background: timer.running ? '#10B98122' : '#F59E0B22', color: timer.running ? '#10B981' : '#F59E0B', fontWeight: 700 }}>
           {timer.matchState === 'idle' ? 'Ready' : timer.matchState === 'ended' ? 'Full Time' : timer.running ? '● Recording' : 'Paused'}
@@ -324,16 +321,16 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
           <div onClick={e => e.stopPropagation()} style={{
             background: '#1E293B', borderRadius: 16, padding: 20, width: 280, textAlign: 'center',
           }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>🏁 End Match?</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{isDemo ? '🎮 End Demo?' : '🏁 End Match?'}</div>
             <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 4 }}>
               {homeTeam.name} {homeScore} – {awayScore} {awayTeam.name}
             </div>
             <div style={{ fontSize: 11, color: '#64748B', marginBottom: 16 }}>
-              Time: {fmt(timer.matchTime)}
+              Time: {fmt(timer.matchTime)}{isDemo ? ' · Data will not be saved' : ''}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ ...btnStyle('#334155'), flex: 1 }}>Cancel</button>
-              <button onClick={handleEndMatch} style={{ ...btnStyle('#EF4444'), flex: 1, color: '#F8FAFC' }}>End Match</button>
+              <button onClick={handleEndMatch} style={{ ...btnStyle('#EF4444'), flex: 1, color: '#F8FAFC' }}>{isDemo ? 'End & Discard' : 'End Match'}</button>
             </div>
           </div>
         </div>

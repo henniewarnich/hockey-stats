@@ -159,10 +159,27 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     setPendingStartMatch({ ...m, _isResume: true });
   };
 
+  const DEMO_CONFIG = {
+    home: { name: "Demo Lions", color: "#1D4ED8", id: "demo-home", short: "DLI" },
+    away: { name: "Demo Eagles", color: "#DC2626", id: "demo-away", short: "DEA" },
+    matchLength: 10, breakFormat: "none", venue: "Demo Pitch",
+    date: new Date().toISOString().slice(0, 10), isDemo: true,
+  };
+
+  const handleStartDemo = () => {
+    setPendingStartMatch({ _isDemo: true });
+  };
+
   const handleModeChosen = async (mode) => {
     const m = pendingStartMatch;
     setPendingStartMatch(null);
     if (!m) return;
+
+    if (m._isDemo) {
+      setLiveMode(mode);
+      setActiveMatch(DEMO_CONFIG);
+      return;
+    }
 
     const matchData = {
       supabaseId: m.id,
@@ -234,12 +251,13 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   // ── LIVE MATCH VIEW ──
   if (activeMatch) {
+    const isDemoMatch = activeMatch.isDemo;
     if (liveMode === 'lite') {
       return (
         <LiveLiteScreen
           match={activeMatch}
           currentUser={currentUser}
-          onEnd={() => { setActiveMatch(null); setLiveMode(null); load(); }}
+          onEnd={() => { setActiveMatch(null); setLiveMode(null); if (!isDemoMatch) load(); }}
           onPromote={() => setLiveMode('pro')}
         />
       );
@@ -247,16 +265,25 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     return (
       <div>
         <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={() => {
-            if (confirm("Cancel this match? It will revert to upcoming.")) handleCancelLive({ id: activeMatch.supabaseId, locked_by: currentUser.id });
-          }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
-            ✕ Cancel & Revert
-          </button>
+          {isDemoMatch ? (
+            <button onClick={() => { setActiveMatch(null); setLiveMode(null); }}
+              style={{ background: "none", border: "none", color: "#8B5CF6", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+              ✕ Exit Demo
+            </button>
+          ) : (
+            <button onClick={() => {
+              if (confirm("Cancel this match? It will revert to upcoming.")) handleCancelLive({ id: activeMatch.supabaseId, locked_by: currentUser.id });
+            }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+              ✕ Cancel & Revert
+            </button>
+          )}
           <button onClick={() => setLiveMode('lite')} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
             ↓ Switch to Live
           </button>
         </div>
-        <LiveMatchScreen matchConfig={activeMatch} existingMatchId={activeMatch.supabaseId} onSaveGame={handleSaveLiveGame} onNavigate={() => { setActiveMatch(null); setLiveMode(null); load(); }} />
+        <LiveMatchScreen matchConfig={activeMatch} existingMatchId={isDemoMatch ? null : activeMatch.supabaseId}
+          onSaveGame={isDemoMatch ? () => { setActiveMatch(null); setLiveMode(null); } : handleSaveLiveGame}
+          onNavigate={() => { setActiveMatch(null); setLiveMode(null); if (!isDemoMatch) load(); }} />
       </div>
     );
   }
@@ -509,6 +536,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
             )}
           </div>
         )}
+      </div>
+      <div style={{ textAlign: "center", padding: "12px 16px 20px" }}>
+        <button onClick={handleStartDemo} style={{ background: "none", border: "1px solid #8B5CF644", borderRadius: 8, padding: "6px 16px", color: "#8B5CF6", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>🎮 Demo Match</button>
       </div>
       <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)} />
     </div>

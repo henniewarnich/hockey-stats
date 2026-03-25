@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
+import { archiveMatchStats } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import NavLogo from '../components/NavLogo.jsx';
 
 const THRESHOLDS = {
   matches:        { green: 1000, amber: 5000 },
   match_events:   { green: 50000, amber: 200000 },
+  match_stats:    { green: 10000, amber: 50000 },
   profiles:       { green: 500, amber: 2000 },
   teams:          { green: 500, amber: 2000 },
   event_reactions:{ green: 10000, amber: 50000 },
@@ -17,7 +19,7 @@ const THRESHOLDS = {
   rankings:       { green: 5000, amber: 20000 },
 };
 
-const TABLES = ['matches','match_events','profiles','teams','event_reactions','audit_log','match_viewers','coach_teams','match_commentators','ranking_sets','rankings'];
+const TABLES = ['matches','match_events','match_stats','profiles','teams','event_reactions','audit_log','match_viewers','coach_teams','match_commentators','ranking_sets','rankings'];
 
 function badge(count, table) {
   const t = THRESHOLDS[table] || { green: 10000, amber: 50000 };
@@ -33,6 +35,8 @@ export default function SystemHealthScreen({ onBack }) {
   const [dbSize, setDbSize] = useState(null);
   const [loading, setLoading] = useState(true);
   const [visitors, setVisitors] = useState(0);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveResult, setArchiveResult] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -211,6 +215,56 @@ export default function SystemHealthScreen({ onBack }) {
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#10B981', marginRight: 6 }} />Green: within safe limits</div>
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#F59E0B', marginRight: 6 }} />Amber: approaching limits — monitor</div>
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#EF4444', marginRight: 6 }} />Red: action needed (prune / upgrade)</div>
+          </div>
+
+          {/* Archive & Prune */}
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Data Management</div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
+              Archive pre-computes stats for ended matches so raw events can be pruned later. New matches are archived automatically on end.
+            </div>
+            <button
+              disabled={archiving}
+              onClick={async () => {
+                setArchiving(true);
+                setArchiveResult(null);
+                try {
+                  // Find ended matches with events that aren't archived yet
+                  const { data: unarchived } = await supabase
+                    .from('matches')
+                    .select('id')
+                    .eq('status', 'ended')
+                    .gt('duration', 0)
+                    .or('stats_archived.eq.false,stats_archived.is.null');
+                  if (!unarchived || unarchived.length === 0) {
+                    setArchiveResult('All matches already archived');
+                  } else {
+                    let ok = 0, fail = 0;
+                    for (const m of unarchived) {
+                      const success = await archiveMatchStats(m.id);
+                      if (success) ok++; else fail++;
+                    }
+                    setArchiveResult(`Archived ${ok} match${ok !== 1 ? 'es' : ''}${fail > 0 ? `, ${fail} failed` : ''}`);
+                    // Refresh table counts
+                    const { count } = await supabase.from('match_stats').select('id', { count: 'exact', head: true });
+                    setTableCounts(prev => ({ ...prev, match_stats: count || 0 }));
+                  }
+                } catch (e) {
+                  setArchiveResult('Error: ' + e.message);
+                }
+                setArchiving(false);
+              }}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 11, fontWeight: 700,
+                background: archiving ? '#334155' : '#3B82F622', color: archiving ? '#64748B' : '#3B82F6',
+                cursor: archiving ? 'default' : 'pointer', marginBottom: 6,
+              }}
+            >
+              {archiving ? '⏳ Archiving...' : '📦 Backfill Archives'}
+            </button>
+            {archiveResult && (
+              <div style={{ fontSize: 10, color: archiveResult.startsWith('Error') ? '#EF4444' : '#10B981', marginTop: 4 }}>{archiveResult}</div>
+            )}
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 9, color: '#334155' }}>v{APP_VERSION}</div>

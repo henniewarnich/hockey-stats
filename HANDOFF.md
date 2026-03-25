@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.11 | Date: 25 March 2026**
+**Version: 7.9.12 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -81,6 +81,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - `event_reactions` — Emoji reactions
 - `match_viewers` — Persistent viewer tracking
 - `ranking_sets` / `rankings` — Team rankings
+- `match_stats` — Pre-computed match stats archive (totals + per-quarter)
 - `audit_log` — All actions logged
 
 ### Supabase RPC Functions
@@ -106,6 +107,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Audit logging**: Central logAudit(), fire-and-forget, 16+ actions
 - **Performance**: 20-item render caps, memory search, 10s live polling
 - **Supabase SQL editor**: Use `$fn$` delimiter instead of `$$` to avoid comment injection
+- **Match stats archival**: `endLiveMatch` auto-archives stats to `match_stats`. Coach views fallback to archive when events pruned. Backfill button on System Health.
 
 ## All Migrations in Order
 ```
@@ -117,11 +119,11 @@ upgrade-scripts/v7.6.0/          — roles[] column + create_profile update
 upgrade-scripts/v7.7.0/          — Crowd registration fields + register_crowd_profile RPC
 upgrade-scripts/v7.9.0/          — Crowd submissions columns + approval RPCs + RLS
 upgrade-scripts/v7.9.0/          — Updated delete_user RPC
+upgrade-scripts/v7.9.12/         — match_stats table + stats_archived column
 ```
-All applied as of v7.9.10.
+All applied as of v7.9.10. Run v7.9.12 migration before deploying.
 
 ## Known Issues
-- **Score flip**: Team page shows home-away order, not viewed-team-first (TODO)
 - **Commentator timer resume**: After refresh, timer starts from 0 (eventSeqRef also resets)
 - **RLS complexity**: Multiple overlapping policies — new features may need policy updates
 - **Spam folder**: Resend emails may land in spam initially; DMARC helps over time
@@ -163,3 +165,38 @@ All applied as of v7.9.10.
 - React infinite re-render (live-lite useEffect removed)
 - lockMatch false positive — same user can now re-lock own match
 - New Match (Admin) now shows Live/Live Pro chooser
+
+## Session Summary (v7.9.11) — 25 March 2026
+
+### Live Lite UI Improvements
+- Event buttons: all start dark, last-clicked highlights yellow (Goal no longer permanently yellow)
+- Controls (Pause/End/Undo) now match Live Pro styling (compact inline pills via S.btnSm)
+- Pre-match mode switching: "Switch to Live Pro" visible before starting timer (both directions)
+
+### New Match — LiveModeChooser for Admins
+- Tapping "Live Match" on New Match screen now shows Live/Live Pro chooser popup immediately
+- Choice carries through to team setup (nav title reflects mode), skips redundant second chooser
+
+## Session Summary (v7.9.12) — 25 March 2026
+
+### Score Flip (Bug Fix)
+- Team page match cards now show viewed team's score first (was always home–away order)
+
+### Match Stats Archival
+- New `match_stats` table: pre-computed totals + per-quarter stats per team per match
+- `endLiveMatch` auto-archives stats in background (fire-and-forget)
+- Coach views (TeamPage, CoachOverview) fallback to archived stats when raw events are missing
+- New `statsFromArchive()` helper converts archive rows to same format as `computeMatchStats()`
+- System Health: "Backfill Archives" button to archive all existing unarchived matches
+- System Health: `match_stats` table now shown in row counts
+- Migration: `upgrade-scripts/v7.9.12/migration-match-stats.sql`
+
+### Training Demo Mode
+- "🎮 Demo Match" button on Commentator Dashboard and Match Schedule screens
+- Tapping shows LiveModeChooser (Live vs Live Pro) → launches Demo Lions vs Demo Eagles (10 min, no breaks)
+- Zero DB writes: no match creation, no events, no scores, no audit logs — all client-side only
+- LiveLiteScreen: full `isDemo` support added (header shows "🎮 Demo", confirm shows "End & Discard")
+- LiveMatchScreen: already had `isDemo` support
+- "✕ Exit Demo" button replaces "Cancel & Revert" during demo
+- Admin New Match → Demo also now shows Live/Live Pro chooser
+- Hidden from public — demo matches never appear in any feeds or stats
