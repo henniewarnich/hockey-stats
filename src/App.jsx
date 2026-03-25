@@ -121,8 +121,7 @@ export default function App() {
   const handleLogin = (profile) => {
     setCurrentUser(profile);
     sessionStorage.setItem('kykie-user-id', profile.id);
-    // Admin/CommAdmin need #/admin for sub-screen routing, others go to landing
-    if (profile.role === 'admin' || profile.role === 'commentator_admin') {
+    if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
       window.location.hash = '#/admin';
     } else {
       window.location.hash = '';
@@ -143,8 +142,7 @@ export default function App() {
     sessionStorage.setItem('kykie-active-role', newRole);
     setCurrentUser(prev => ({ ...prev, role: newRole }));
     setScreen("home");
-    // Admin needs #/admin for sub-screens, others stay on landing
-    if (newRole === 'admin' || newRole === 'commentator_admin') {
+    if (['admin', 'commentator_admin', 'commentator'].includes(newRole)) {
       window.location.hash = '#/admin';
     } else {
       window.location.hash = '';
@@ -227,8 +225,8 @@ export default function App() {
     if (route.slug) {
       return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
     }
-    // Commentator dashboard — show full standalone dashboard for live recording
-    return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
+    // Match Schedule — same view as admin, with role-gated actions
+    return <MatchScheduleScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
   }
 
   // Coach area — standalone coach dashboard for team detail views
@@ -241,7 +239,7 @@ export default function App() {
 
   // Admin area
   if (route.type === 'admin') {
-    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
+    if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     // Admin sub-screens (not home) — use AppContent
