@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMatchStore } from './hooks/useMatchStore.js';
 import { S, theme } from './utils/styles.js';
 import { saveData, loadData } from './utils/helpers.js';
@@ -158,6 +158,40 @@ export default function App() {
     }
   };
 
+  // Live Lite: load match from route param
+  const liveLiteLoadingRef = useRef(false);
+  useEffect(() => {
+    if (route.type === 'live-lite' && route.matchId && !liveLiteMatch && !liveLiteLoadingRef.current) {
+      liveLiteLoadingRef.current = true;
+      supabase
+        .from('matches')
+        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .eq('id', route.matchId)
+        .single()
+        .then(({ data: m }) => {
+          liveLiteLoadingRef.current = false;
+          if (m) {
+            setLiveLiteMatch({
+              supabaseId: m.id,
+              home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
+              away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
+              matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+              matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
+            });
+          } else {
+            window.location.hash = '';
+          }
+        });
+    }
+  }, [route.type, route.matchId, liveLiteMatch]);
+
+  useEffect(() => {
+    if (route.type !== 'live-lite' && liveLiteMatch) {
+      setLiveLiteMatch(null);
+      liveLiteLoadingRef.current = false;
+    }
+  }, [route.type]);
+
   // ── PASSWORD RECOVERY ──
   if (passwordRecovery) {
     return <ResetPasswordScreen onDone={() => {
@@ -206,31 +240,6 @@ export default function App() {
     );
   }
 
-  // Live Lite: load match from route param
-  useEffect(() => {
-    if (route.type === 'live-lite' && route.matchId && !liveLiteMatch) {
-      supabase
-        .from('matches')
-        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
-        .eq('id', route.matchId)
-        .single()
-        .then(({ data: m }) => {
-          if (m) {
-            setLiveLiteMatch({
-              supabaseId: m.id,
-              home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
-              away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
-              matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
-              matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
-            });
-          } else {
-            window.location.hash = '';
-          }
-        });
-    }
-    if (route.type !== 'live-lite') setLiveLiteMatch(null);
-  }, [route.type, route.matchId]);
-
   // Live Lite mode
   if (route.type === 'live-lite') {
     if (!currentUser) {
@@ -247,9 +256,8 @@ export default function App() {
     if (route.matchId) {
       return <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading match...</div>;
     }
-    // No match specified — redirect to submit
-    window.location.hash = '#/submit?mode=upcoming';
-    return null;
+    // No match specified — show submit screen with live mode
+    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} initialMode="live" />;
   }
 
   // Crowd submit area
