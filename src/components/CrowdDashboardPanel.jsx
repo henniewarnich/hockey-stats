@@ -11,15 +11,17 @@ export default function CrowdDashboardPanel() {
     <div style={{ padding: "0 16px 8px" }}>
       <div style={{ fontSize: 9, fontWeight: 800, color: theme.textDimmer, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Contribute</div>
       {actions.map(a => (
-        <div key={a.hash} onClick={() => { window.location.hash = a.hash; }} style={{
-          ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
-        }}>
-          <div style={{ fontSize: 24 }}>{a.icon}</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{a.title}</div>
-            <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>{a.desc}</div>
+        <a key={a.hash} href={a.hash} style={{ textDecoration: "none" }}>
+          <div style={{
+            ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
+          }}>
+            <div style={{ fontSize: 24 }}>{a.icon}</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: theme.text }}>{a.title}</div>
+              <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>{a.desc}</div>
+            </div>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   );

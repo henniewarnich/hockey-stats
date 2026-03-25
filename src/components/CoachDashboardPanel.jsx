@@ -65,11 +65,12 @@ export default function CoachDashboardPanel({ currentUser }) {
           const rk = rankings[team.id];
           const wr = r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
           return (
-            <div key={team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(team.name)}`; }} style={{
-              background: theme.surface, borderRadius: 10, padding: '12px 14px', marginBottom: 4,
-              border: `1px solid ${theme.border}44`, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
+            <a key={team.id} href={`#/team/${teamSlug(team.name)}`} style={{ textDecoration: 'none' }}>
+              <div style={{
+                background: theme.surface, borderRadius: 10, padding: '12px 14px', marginBottom: 4,
+                border: `1px solid ${theme.border}44`, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 10, background: team.color,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -89,6 +90,7 @@ export default function CoachDashboardPanel({ currentUser }) {
               </div>
               <span style={{ fontSize: 14, color: theme.textDim }}>›</span>
             </div>
+            </a>
           );
         })
       )}

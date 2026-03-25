@@ -21,6 +21,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
   const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
+  const [resultsCount, setResultsCount] = useState(0);
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
@@ -57,7 +58,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   useEffect(() => {
     const load = async () => {
       try {
-        const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }] = await Promise.all([
+        const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }, { count: totalResults }] = await Promise.all([
           supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name'),
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
@@ -72,12 +73,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             .eq('status', 'upcoming')
             .order('match_date', { ascending: true })
             .order('scheduled_time', { ascending: true }),
+          supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
         ]);
 
         if (allTeams) setTeams(allTeams);
         if (allMatches) setMatches(allMatches);
         if (live) setLiveMatches(live);
         if (upcoming) setUpcomingMatches(upcoming);
+        setResultsCount(totalResults || 0);
 
         // Fetch latest rankings for upcoming/live badges
         fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
@@ -233,16 +236,20 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               ...(currentUser ? [{ id: "dashboard", label: "Dashboard", color: "#8B5CF6" }] : []),
               { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
               { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
-              { id: "results", label: "Results", count: matches.length },
+              { id: "results", label: "Results", count: resultsCount },
               { id: "teams", label: "Teams", count: teams.length },
             ].map(t => (
               <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
-                flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                flex: 1, padding: "6px 0", textAlign: "center", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
                 background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
                 color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
               }}>
-                {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", marginRight: 4, animation: "pulse 2s infinite" }} />}
-                {t.label}{t.count > 0 ? ` (${t.count})` : ""}
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", animation: "pulse 2s infinite" }} />}
+                  {t.label}
+                </div>
+                {t.count > 0 && <div style={{ fontSize: 9, opacity: 0.7 }}>({t.count})</div>}
               </button>
             ))}
           </div>
@@ -313,7 +320,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   <AdminDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
                 )}
                 {(role === 'commentator') && (
-                  <CommDashboardPanel onNavigate={onNavigate || (() => {})} />
+                  <CommDashboardPanel />
                 )}
                 {(role === 'coach') && (
                   <CoachDashboardPanel currentUser={currentUser} />
