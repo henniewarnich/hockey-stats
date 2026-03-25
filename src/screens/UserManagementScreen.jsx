@@ -34,6 +34,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const [allTeams, setAllTeams] = useState([]);
   const [coachTeamsMap, setCoachTeamsMap] = useState({}); // { coachId: [team, ...] }
   const [editCoachTeams, setEditCoachTeams] = useState([]); // team IDs for edit view
+  const [editRoles, setEditRoles] = useState([]);
   const [teamSearch, setTeamSearch] = useState("");
 
   // Create form state
@@ -43,6 +44,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("commentator");
+  const [selectedRoles, setSelectedRoles] = useState(["commentator"]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -99,7 +101,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
       return;
     }
     setSaving(true); setSaveError(""); setSaveSuccess("");
-    const result = await createUser({ firstname: firstname.trim(), lastname: lastname.trim(), username: username.trim(), email: email.trim().toLowerCase(), password, role });
+    const result = await createUser({ firstname: firstname.trim(), lastname: lastname.trim(), username: username.trim(), email: email.trim().toLowerCase(), password, role, roles: selectedRoles });
     if (result.error) {
       setSaveError(result.error);
       setSaving(false);
@@ -107,7 +109,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     }
     setSaveSuccess(`${firstname} ${lastname} created!`);
     setSaving(false);
-    setFirstname(""); setLastname(""); setUsername(""); setEmail(""); setPassword(""); setRole("commentator");
+    setFirstname(""); setLastname(""); setUsername(""); setEmail(""); setPassword(""); setRole("commentator"); setSelectedRoles(["commentator"]);
     setTimeout(() => { setSaveSuccess(""); loadUsers(); setView("list"); }, 1500);
   };
 
@@ -118,11 +120,12 @@ export default function UserManagementScreen({ currentUser, onBack }) {
       firstname: editUser.firstname,
       lastname: editUser.lastname,
       role: editUser.role,
+      roles: editRoles,
     });
     if (result.error) { setSaveError(result.error); setSaving(false); return; }
 
-    // Save coach team assignments if this is a coach
-    if (editUser.role === 'coach') {
+    // Save coach team assignments if roles include coach
+    if (editRoles.includes('coach')) {
       const current = (coachTeamsMap[editUser.id] || []).map(t => t.id);
       // Remove unassigned
       for (const tid of current) {
@@ -141,6 +144,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
 
   const openEdit = (u) => {
     setEditUser({ ...u });
+    setEditRoles(u.roles?.length > 0 ? [...u.roles] : [u.role]);
     setEditCoachTeams((coachTeamsMap[u.id] || []).map(t => t.id));
     setTeamSearch("");
     setView("edit");
@@ -192,16 +196,31 @@ export default function UserManagementScreen({ currentUser, onBack }) {
           <input style={S.input} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 6 characters" />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Role</div>
+          <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Roles <span style={{ fontSize: 9, color: "#475569" }}>(tap to toggle, first = primary)</span></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {manageableRoles.map(r => (
-              <button key={r.id} onClick={() => setRole(r.id)} style={{
-                padding: "8px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                border: role === r.id ? `2px solid ${r.color}` : `1px solid ${theme.border}`,
-                background: role === r.id ? r.color + "22" : theme.bg,
-                color: role === r.id ? r.color : theme.textMuted, cursor: "pointer",
-              }}>{r.label}</button>
-            ))}
+            {manageableRoles.map(r => {
+              const isOn = selectedRoles.includes(r.id);
+              return (
+                <button key={r.id} onClick={() => {
+                  setSelectedRoles(prev => {
+                    if (isOn) {
+                      const next = prev.filter(x => x !== r.id);
+                      if (next.length === 0) return prev; // must have at least one
+                      setRole(next[0]);
+                      return next;
+                    }
+                    const next = [...prev, r.id];
+                    return next;
+                  });
+                  if (!isOn) setRole(r.id);
+                }} style={{
+                  padding: "8px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: isOn ? `2px solid ${r.color}` : `1px solid ${theme.border}`,
+                  background: isOn ? r.color + "22" : theme.bg,
+                  color: isOn ? r.color : theme.textMuted, cursor: "pointer",
+                }}>{r.label}{isOn && selectedRoles[0] === r.id ? ' ★' : ''}</button>
+              );
+            })}
           </div>
         </div>
 
@@ -238,22 +257,36 @@ export default function UserManagementScreen({ currentUser, onBack }) {
         </div>
         {isAdmin && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Role</div>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Roles <span style={{ fontSize: 9, color: "#475569" }}>(tap to toggle, first = primary)</span></div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {ROLES.map(r => (
-                <button key={r.id} onClick={() => setEditUser(p => ({ ...p, role: r.id }))} style={{
-                  padding: "8px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  border: editUser.role === r.id ? `2px solid ${r.color}` : `1px solid ${theme.border}`,
-                  background: editUser.role === r.id ? r.color + "22" : theme.bg,
-                  color: editUser.role === r.id ? r.color : theme.textMuted, cursor: "pointer",
-                }}>{r.label}</button>
-              ))}
+              {ROLES.map(r => {
+                const isOn = editRoles.includes(r.id);
+                return (
+                  <button key={r.id} onClick={() => {
+                    setEditRoles(prev => {
+                      if (isOn) {
+                        const next = prev.filter(x => x !== r.id);
+                        if (next.length === 0) return prev;
+                        setEditUser(p => ({ ...p, role: next[0] }));
+                        return next;
+                      }
+                      return [...prev, r.id];
+                    });
+                    if (!isOn && editRoles.length === 0) setEditUser(p => ({ ...p, role: r.id }));
+                  }} style={{
+                    padding: "8px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    border: isOn ? `2px solid ${r.color}` : `1px solid ${theme.border}`,
+                    background: isOn ? r.color + "22" : theme.bg,
+                    color: isOn ? r.color : theme.textMuted, cursor: "pointer",
+                  }}>{r.label}{isOn && editRoles[0] === r.id ? ' ★' : ''}</button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Coach team assignments */}
-        {editUser.role === 'coach' && isAdmin && (
+        {editRoles.includes('coach') && isAdmin && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Assigned Teams</div>
             {/* Selected teams */}
@@ -402,7 +435,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                       Last seen {timeAgo(u.last_seen_at)}
                     </div>
                   )}
-                  {u.role === 'coach' && coachTeamsMap[u.id]?.length > 0 && (
+                  {(u.roles?.includes('coach') || u.role === 'coach') && coachTeamsMap[u.id]?.length > 0 && (
                     <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginTop: 3 }}>
                       {coachTeamsMap[u.id].map(t => (
                         <span key={t.id} style={{
@@ -413,10 +446,14 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                     </div>
                   )}
                 </div>
-                <span style={{
-                  fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
-                  background: roleColor(u.role) + "22", color: roleColor(u.role),
-                }}>{roleLabel(u.role)}</span>
+                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", flexShrink: 0 }}>
+                  {(u.roles?.length > 1 ? u.roles : [u.role]).map(r => (
+                    <span key={r} style={{
+                      fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 99,
+                      background: roleColor(r) + "22", color: roleColor(r),
+                    }}>{roleLabel(r)}</span>
+                  ))}
+                </div>
                 <span style={{ color: "#334155", fontSize: 14 }}>›</span>
               </div>
             ))}

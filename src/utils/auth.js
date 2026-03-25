@@ -84,7 +84,7 @@ export async function getProfileByUsername(username) {
 }
 
 // Create a new user (admin/commentator_admin function)
-export async function createUser({ firstname, lastname, username, email, password, role }) {
+export async function createUser({ firstname, lastname, username, email, password, role, roles }) {
   // Pre-check: username uniqueness
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
@@ -131,7 +131,12 @@ export async function createUser({ firstname, lastname, username, email, passwor
   const { data: verify } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle();
   if (!verify) return { error: 'Profile creation failed unexpectedly.' };
 
-  await logAudit('user_create', 'user', data.user.id, { firstname, lastname, username, email, role });
+  // Update roles array if multiple roles provided
+  if (roles && roles.length > 0) {
+    await supabase.from('profiles').update({ roles }).eq('id', data.user.id);
+  }
+
+  await logAudit('user_create', 'user', data.user.id, { firstname, lastname, username, email, role, roles });
   return { user: data.user };
 }
 

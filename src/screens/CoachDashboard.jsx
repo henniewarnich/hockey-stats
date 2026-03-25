@@ -7,6 +7,7 @@ import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import { getWeekStart } from '../utils/stats.js';
 import RankBadge from '../components/RankBadge.jsx';
+import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import MiniChart from '../components/MiniChart.jsx';
 
 const fmtDate = (d) => {
@@ -16,7 +17,7 @@ const fmtDate = (d) => {
 };
 const fmtTime = (t) => t ? t.slice(0, 5) : '';
 
-export default function CoachDashboard({ currentUser, onLogout }) {
+export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
   const [upcomingByTeam, setUpcomingByTeam] = useState({});
   const [resultsByTeam, setResultsByTeam] = useState({});
@@ -212,7 +213,7 @@ export default function CoachDashboard({ currentUser, onLogout }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 10, color: theme.textDim }}>
               {currentUser.firstname}
-              <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", borderRadius: 99, background: "#8B5CF622", color: "#8B5CF6", fontWeight: 700 }}>Coach</span>
+              {' '}<RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />
             </div>
             {onLogout && (
               <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Sign out</button>

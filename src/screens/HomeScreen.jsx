@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
+import RoleSwitcher from '../components/RoleSwitcher.jsx';
 
-export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout }) {
+export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
 
   useEffect(() => {
@@ -40,9 +41,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
             {currentUser && (
               <div style={{ fontSize: 10, color: theme.textDim, textAlign: "right" }}>
                 {currentUser.firstname}
-                <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", borderRadius: 99, background: "#F59E0B22", color: "#F59E0B", fontWeight: 700 }}>
-                  {currentUser.role === 'commentator_admin' ? 'Comm Admin' : currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
-                </span>
+                {' '}<RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />
               </div>
             )}
             {onLogout && (

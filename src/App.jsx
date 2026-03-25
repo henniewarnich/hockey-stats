@@ -64,6 +64,11 @@ export default function App() {
       if (session) {
         const profile = await getProfile();
         if (profile && !profile.blocked) {
+          // Restore switched role from session if valid
+          const savedRole = sessionStorage.getItem('kykie-active-role');
+          if (savedRole && profile.roles?.includes(savedRole)) {
+            profile.role = savedRole;
+          }
           setCurrentUser(profile);
         }
       }
@@ -98,7 +103,24 @@ export default function App() {
     await signOut();
     setCurrentUser(null);
     setScreen("home");
+    sessionStorage.removeItem('kykie-active-role');
     window.location.hash = '';
+  };
+
+  const handleRoleSwitch = (newRole) => {
+    if (!currentUser) return;
+    sessionStorage.setItem('kykie-active-role', newRole);
+    setCurrentUser(prev => ({ ...prev, role: newRole }));
+    // Navigate to the appropriate screen for the new role
+    if (newRole === 'admin' || newRole === 'commentator_admin') {
+      window.location.hash = '#/admin';
+    } else if (newRole === 'commentator') {
+      window.location.hash = '#/record';
+    } else if (newRole === 'coach') {
+      window.location.hash = '#/coach';
+    } else {
+      window.location.hash = '';
+    }
   };
 
   // ── PUBLIC ROUTES (no auth needed) ──
@@ -140,7 +162,7 @@ export default function App() {
     }
     // If no slug — show the commentator dashboard
     if (!route.slug) {
-      return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} />;
+      return <CommentatorDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
     }
     // Team-specific — old commentator page (kept for backward compat)
     return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
@@ -151,7 +173,7 @@ export default function App() {
     if (!currentUser || currentUser.role !== 'coach') {
       return <LoginPage onLogin={handleLogin} />;
     }
-    return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} />;
+    return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
   }
 
   // Admin area
@@ -164,7 +186,7 @@ export default function App() {
         store={store} screen={screen} setScreen={setScreen}
         matchConfig={matchConfig} setMatchConfig={setMatchConfig}
         reviewGame={reviewGame} setReviewGame={setReviewGame}
-        currentUser={currentUser} onLogout={handleLogout}
+        currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
       />
     );
   }
@@ -172,7 +194,7 @@ export default function App() {
   return <LandingPage />;
 }
 
-function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout }) {
+function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
   const navigate = (target, data) => {
     if (["game_review", "public_view", "coach_view", "match_edit"].includes(target) && data) {
       setReviewGame(data);
@@ -238,7 +260,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
   switch (screen) {
     case "home":
-      return <HomeScreen teamCount={store.teams.length} gameCount={store.games.length} onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError} currentUser={currentUser} onLogout={onLogout} />;
+      return <HomeScreen teamCount={store.teams.length} gameCount={store.games.length} onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError} currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch} />;
 
     case "users":
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;

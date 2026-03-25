@@ -5,9 +5,10 @@ import { saveMatchToSupabase } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
+import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 
-export default function CommentatorDashboard({ currentUser, onLogout }) {
+export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMatch, setActiveMatch] = useState(null); // match being recorded
@@ -279,9 +280,7 @@ export default function CommentatorDashboard({ currentUser, onLogout }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 10, color: "#64748B", textAlign: "right" }}>
               {currentUser.firstname}
-              <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", borderRadius: 99, background: "#10B98122", color: "#10B981", fontWeight: 700 }}>
-                {currentUser.role === 'commentator_admin' ? 'Comm Admin' : 'Commentator'}
-              </span>
+              {' '}<RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />
             </div>
             <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Sign out</button>
           </div>
