@@ -23,15 +23,46 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   const [scheduledTime, setScheduledTime] = useState('');
   const [venue, setVenue] = useState('');
   const [matchType, setMatchType] = useState('league');
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
 
   // Team suggestion fields
   const [teamName, setTeamName] = useState('');
   const [teamColor, setTeamColor] = useState('#64748B');
+  const [similarTeams, setSimilarTeams] = useState([]);
 
   useEffect(() => {
-    supabase.from('teams').select('*').eq('status', 'active').order('name')
+    supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name')
       .then(({ data }) => { if (data) setTeams(data); });
   }, []);
+
+  // Fuzzy match: checks if words in input overlap with team names
+  const findSimilarTeams = (name) => {
+    if (!name || name.trim().length < 3) { setSimilarTeams([]); return; }
+    const words = name.toLowerCase().trim().split(/\s+/).filter(w => w.length >= 3);
+    const matches = teams.filter(t => {
+      const tName = t.name.toLowerCase();
+      // Exact substring match
+      if (tName.includes(name.toLowerCase().trim())) return true;
+      // Any significant word matches
+      return words.some(w => tName.includes(w));
+    }).slice(0, 5);
+    setSimilarTeams(matches);
+  };
+
+  // Check for duplicate match (same teams, same day, either home/away order)
+  const checkDuplicate = async (homeId, awayId, date) => {
+    const { data } = await supabase
+      .from('matches')
+      .select('id, status, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)')
+      .eq('match_date', date)
+      .or(`and(home_team_id.eq.${homeId},away_team_id.eq.${awayId}),and(home_team_id.eq.${awayId},away_team_id.eq.${homeId})`);
+    if (data && data.length > 0) {
+      setDuplicateWarning(`${data[0].home_team?.name} vs ${data[0].away_team?.name} already exists on this date (${data[0].status})`);
+      return true;
+    }
+    setDuplicateWarning(null);
+    return false;
+  };
 
   const resetForm = () => {
     setHomeTeam(null); setAwayTeam(null);
@@ -40,13 +71,15 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     setMatchDate(new Date().toISOString().slice(0, 10));
     setScheduledTime(''); setVenue(''); setMatchType('league');
     setTeamName(''); setTeamColor('#64748B');
-    setError('');
+    setError(''); setDuplicateWarning(null); setSimilarTeams([]);
   };
 
   const handleSubmitResult = async () => {
     if (!homeTeam || !awayTeam) { setError('Select both teams'); return; }
     if (homeTeam.id === awayTeam.id) { setError('Teams must be different'); return; }
     setLoading(true); setError('');
+    const isDupe = await checkDuplicate(homeTeam.id, awayTeam.id, matchDate);
+    if (isDupe) { setLoading(false); return; }
     const result = await submitCrowdResult({
       homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
       homeScore, awayScore, matchDate, venue, matchType,
@@ -61,6 +94,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     if (!homeTeam || !awayTeam) { setError('Select both teams'); return; }
     if (homeTeam.id === awayTeam.id) { setError('Teams must be different'); return; }
     setLoading(true); setError('');
+    const isDupe = await checkDuplicate(homeTeam.id, awayTeam.id, matchDate);
+    if (isDupe) { setLoading(false); return; }
     const result = await submitCrowdUpcoming({
       homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
       matchDate, scheduledTime, venue, matchType,
@@ -73,6 +108,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
   const handleSuggestTeam = async () => {
     if (!teamName.trim()) { setError('Team name is required'); return; }
+    if (similarTeams.length > 0 && !confirm(`Similar teams exist: ${similarTeams.map(t => t.name).join(', ')}. Submit anyway?`)) return;
     setLoading(true); setError('');
     const result = await suggestTeam({ name: teamName, color: teamColor, suggestedBy: currentUser.id });
     setLoading(false);
@@ -191,7 +227,19 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
           <div style={{ marginBottom: 12 }}>
             <div style={labelStyle}>Team / School Name *</div>
-            <input value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Stellenbosch Girls" style={inputStyle} />
+            <input value={teamName} onChange={e => { setTeamName(e.target.value); findSimilarTeams(e.target.value); }} placeholder="e.g. Stellenbosch Girls" style={inputStyle} />
+            {similarTeams.length > 0 && (
+              <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: '#F59E0B11', border: '1px solid #F59E0B33' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>Similar teams already exist:</div>
+                {similarTeams.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', fontSize: 11, color: '#94A3B8' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 4, background: t.color || '#64748B' }} />
+                    {t.name}
+                  </div>
+                ))}
+                <div style={{ fontSize: 9, color: '#64748B', marginTop: 4 }}>You can still submit — admin will review</div>
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: 16 }}>
@@ -275,6 +323,14 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
           </div>
 
           {error && <div style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{error}</div>}
+
+          {duplicateWarning && (
+            <div style={{ padding: 10, borderRadius: 8, background: '#EF444422', border: '1px solid #EF444444', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>Possible duplicate</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>{duplicateWarning}</div>
+              <div style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>Change the date or teams, or check the existing match first.</div>
+            </div>
+          )}
 
           <button onClick={mode === 'result' ? handleSubmitResult : handleSubmitUpcoming} disabled={loading}
             style={btnStyle(loading ? '#334155' : '#F59E0B')}>
