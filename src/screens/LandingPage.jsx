@@ -52,7 +52,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
     const load = async () => {
       try {
         const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }] = await Promise.all([
-          supabase.from('teams').select('*').eq('status', 'active').order('name'),
+          supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name'),
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
             .eq('status', 'ended')
@@ -307,7 +307,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
                   <div style={{ textAlign: "center", padding: 30 }}>
                     <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{filtered.length} live {filtered.length === 1 ? 'match' : 'matches'} right now</div>
-                    <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Sign in or register to watch live</div>
+                    <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Register to view live matches</div>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                       <button onClick={() => { window.location.hash = "#/login"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sign In</button>
                       <button onClick={() => { window.location.hash = "#/register"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #334155", background: "none", color: "#94A3B8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Register</button>
@@ -320,7 +320,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No live matches right now"}</div>
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
+                  {q ? "No matches found" : "No live matches right now"}
+                  {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to view live matches</button></div>}
+                </div>
               ) : (
                 filtered.map(m => {
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
@@ -360,7 +363,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No upcoming matches scheduled"}</div>
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
+                  {q ? "No matches found" : "No upcoming matches scheduled"}
+                  {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to add upcoming matches</button></div>}
+                </div>
               ) : (
                 <>
                 {filtered.slice(0, showUpcoming).map(m => {
@@ -461,7 +467,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>{q ? "No matches found" : "No results yet"}</div>
+                <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
+                  {q ? "No matches found" : "No results yet"}
+                  {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to add past results</button></div>}
+                </div>
               ) : (
                 filtered.slice(0, 20).map(m => {
                   const homeR = resultBadge(m, m.home_team?.id);
@@ -494,7 +503,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
           {activeTab === "teams" && (
             <div style={styles.section}>
               {filteredTeams.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>No teams found</div>
+                <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>
+                  {search.trim() ? "No teams found" : "No teams yet"}
+                  {!currentUser && !search.trim() && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to add your team</button></div>}
+                </div>
               ) : (
                 filteredTeams.map(t => {
                   const r = teamRecords[t.id];

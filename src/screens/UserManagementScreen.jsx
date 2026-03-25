@@ -332,7 +332,12 @@ export default function UserManagementScreen({ currentUser, onBack }) {
         )}
 
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <button onClick={() => handleToggleBlock(editUser)} style={{
+          <button onClick={async () => {
+            await handleToggleBlock(editUser);
+            setEditUser(prev => ({ ...prev, blocked: !prev.blocked }));
+            setSaveSuccess(editUser.blocked ? "User unblocked" : "User blocked");
+            setTimeout(() => setSaveSuccess(""), 3000);
+          }} style={{
             flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${editUser.blocked ? "#10B98144" : "#EF444444"}`,
             background: "transparent", color: editUser.blocked ? "#10B981" : "#EF4444",
             fontSize: 12, fontWeight: 700, cursor: "pointer",
