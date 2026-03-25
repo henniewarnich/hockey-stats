@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.14 | Date: 25 March 2026**
+**Version: 7.9.15 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -244,4 +244,16 @@ All applied as of v7.9.12. Run v7.9.13 migration before deploying.
 - `LiveMatchScreen.jsx`: accepts `currentUser` + `onMatchCreated` props, passes userId to createLiveMatch
 - `App.jsx`: passes `existingMatchId`, `currentUser`, `onMatchCreated` to LiveMatchScreen
 - `MatchScheduleScreen.jsx`: `isMyLock` checks both `locked_by` and `created_by`
+- No migration needed
+
+## Session Summary (v7.9.15) — 25 March 2026
+
+### Public Matches Section on Admin & Commentator Dashboards
+- New `PublicMatchesSection` shared component (`src/components/PublicMatchesSection.jsx`)
+- Live/Upcoming/Results tabs with compact match cards, rankings, scores
+- Auto-selects best tab (live > upcoming > results), polls live every 10s
+- Tapping a match card navigates to that team's public page
+- "View all on kykie →" link when >5 matches
+- Added to top of Admin HomeScreen (above nav cards)
+- Added to CommentatorDashboard (between header and "My Matches" tabs)
 - No migration needed

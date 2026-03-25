@@ -9,6 +9,7 @@ import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
+import PublicMatchesSection from '../components/PublicMatchesSection.jsx';
 
 export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [matches, setMatches] = useState([]);
@@ -329,6 +330,11 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
             <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Sign out</button>
           </div>
         </div>
+      </div>
+
+      {/* Public matches overview */}
+      <div style={{ padding: "0 16px 4px" }}>
+        <PublicMatchesSection />
       </div>
 
       {/* Tabs */}

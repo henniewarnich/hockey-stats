@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
+import PublicMatchesSection from '../components/PublicMatchesSection.jsx';
 
 export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
@@ -57,6 +58,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
         </div>
       </div>
       <div style={{ padding: "0 16px 20px" }}>
+        <PublicMatchesSection />
         {[
           ["match_schedule", "📅", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
           ["match_setup", "⚡", "New Match", "Live match or quick score"],
