@@ -21,11 +21,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
   const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
-  const [resultsCount, setResultsCount] = useState(0);
   const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
+  const [showResults, setShowResults] = useState(20);
   const [expandedUpcoming, setExpandedUpcoming] = useState(null);
+  const [searchResults, setSearchResults] = useState(null); // null = use default matches, array = search results
+  const [allRecords, setAllRecords] = useState([]); // lightweight: all ended matches for record computation
+  const [resultsCount, setResultsCount] = useState(0);
 
   // Global presence tracking
   useEffect(() => {
@@ -58,7 +61,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   useEffect(() => {
     const load = async () => {
       try {
-        const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }, { count: totalResults }] = await Promise.all([
+        const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }, { data: allRecords }, { count: totalResults }] = await Promise.all([
           supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name'),
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
@@ -73,6 +76,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             .eq('status', 'upcoming')
             .order('match_date', { ascending: true })
             .order('scheduled_time', { ascending: true }),
+          supabase.from('matches')
+            .select('home_team_id, away_team_id, home_score, away_score, match_type')
+            .eq('status', 'ended'),
           supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
         ]);
 
@@ -80,6 +86,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         if (allMatches) setMatches(allMatches);
         if (live) setLiveMatches(live);
         if (upcoming) setUpcomingMatches(upcoming);
+        if (allRecords) setAllRecords(allRecords);
         setResultsCount(totalResults || 0);
 
         // Fetch latest rankings for upcoming/live badges
@@ -108,20 +115,47 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     return () => clearInterval(poll);
   }, []);
 
-  // Compute team records (exclude friendlies)
+  // Search results from Supabase when filtering on results tab
+  useEffect(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || activeTab !== 'results') {
+      setSearchResults(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      // Find teams matching search
+      const { data: matchingTeams } = await supabase
+        .from('teams').select('id').or('status.eq.active,status.is.null')
+        .ilike('name', `%${q}%`);
+      if (!matchingTeams?.length) { setSearchResults([]); return; }
+      const ids = matchingTeams.map(t => t.id);
+      // Fetch results for those teams
+      const { data } = await supabase
+        .from('matches')
+        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .eq('status', 'ended')
+        .or(ids.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+        .order('match_date', { ascending: false })
+        .limit(50);
+      setSearchResults(data || []);
+    }, 300); // debounce
+    return () => clearTimeout(timer);
+  }, [search, activeTab]);
+
+  // Compute team records from ALL ended matches (exclude friendlies)
   const teamRecords = {};
-  matches.filter(m => m.match_type !== 'friendly').forEach(m => {
-    [m.home_team, m.away_team].forEach((t, i) => {
-      if (!t) return;
-      if (!teamRecords[t.id]) teamRecords[t.id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+  allRecords.filter(m => m.match_type !== 'friendly').forEach(m => {
+    [m.home_team_id, m.away_team_id].forEach((tid, i) => {
+      if (!tid) return;
+      if (!teamRecords[tid]) teamRecords[tid] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
       const my = i === 0 ? m.home_score : m.away_score;
       const their = i === 0 ? m.away_score : m.home_score;
-      teamRecords[t.id].p++;
-      teamRecords[t.id].gf += my;
-      teamRecords[t.id].ga += their;
-      if (my > their) teamRecords[t.id].w++;
-      else if (my === their) teamRecords[t.id].d++;
-      else teamRecords[t.id].l++;
+      teamRecords[tid].p++;
+      teamRecords[tid].gf += my;
+      teamRecords[tid].ga += their;
+      if (my > their) teamRecords[tid].w++;
+      else if (my === their) teamRecords[tid].d++;
+      else teamRecords[tid].l++;
     });
   });
 
@@ -263,11 +297,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             <input
               style={styles.searchInput}
               value={search}
-              onChange={e => { setSearch(e.target.value); setShowUpcoming(20); }}
+              onChange={e => { setSearch(e.target.value); setShowUpcoming(20); setShowResults(20); }}
               placeholder="Search..."
             />
             {search && (
-              <button onClick={() => { setSearch(""); setShowUpcoming(20); }} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
+              <button onClick={() => { setSearch(""); setShowUpcoming(20); setShowResults(20); }} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
             )}
             <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
               display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
@@ -510,11 +544,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           {/* ═══ RESULTS TAB ═══ */}
           {activeTab === "results" && (() => {
             const q = search.trim().toLowerCase();
-            const filtered = q ? matches.filter(m =>
-              (m.home_team?.name || "").toLowerCase().includes(q) ||
-              (m.away_team?.name || "").toLowerCase().includes(q) ||
-              (m.venue || "").toLowerCase().includes(q)
-            ) : matches;
+            const filtered = q ? (searchResults || []) : matches;
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
@@ -523,7 +553,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to add past results</button></div>}
                 </div>
               ) : (
-                filtered.slice(0, 20).map(m => {
+                filtered.slice(0, showResults).map(m => {
                   const homeR = resultBadge(m, m.home_team?.id);
                   const d = parseSASTDate(m.match_date);
                   const homeSlug = teamSlug(m.home_team?.name || "");
@@ -545,6 +575,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                     </div>
                   );
                 })
+              )}
+              {filtered.length > showResults && (
+                <div onClick={() => setShowResults(prev => prev + 20)} style={{ textAlign: "center", padding: "10px 0", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>
+                  Show more ({filtered.length - showResults} remaining)
+                </div>
               )}
               {currentUser && (
                 <div style={{ textAlign: "center", padding: "12px 0 4px" }}>

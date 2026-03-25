@@ -239,26 +239,15 @@ export default function App() {
 
   // Admin area
   if (route.type === 'admin') {
-    if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
+    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    // Admin sub-screens (not home) — use AppContent
-    if (screen !== 'home') {
-      return (
-        <AppContent
-          store={store} screen={screen} setScreen={setScreen}
-          matchConfig={matchConfig} setMatchConfig={setMatchConfig}
-          reviewGame={reviewGame} setReviewGame={setReviewGame}
-          currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
-        />
-      );
-    }
-    // Admin home — show LandingPage with dashboard tab
     return (
-      <LandingPage
-        currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
-        initialTab="dashboard" onRoleSwitch={handleRoleSwitch}
-        onNavigate={(target) => setScreen(target)}
+      <AppContent
+        store={store} screen={screen} setScreen={setScreen}
+        matchConfig={matchConfig} setMatchConfig={setMatchConfig}
+        reviewGame={reviewGame} setReviewGame={setReviewGame}
+        currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
       />
     );
   }

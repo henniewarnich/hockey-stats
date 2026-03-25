@@ -52,6 +52,14 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   useEffect(() => { load(); }, []);
 
+  // Auto-start demo if flagged from Dashboard
+  useEffect(() => {
+    if (sessionStorage.getItem('kykie-start-demo') === '1') {
+      sessionStorage.removeItem('kykie-start-demo');
+      setPendingStartMatch({ _isDemo: true });
+    }
+  }, []);
+
   const load = async () => {
     setLoading(true);
     const [matches, comms, commAdmins, { data: teams }] = await Promise.all([
