@@ -28,6 +28,7 @@ import RegisterPage from './screens/RegisterPage.jsx';
 import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
 import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
+import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -49,6 +50,10 @@ function getHashRoute() {
   }
   if (hash === 'pending') return { type: 'pending' };
   if (hash === 'health') return { type: 'health' };
+  if (hash === 'live-lite' || hash.startsWith('live-lite?')) {
+    const params = hash.includes('?') ? new URLSearchParams(hash.split('?')[1]) : null;
+    return { type: 'live-lite', matchId: params?.get('match') || null };
+  }
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -63,6 +68,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [liveLiteMatch, setLiveLiteMatch] = useState(null);
   const store = useMatchStore();
 
   // Listen for hash changes
@@ -198,6 +204,52 @@ export default function App() {
         Loading...
       </div>
     );
+  }
+
+  // Live Lite: load match from route param
+  useEffect(() => {
+    if (route.type === 'live-lite' && route.matchId && !liveLiteMatch) {
+      supabase
+        .from('matches')
+        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .eq('id', route.matchId)
+        .single()
+        .then(({ data: m }) => {
+          if (m) {
+            setLiveLiteMatch({
+              supabaseId: m.id,
+              home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id },
+              away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id },
+              matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+              matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
+            });
+          } else {
+            window.location.hash = '';
+          }
+        });
+    }
+    if (route.type !== 'live-lite') setLiveLiteMatch(null);
+  }, [route.type, route.matchId]);
+
+  // Live Lite mode
+  if (route.type === 'live-lite') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    if (liveLiteMatch) {
+      return <LiveLiteScreen
+        match={liveLiteMatch}
+        currentUser={currentUser}
+        onEnd={() => { setLiveLiteMatch(null); window.location.hash = ''; }}
+        onPromote={null}
+      />;
+    }
+    if (route.matchId) {
+      return <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading match...</div>;
+    }
+    // No match specified — redirect to submit
+    window.location.hash = '#/submit?mode=upcoming';
+    return null;
   }
 
   // Crowd submit area

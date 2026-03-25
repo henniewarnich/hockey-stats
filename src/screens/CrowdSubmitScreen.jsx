@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { submitCrowdResult, submitCrowdUpcoming, suggestTeam } from '../utils/sync.js';
+import { submitCrowdResult, submitCrowdUpcoming, suggestTeam, createLiveMatch } from '../utils/sync.js';
 import { MATCH_TYPES } from '../utils/constants.js';
 
 const TEAM_COLORS = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#64748B'];
@@ -116,6 +116,23 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     else setError('Failed to submit');
   };
 
+  const handleGoLive = async () => {
+    if (!homeTeam || !awayTeam) { setError('Select both teams'); return; }
+    if (homeTeam.id === awayTeam.id) { setError('Teams must be different'); return; }
+    setLoading(true); setError('');
+    const match = await createLiveMatch({
+      home: { name: homeTeam.name, color: homeTeam.color, id: homeTeam.id },
+      away: { name: awayTeam.name, color: awayTeam.color, id: awayTeam.id },
+      date: matchDate, venue, matchType,
+    });
+    setLoading(false);
+    if (match) {
+      window.location.hash = `#/live-lite?match=${match.id}`;
+    } else {
+      setError('Failed to create live match');
+    }
+  };
+
   const filteredTeams = (search) => teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
 
   const labelStyle = { fontSize: 11, color: '#94A3B8', marginBottom: 4 };
@@ -214,6 +231,17 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
             </div>
           </button>
 
+          <button onClick={() => { setMode('live'); resetForm(); }} style={{
+            padding: 16, borderRadius: 12, border: '1px solid #10B98144', background: '#10B98111', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+          }}>
+            <span style={{ fontSize: 28 }}>📡</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#10B981' }}>Go Live</div>
+              <div style={{ fontSize: 11, color: '#64748B' }}>Score a match in real-time as it happens</div>
+            </div>
+          </button>
+
           <div style={{ textAlign: 'center', marginTop: 8, fontSize: 10, color: '#475569' }}>
             All submissions are reviewed before publishing
           </div>
@@ -264,11 +292,11 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
           </button>
         </div>
       ) : (
-        // ── SUBMIT RESULT or UPCOMING ──
+        // ── SUBMIT RESULT, UPCOMING, or GO LIVE ──
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{mode === 'result' ? '🏆' : '📅'}</span>
-            {mode === 'result' ? 'Submit a Result' : 'Add Upcoming Match'}
+            <span>{mode === 'result' ? '🏆' : mode === 'live' ? '📡' : '📅'}</span>
+            {mode === 'result' ? 'Submit a Result' : mode === 'live' ? 'Go Live' : 'Add Upcoming Match'}
           </div>
 
           {renderTeamSelector("Home Team *", homeTeam, homeSearch, setHomeSearch, setHomeTeam)}
@@ -296,18 +324,20 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={labelStyle}>Date *</div>
-              <input value={matchDate} onChange={e => setMatchDate(e.target.value)} type="date" style={{ ...inputStyle, colorScheme: 'dark' }} />
-            </div>
-            {mode === 'upcoming' && (
+          {mode !== 'live' && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <div style={{ flex: 1 }}>
-                <div style={labelStyle}>Time</div>
-                <input value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} type="time" style={{ ...inputStyle, colorScheme: 'dark' }} />
+                <div style={labelStyle}>Date *</div>
+                <input value={matchDate} onChange={e => setMatchDate(e.target.value)} type="date" style={{ ...inputStyle, colorScheme: 'dark' }} />
               </div>
-            )}
-          </div>
+              {mode === 'upcoming' && (
+                <div style={{ flex: 1 }}>
+                  <div style={labelStyle}>Time</div>
+                  <input value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} type="time" style={{ ...inputStyle, colorScheme: 'dark' }} />
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <div style={{ flex: 1 }}>
@@ -324,7 +354,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
           {error && <div style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{error}</div>}
 
-          {duplicateWarning && (
+          {mode !== 'live' && duplicateWarning && (
             <div style={{ padding: 10, borderRadius: 8, background: '#EF444422', border: '1px solid #EF444444', marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>Possible duplicate</div>
               <div style={{ fontSize: 11, color: '#94A3B8' }}>{duplicateWarning}</div>
@@ -332,10 +362,17 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
             </div>
           )}
 
-          <button onClick={mode === 'result' ? handleSubmitResult : handleSubmitUpcoming} disabled={loading}
-            style={btnStyle(loading ? '#334155' : '#F59E0B')}>
-            {loading ? 'Submitting...' : 'Submit for Approval'}
-          </button>
+          {mode === 'live' ? (
+            <button onClick={handleGoLive} disabled={loading}
+              style={{ ...btnStyle(loading ? '#334155' : '#10B981'), color: '#F8FAFC' }}>
+              {loading ? 'Starting...' : '📡 Start Live Match'}
+            </button>
+          ) : (
+            <button onClick={mode === 'result' ? handleSubmitResult : handleSubmitUpcoming} disabled={loading}
+              style={btnStyle(loading ? '#334155' : '#F59E0B')}>
+              {loading ? 'Submitting...' : 'Submit for Approval'}
+            </button>
+          )}
           <button onClick={() => setMode(null)} style={{ ...btnStyle('transparent'), border: '1px solid #334155', color: '#94A3B8', marginTop: 8 }}>
             ← Back
           </button>
