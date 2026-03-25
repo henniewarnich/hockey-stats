@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.19 | Date: 25 March 2026**
+**Version: 7.9.20 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -309,4 +309,12 @@ All applied as of v7.9.12. Run v7.9.13 migration before deploying.
 ### Commentator Countdown
 - CommentatorDashboard MatchCard now shows countdown timer (same as MatchScheduleScreen)
 - Color-coded: red (<1h), amber (1-24h), grey (>1 day), green ("Now" when past kickoff)
+- No migration needed
+
+## Session Summary (v7.9.20) — 25 March 2026
+
+### Dashboard Tab Polish
+- Search bar + sport picker hidden when Dashboard tab is active (only shows on Live/Upcoming/Results/Teams)
+- CommDashboardPanel: added "📅 Match Schedule" card linking to full commentator dashboard (#/record)
+- TeamPage back arrow: always navigates to `#/` (landing with Dashboard tab) instead of old `#/coach` route
 - No migration needed

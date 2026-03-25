@@ -40,6 +40,17 @@ export default function CommDashboardPanel({ currentUser }) {
 
   return (
     <div style={{ padding: "0 16px 8px" }}>
+      {/* Quick nav */}
+      <div onClick={() => { window.location.hash = '#/record'; }} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', marginBottom: 8,
+      }}>
+        <div style={{ fontSize: 24 }}>📅</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Match Schedule</div>
+          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>All matches, start live, quick score</div>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div style={{ fontSize: 9, fontWeight: 800, color: theme.accent, textTransform: 'uppercase', letterSpacing: 1 }}>
           My matches ({myCount})

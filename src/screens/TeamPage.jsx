@@ -513,7 +513,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {/* Home link + Login */}
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={() => { window.location.hash = isCoach ? '#/coach' : ''; }} style={{
+        <button onClick={() => { window.location.hash = ''; }} style={{
           background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", padding: 0,
           display: "flex", alignItems: "center", gap: 5, fontWeight: 700,
         }}>
@@ -524,7 +524,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
             <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
           </svg>
-          {isCoach ? '← Dashboard' : '← kykie'}
+          ← kykie
         </button>
         {/* Refresh + Login / Logout */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

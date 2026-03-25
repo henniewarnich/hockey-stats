@@ -248,7 +248,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           </div>
         </div>
 
-        {/* Search + sport picker */}
+        {/* Search + sport picker (hidden on dashboard tab) */}
+        {activeTab !== "dashboard" && (
         <div style={{ padding: "0 16px 8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", position: "relative" }}>
             <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
@@ -295,6 +296,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             )}
           </div>
         </div>
+        )}
       </div>
 
       {loading ? (
