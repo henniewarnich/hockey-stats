@@ -11,6 +11,7 @@ import RankBadge from '../components/RankBadge.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
+import SponsorBanner from '../components/SponsorBanner.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -557,6 +558,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           </div>
         </div>
       </div>
+      {team?.id && <SponsorBanner tier="team" targetId={team.id} size="md" />}
 
       {/* Tabs */}
       {!selectedMatch && (

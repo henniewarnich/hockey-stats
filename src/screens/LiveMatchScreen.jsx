@@ -259,7 +259,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
-        matchTime={matchTime} matchState={matchState} running={running} />
+        matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId} />
 
       {/* Viewer count */}
       {matchViewers > 0 && (

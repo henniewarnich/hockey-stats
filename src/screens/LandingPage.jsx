@@ -4,6 +4,7 @@ import { APP_VERSION } from '../utils/constants.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import RankBadge from '../components/RankBadge.jsx';
+import SponsorBanner from '../components/SponsorBanner.jsx';
 
 export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
   const [teams, setTeams] = useState([]);
@@ -197,6 +198,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
           )}
         </div>
         <div style={{ ...styles.tagline, textAlign: "center" }}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
+        <SponsorBanner tier="platform" size="lg" />
       </div>
 
       {/* Email confirmation banner */}

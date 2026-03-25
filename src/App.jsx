@@ -31,6 +31,7 @@ import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
 import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
+import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -91,6 +92,7 @@ export default function App() {
             profile.role = savedRole;
           }
           setCurrentUser(profile);
+          sessionStorage.setItem('kykie-user-id', profile.id);
 
           if (isEmailConfirmation) {
             setEmailConfirmed(true);
@@ -135,6 +137,7 @@ export default function App() {
     setCurrentUser(null);
     setScreen("home");
     sessionStorage.removeItem('kykie-active-role');
+    sessionStorage.removeItem('kykie-user-id');
     window.location.hash = '';
   };
 
@@ -347,6 +350,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "health":
       return <SystemHealthScreen onBack={() => navigate("home")} />;
+
+    case "sponsors":
+      return <SponsorManagementScreen onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

@@ -17,9 +17,12 @@ const THRESHOLDS = {
   match_commentators: { green: 500, amber: 2000 },
   ranking_sets:   { green: 500, amber: 2000 },
   rankings:       { green: 5000, amber: 20000 },
+  sponsors:       { green: 100, amber: 500 },
+  sponsor_impressions: { green: 50000, amber: 200000 },
+  sponsor_clicks: { green: 10000, amber: 50000 },
 };
 
-const TABLES = ['matches','match_events','match_stats','profiles','teams','event_reactions','audit_log','match_viewers','coach_teams','match_commentators','ranking_sets','rankings'];
+const TABLES = ['matches','match_events','match_stats','profiles','teams','sponsors','sponsor_impressions','sponsor_clicks','event_reactions','audit_log','match_viewers','coach_teams','match_commentators','ranking_sets','rankings'];
 
 function badge(count, table) {
   const t = THRESHOLDS[table] || { green: 10000, amber: 50000 };
@@ -221,7 +224,7 @@ export default function SystemHealthScreen({ onBack }) {
           <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Data Management</div>
           <div style={cardStyle}>
             <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
-              Archive pre-computes stats for ended matches so raw events can be pruned later. New matches are archived automatically on end.
+              Archive pre-computes stats for ended matches so raw events can be pruned later. New matches are archived automatically on end. Use Backfill for older matches.
             </div>
             <button
               disabled={archiving}

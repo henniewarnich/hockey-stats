@@ -193,6 +193,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
         matchTime={timer.matchTime}
         matchState={timer.matchState}
         running={timer.running}
+        matchId={isDemo ? null : matchId}
       />
 
       {/* Event buttons */}

@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.9.12 | Date: 25 March 2026**
+**Version: 7.9.13 | Date: 25 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -82,6 +82,9 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - `match_viewers` — Persistent viewer tracking
 - `ranking_sets` / `rankings` — Team rankings
 - `match_stats` — Pre-computed match stats archive (totals + per-quarter)
+- `sponsors` — Sponsor placements (match/team/platform tiers, logo via Supabase Storage)
+- `sponsor_impressions` — Banner render tracking (sponsor_id, viewer_id, user_id, placement, context)
+- `sponsor_clicks` — Banner click tracking (same fields + destination_url)
 - `audit_log` — All actions logged
 
 ### Supabase RPC Functions
@@ -107,7 +110,7 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Audit logging**: Central logAudit(), fire-and-forget, 16+ actions
 - **Performance**: 20-item render caps, memory search, 10s live polling
 - **Supabase SQL editor**: Use `$fn$` delimiter instead of `$$` to avoid comment injection
-- **Match stats archival**: `endLiveMatch` auto-archives stats to `match_stats`. Coach views fallback to archive when events pruned. Backfill button on System Health.
+- **Match stats archival**: Auto-archives stats to `match_stats` on match end. Backfill button on System Health for older matches. Coach views fallback to archive when events pruned.
 
 ## All Migrations in Order
 ```
@@ -120,8 +123,9 @@ upgrade-scripts/v7.7.0/          — Crowd registration fields + register_crowd_
 upgrade-scripts/v7.9.0/          — Crowd submissions columns + approval RPCs + RLS
 upgrade-scripts/v7.9.0/          — Updated delete_user RPC
 upgrade-scripts/v7.9.12/         — match_stats table + stats_archived column
+upgrade-scripts/v7.9.13/         — sponsors table + storage bucket + impression/click tracking
 ```
-All applied as of v7.9.10. Run v7.9.12 migration before deploying.
+All applied as of v7.9.12. Run v7.9.13 migration before deploying.
 
 ## Known Issues
 - **Commentator timer resume**: After refresh, timer starts from 0 (eventSeqRef also resets)
@@ -200,3 +204,27 @@ All applied as of v7.9.10. Run v7.9.12 migration before deploying.
 - "✕ Exit Demo" button replaces "Cancel & Revert" during demo
 - Admin New Match → Demo also now shows Live/Live Pro chooser
 - Hidden from public — demo matches never appear in any feeds or stats
+
+## Session Summary (v7.9.13) — 25 March 2026
+
+### Sponsorship System
+- New `sponsors` table: name, logo (Supabase Storage), tier (platform/team/match), target, website URL, date range, active flag
+- `sponsor-logos` Supabase Storage bucket with public read, authenticated upload/delete
+- Admin "🤝 Sponsors" screen: full CRUD with logo upload, tier picker, team/match target, date range, active toggle
+- `SponsorBanner` component + `useSponsors` hook: reusable, three sizes (sm/md/lg), clickable links
+- **5 placements**: Landing page (platform), Team page (team), Scoreboard in Live + Live Pro (match), System Health row count
+- Demo matches skip sponsor display (matchId=null)
+
+### Impression & Click Tracking
+- `sponsor_impressions` table: one row per banner render, deduplicated per session (same sponsor+placement+context logged once)
+- `sponsor_clicks` table: one row per banner click, includes destination URL
+- Both capture viewer_id (anonymous) + user_id (logged-in, cached in sessionStorage)
+- Admin sponsor list shows impressions, clicks, CTR per sponsor
+- System Health includes `sponsor_impressions` and `sponsor_clicks` row counts
+- RLS: public insert (anyone can generate impressions), authenticated read (admin can query stats)
+
+### Full Vision Documented
+- `sponsorship-platform-vision.md`: 4-phase roadmap from manual management → sponsor portal → payments → advanced analytics
+- Includes database schemas, revenue projections, pricing psychology, volume estimates
+
+- Migration: `upgrade-scripts/v7.9.13/migration-sponsors.sql`
