@@ -28,6 +28,8 @@ import RegisterPage from './screens/RegisterPage.jsx';
 import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
 import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
+import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
+import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -263,7 +265,11 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     setScreen(target);
   };
 
-  const handleStartMatch = (config) => { setMatchConfig(config); setScreen("live"); };
+  const handleStartMatch = (config) => { setMatchConfig(config); setScreen("choose_live_mode"); };
+  const handleLiveModeChosen = (mode) => {
+    if (mode === 'lite') setScreen("live_lite");
+    else setScreen("live");
+  };
   const handleSaveGame = (game) => { store.saveGame(game); return game; };
   const handleImportGame = (game) => { const saved = store.saveGame(game); setReviewGame(saved || game); setScreen("game_review"); };
   const handleDeleteGame = async (id) => {
@@ -344,9 +350,35 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     case "match_setup":
       return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
 
+    case "choose_live_mode":
+      if (!matchConfig) { navigate("home"); return null; }
+      return (
+        <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <LiveModeChooser show={true} onSelect={handleLiveModeChosen} onClose={() => navigate("match_setup")} />
+        </div>
+      );
+
     case "live":
       if (!matchConfig) { navigate("home"); return null; }
-      return <LiveMatchScreen matchConfig={matchConfig} onSaveGame={handleSaveGame} onNavigate={navigate} />;
+      return (
+        <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh" }}>
+          <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <button onClick={() => setScreen("live_lite")} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+              ↓ Switch to Live
+            </button>
+          </div>
+          <LiveMatchScreen matchConfig={matchConfig} onSaveGame={handleSaveGame} onNavigate={navigate} />
+        </div>
+      );
+
+    case "live_lite":
+      if (!matchConfig) { navigate("home"); return null; }
+      return <LiveLiteScreen
+        match={{ ...matchConfig, supabaseId: matchConfig.supabaseId || null }}
+        currentUser={currentUser}
+        onEnd={() => { setMatchConfig(null); navigate("home"); }}
+        onPromote={() => setScreen("live")}
+      />;
 
     case "history":
       return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} />;

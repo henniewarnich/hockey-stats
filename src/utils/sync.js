@@ -434,6 +434,7 @@ export async function fetchCommentatorMatches(commentatorId) {
 }
 
 export async function lockMatch(matchId, userId) {
+  // Try lock where unlocked
   const { data, error } = await supabase
     .from('matches')
     .update({ locked_by: userId })
@@ -441,9 +442,18 @@ export async function lockMatch(matchId, userId) {
     .is('locked_by', null)
     .select()
     .single();
-  if (error) return null;
-  await logAudit('match_lock', 'match', matchId);
-  return data;
+  if (!error && data) {
+    await logAudit('match_lock', 'match', matchId);
+    return data;
+  }
+  // Already locked — check if by same user (allow re-lock)
+  const { data: existing } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('id', matchId)
+    .eq('locked_by', userId)
+    .single();
+  return existing || null;
 }
 
 export async function unlockMatch(matchId, userId) {
