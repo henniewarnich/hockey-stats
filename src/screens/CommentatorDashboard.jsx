@@ -6,12 +6,16 @@ import { APP_VERSION } from '../utils/constants.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
+import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
+import LiveLiteScreen from './LiveLiteScreen.jsx';
 
 export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMatch, setActiveMatch] = useState(null); // match being recorded
+  const [liveMode, setLiveMode] = useState(null); // 'lite' | 'pro' | null
+  const [pendingStartMatch, setPendingStartMatch] = useState(null); // match awaiting mode choice
   const [quickScoreMatch, setQuickScoreMatch] = useState(null); // match being quick-scored
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
@@ -67,29 +71,40 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
   };
 
   const handleStartLive = async (m) => {
+    // Show mode chooser
+    setPendingStartMatch(m);
+  };
+
+  const handleModeChosen = async (mode) => {
+    const m = pendingStartMatch;
+    setPendingStartMatch(null);
+    if (!m) return;
+
+    const matchData = {
+      supabaseId: m.id,
+      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date, isDemo: false,
+    };
+
+    if (m._isResume) {
+      setLiveMode(mode);
+      setActiveMatch(matchData);
+      return;
+    }
+
     try {
-      // Try to lock
       const locked = await lockMatch(m.id, currentUser.id);
       if (!locked) {
         alert("Another commentator has already started this match.");
         load();
         return;
       }
-      // Update status to live
       await updateScheduledMatch(m.id, { status: 'live' });
       await snapshotRankings(m.id);
-      // Open the live recorder
-      setActiveMatch({
-        supabaseId: m.id,
-        home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
-        away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
-        matchLength: m.match_length || 60,
-        breakFormat: m.break_format || 'quarters',
-        matchType: m.match_type || 'league',
-        venue: m.venue || '',
-        date: m.match_date,
-        isDemo: false,
-      });
+      setLiveMode(mode);
+      setActiveMatch(matchData);
     } catch (err) {
       console.error('Start live error:', err);
       alert('Failed to start match. Please try again.');
@@ -98,18 +113,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
   };
 
   const handleResumeLive = (m) => {
-    // Resume recording — match is already live and locked
-    setActiveMatch({
-      supabaseId: m.id,
-      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
-      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
-      matchLength: m.match_length || 60,
-      breakFormat: m.break_format || 'quarters',
-      matchType: m.match_type || 'league',
-      venue: m.venue || '',
-      date: m.match_date,
-      isDemo: false,
-    });
+    setPendingStartMatch({ ...m, _isResume: true });
   };
 
   const handleCancelLive = async (m) => {
@@ -176,8 +180,18 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
     return game;
   };
 
-  // If recording a live match, show the LiveMatchScreen
+  // If recording a live match, show the appropriate screen
   if (activeMatch) {
+    if (liveMode === 'lite') {
+      return (
+        <LiveLiteScreen
+          match={activeMatch}
+          currentUser={currentUser}
+          onEnd={() => { setActiveMatch(null); setLiveMode(null); load(); }}
+          onPromote={() => setLiveMode('pro')}
+        />
+      );
+    }
     return (
       <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh" }}>
         <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -188,12 +202,15 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
           }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
             ✕ Cancel & Revert
           </button>
+          <button onClick={() => setLiveMode('lite')} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+            ↓ Switch to Live
+          </button>
         </div>
         <LiveMatchScreen
           matchConfig={activeMatch}
           existingMatchId={activeMatch.supabaseId}
           onSaveGame={handleSaveLiveGame}
-          onNavigate={() => { setActiveMatch(null); load(); }}
+          onNavigate={() => { setActiveMatch(null); setLiveMode(null); load(); }}
         />
       </div>
     );
@@ -395,6 +412,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
           <div style={{ marginTop: 8, fontSize: 9, color: "#334155" }}>v{APP_VERSION}</div>
         </div>
       </div>
+      <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)} />
     </div>
   );
 }

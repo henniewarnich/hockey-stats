@@ -7,7 +7,9 @@ import { S, theme } from '../utils/styles.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import NavLogo from '../components/NavLogo.jsx';
+import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
+import LiveLiteScreen from './LiveLiteScreen.jsx';
 
 export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [view, setView] = useState("list"); // list | create | edit
@@ -20,6 +22,8 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   // Live match
   const [activeMatch, setActiveMatch] = useState(null);
+  const [liveMode, setLiveMode] = useState(null); // 'lite' | 'pro'
+  const [pendingStartMatch, setPendingStartMatch] = useState(null);
   // Quick score
   const [quickScoreMatch, setQuickScoreMatch] = useState(null);
   const [homeScore, setHomeScore] = useState(0);
@@ -147,34 +151,46 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   };
 
   // Live match handlers
-  const handleStartLive = async (m) => {
+  const handleStartLive = (m) => {
+    setPendingStartMatch(m);
+  };
+
+  const handleResumeLive = (m) => {
+    setPendingStartMatch({ ...m, _isResume: true });
+  };
+
+  const handleModeChosen = async (mode) => {
+    const m = pendingStartMatch;
+    setPendingStartMatch(null);
+    if (!m) return;
+
+    const matchData = {
+      supabaseId: m.id,
+      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
+      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
+      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
+    };
+
+    if (m._isResume) {
+      setLiveMode(mode);
+      setActiveMatch(matchData);
+      return;
+    }
+
     const locked = await lockMatch(m.id, currentUser.id);
     if (!locked) { alert("Another user has already started this match."); load(); return; }
     await updateScheduledMatch(m.id, { status: 'live' });
     await snapshotRankings(m.id);
-    setActiveMatch({
-      supabaseId: m.id,
-      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
-      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
-      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
-      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
-    });
-  };
-
-  const handleResumeLive = (m) => {
-    setActiveMatch({
-      supabaseId: m.id,
-      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
-      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
-      matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
-      matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date,
-    });
+    setLiveMode(mode);
+    setActiveMatch(matchData);
   };
 
   const handleCancelLive = async (m) => {
     await unlockMatch(m.id, currentUser.id);
     await updateScheduledMatch(m.id, { status: 'upcoming' });
     setActiveMatch(null);
+    setLiveMode(null);
     load();
   };
 
@@ -218,6 +234,16 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   // ── LIVE MATCH VIEW ──
   if (activeMatch) {
+    if (liveMode === 'lite') {
+      return (
+        <LiveLiteScreen
+          match={activeMatch}
+          currentUser={currentUser}
+          onEnd={() => { setActiveMatch(null); setLiveMode(null); load(); }}
+          onPromote={() => setLiveMode('pro')}
+        />
+      );
+    }
     return (
       <div>
         <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -226,8 +252,11 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           }} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
             ✕ Cancel & Revert
           </button>
+          <button onClick={() => setLiveMode('lite')} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+            ↓ Switch to Live
+          </button>
         </div>
-        <LiveMatchScreen matchConfig={activeMatch} existingMatchId={activeMatch.supabaseId} onSaveGame={handleSaveLiveGame} onNavigate={() => { setActiveMatch(null); load(); }} />
+        <LiveMatchScreen matchConfig={activeMatch} existingMatchId={activeMatch.supabaseId} onSaveGame={handleSaveLiveGame} onNavigate={() => { setActiveMatch(null); setLiveMode(null); load(); }} />
       </div>
     );
   }
@@ -481,6 +510,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           </div>
         )}
       </div>
+      <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)} />
     </div>
   );
 }
