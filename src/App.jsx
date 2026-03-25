@@ -42,6 +42,10 @@ function getHashRoute() {
   if (hash === 'login') return { type: 'login' };
   if (hash === 'register') return { type: 'register' };
   if (hash === 'submit') return { type: 'submit' };
+  if (hash.startsWith('submit?')) {
+    const params = new URLSearchParams(hash.split('?')[1]);
+    return { type: 'submit', mode: params.get('mode') };
+  }
   if (hash === 'pending') return { type: 'pending' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
@@ -199,7 +203,7 @@ export default function App() {
     if (!currentUser) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
+    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} initialMode={route.mode || null} />;
   }
 
   // Pending approvals (admin/comm_admin)

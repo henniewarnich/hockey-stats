@@ -452,6 +452,16 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
                 )}
                 </>
               )}
+              {currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Add upcoming match</button>
+                </div>
+              )}
+              {!currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/register'; }} style={{ display: "inline-block", padding: "6px 14px", borderRadius: 6, border: "1px solid #F59E0B44", background: "#F59E0B11", color: "#F59E0B", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Register to add upcoming matches</button>
+                </div>
+              )}
             </div>
             );
           })()}
@@ -495,6 +505,16 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
                   );
                 })
               )}
+              {currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/submit?mode=result'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Add a result</button>
+                </div>
+              )}
+              {!currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/register'; }} style={{ display: "inline-block", padding: "6px 14px", borderRadius: 6, border: "1px solid #F59E0B44", background: "#F59E0B11", color: "#F59E0B", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Register to add past results</button>
+                </div>
+              )}
             </div>
             );
           })()}
@@ -527,6 +547,16 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
                   );
                 })
               )}
+              {currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/submit?mode=team'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Suggest a team</button>
+                </div>
+              )}
+              {!currentUser && (
+                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                  <button onClick={() => { window.location.hash = '#/register'; }} style={{ display: "inline-block", padding: "6px 14px", borderRadius: 6, border: "1px solid #F59E0B44", background: "#F59E0B11", color: "#F59E0B", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Register to add missing teams</button>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -534,24 +564,6 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
 
       {/* Footer */}
       <div style={styles.footer}>
-        {currentUser && (
-          <button onClick={() => { window.location.hash = '#/submit'; }} style={{
-            display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700,
-            color: "#0B0F1A", background: "#F59E0B", border: "none", borderRadius: 8,
-            padding: "10px 20px", marginBottom: 12, cursor: "pointer",
-          }}>
-            ➕ Contribute a Match
-          </button>
-        )}
-        {!currentUser && (
-          <button onClick={() => { window.location.hash = '#/register'; }} style={{
-            display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600,
-            color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 8,
-            padding: "8px 16px", marginBottom: 12, cursor: "pointer",
-          }}>
-            Register to contribute matches
-          </button>
-        )}
         {visitorCount > 0 && (
           <div style={{ fontSize: 10, color: "#64748B", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />

@@ -5,8 +5,8 @@ import { MATCH_TYPES } from '../utils/constants.js';
 
 const TEAM_COLORS = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#64748B'];
 
-export default function CrowdSubmitScreen({ currentUser, onBack }) {
-  const [mode, setMode] = useState(null); // 'result' | 'upcoming' | 'team'
+export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) {
+  const [mode, setMode] = useState(initialMode || null); // 'result' | 'upcoming' | 'team'
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -269,7 +269,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack }) {
             <div style={{ flex: 1 }}>
               <div style={labelStyle}>Type</div>
               <select value={matchType} onChange={e => setMatchType(e.target.value)} style={{ ...inputStyle, appearance: 'auto' }}>
-                {Object.entries(MATCH_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {MATCH_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
           </div>
