@@ -1,9 +1,9 @@
 import { S, theme } from '../utils/styles.js';
 
-export default function CommDashboardPanel() {
+export default function CommDashboardPanel({ onNavigate }) {
   return (
     <div style={{ padding: "0 16px 8px" }}>
-      <div onClick={() => { window.location.hash = '#/record'; }} style={{
+      <div onClick={() => onNavigate?.('match_schedule')} style={{
         ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
       }}>
         <div style={{ fontSize: 24 }}>📅</div>
@@ -12,7 +12,7 @@ export default function CommDashboardPanel() {
           <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>All matches, start live, quick score</div>
         </div>
       </div>
-      <div onClick={() => { window.location.hash = '#/record'; }} style={{
+      <div onClick={() => onNavigate?.('match_setup')} style={{
         ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
       }}>
         <div style={{ fontSize: 24 }}>🎮</div>

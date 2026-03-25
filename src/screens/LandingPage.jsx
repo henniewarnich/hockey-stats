@@ -313,7 +313,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   <AdminDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
                 )}
                 {(role === 'commentator') && (
-                  <CommDashboardPanel currentUser={currentUser} />
+                  <CommDashboardPanel onNavigate={onNavigate || (() => {})} />
                 )}
                 {(role === 'coach') && (
                   <CoachDashboardPanel currentUser={currentUser} />

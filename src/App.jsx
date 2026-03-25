@@ -140,13 +140,13 @@ export default function App() {
   const handleRoleSwitch = (newRole) => {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
-    setCurrentUser(prev => ({ ...prev, role: newRole }));
+    // Set hash + route synchronously BEFORE updating user role to avoid race condition
+    const isAdmin = newRole === 'admin' || newRole === 'commentator_admin';
+    const newHash = isAdmin ? '#/admin' : '';
+    window.location.hash = newHash;
+    setRoute(getHashRoute());
     setScreen("home");
-    if (['admin', 'commentator_admin', 'commentator'].includes(newRole)) {
-      window.location.hash = '#/admin';
-    } else {
-      window.location.hash = '';
-    }
+    setCurrentUser(prev => ({ ...prev, role: newRole }));
   };
 
   // ── PASSWORD RECOVERY ──
@@ -177,7 +177,7 @@ export default function App() {
   if (route.type === 'login') {
     if (currentUser) {
       // Already logged in — redirect to landing (dashboard tab auto-selects)
-      const target = currentUser.role === 'admin' || currentUser.role === 'commentator_admin' ? '#/admin' : '#/';
+      const target = ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role) ? '#/admin' : '#/';
       if (window.location.hash !== target) {
         window.location.hash = target;
         return <LoginPage onLogin={handleLogin} />;
