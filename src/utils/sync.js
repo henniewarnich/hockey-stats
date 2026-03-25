@@ -493,3 +493,126 @@ export async function fetchLatestRankings() {
   }
   return result;
 }
+
+// ─── CROWD SUBMISSIONS ──────────────────────────────
+
+// Submit a pending result (crowd user)
+export async function submitCrowdResult({ homeTeamId, awayTeamId, homeScore, awayScore, matchDate, venue, matchType, submittedBy }) {
+  const { data, error } = await supabase
+    .from('matches')
+    .insert({
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      home_score: homeScore || 0,
+      away_score: awayScore || 0,
+      match_date: matchDate,
+      venue: venue || null,
+      match_type: matchType || 'league',
+      status: 'pending',
+      submitted_by: submittedBy,
+      submitted_type: 'crowd',
+    })
+    .select()
+    .single();
+
+  if (error) { console.error('Submit crowd result error:', error); return null; }
+  await logAudit('crowd_submit_result', 'match', data.id, { homeTeamId, awayTeamId, homeScore, awayScore });
+  return data;
+}
+
+// Submit a pending upcoming match (crowd user)
+export async function submitCrowdUpcoming({ homeTeamId, awayTeamId, matchDate, scheduledTime, venue, matchType, submittedBy }) {
+  const { data, error } = await supabase
+    .from('matches')
+    .insert({
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      match_date: matchDate,
+      scheduled_time: scheduledTime || null,
+      venue: venue || null,
+      match_type: matchType || 'league',
+      status: 'pending',
+      submitted_by: submittedBy,
+      submitted_type: 'crowd',
+    })
+    .select()
+    .single();
+
+  if (error) { console.error('Submit crowd upcoming error:', error); return null; }
+  await logAudit('crowd_submit_upcoming', 'match', data.id, { homeTeamId, awayTeamId, matchDate });
+  return data;
+}
+
+// Suggest a new team (crowd user)
+export async function suggestTeam({ name, color, suggestedBy }) {
+  const { data, error } = await supabase
+    .from('teams')
+    .insert({
+      name: name.trim(),
+      color: color || '#64748B',
+      status: 'pending',
+      suggested_by: suggestedBy,
+    })
+    .select()
+    .single();
+
+  if (error) { console.error('Suggest team error:', error); return null; }
+  await logAudit('crowd_suggest_team', 'team', data.id, { name });
+  return data;
+}
+
+// Fetch pending items for approval
+export async function fetchPending() {
+  const [{ data: pendingMatches }, { data: pendingTeams }] = await Promise.all([
+    supabase.from('matches')
+      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), submitter:profiles!submitted_by(firstname, lastname, alias_nickname)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
+    supabase.from('teams')
+      .select('*, suggester:profiles!suggested_by(firstname, lastname, alias_nickname)')
+      .eq('status', 'pending')
+      .order('name'),
+  ]);
+  return { pendingMatches: pendingMatches || [], pendingTeams: pendingTeams || [] };
+}
+
+// Approve a pending match
+export async function approvePendingMatch(matchId, approverId, newStatus = 'ended') {
+  const { error } = await supabase.rpc('approve_match', {
+    p_match_id: matchId,
+    p_approver_id: approverId,
+    p_new_status: newStatus,
+  });
+  if (error) console.error('Approve match error:', error);
+  return !error;
+}
+
+// Reject a pending match
+export async function rejectPendingMatch(matchId, userId) {
+  const { error } = await supabase.rpc('reject_match', {
+    p_match_id: matchId,
+    p_user_id: userId,
+  });
+  if (error) console.error('Reject match error:', error);
+  return !error;
+}
+
+// Approve a pending team
+export async function approvePendingTeam(teamId, approverId) {
+  const { error } = await supabase.rpc('approve_team', {
+    p_team_id: teamId,
+    p_approver_id: approverId,
+  });
+  if (error) console.error('Approve team error:', error);
+  return !error;
+}
+
+// Reject a pending team
+export async function rejectPendingTeam(teamId, approverId) {
+  const { error } = await supabase.rpc('reject_team', {
+    p_team_id: teamId,
+    p_approver_id: approverId,
+  });
+  if (error) console.error('Reject team error:', error);
+  return !error;
+}

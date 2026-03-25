@@ -25,6 +25,8 @@ import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 import CoachDashboard from './screens/CoachDashboard.jsx';
 import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
 import RegisterPage from './screens/RegisterPage.jsx';
+import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
+import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 
 function getHashRoute() {
@@ -39,6 +41,8 @@ function getHashRoute() {
   if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'login') return { type: 'login' };
   if (hash === 'register') return { type: 'register' };
+  if (hash === 'submit') return { type: 'submit' };
+  if (hash === 'pending') return { type: 'pending' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -52,6 +56,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
   const store = useMatchStore();
 
   // Listen for hash changes
@@ -63,6 +68,10 @@ export default function App() {
 
   // Check for existing session on mount
   useEffect(() => {
+    // Detect email confirmation redirect (Supabase puts tokens in hash)
+    const hashParams = window.location.hash;
+    const isEmailConfirmation = hashParams.includes('type=signup') || hashParams.includes('type=email');
+
     const checkSession = async () => {
       const session = await getSession();
       if (session) {
@@ -74,6 +83,13 @@ export default function App() {
             profile.role = savedRole;
           }
           setCurrentUser(profile);
+
+          if (isEmailConfirmation) {
+            setEmailConfirmed(true);
+            // Clean the hash to remove tokens
+            window.location.hash = '';
+            setTimeout(() => setEmailConfirmed(false), 5000);
+          }
         }
       }
       setAuthLoading(false);
@@ -146,7 +162,7 @@ export default function App() {
   }
 
   if (route.type === 'landing') {
-    return <LandingPage />;
+    return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed} />;
   }
 
   if (route.type === 'login') {
@@ -176,6 +192,22 @@ export default function App() {
         Loading...
       </div>
     );
+  }
+
+  // Crowd submit area
+  if (route.type === 'submit') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
+  }
+
+  // Pending approvals (admin/comm_admin)
+  if (route.type === 'pending') {
+    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <PendingApprovalsScreen currentUser={currentUser} onBack={() => { window.location.hash = '#/admin'; }} />;
   }
 
   // Commentator recorder
@@ -214,7 +246,7 @@ export default function App() {
     );
   }
 
-  return <LandingPage />;
+  return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed} />;
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
@@ -290,6 +322,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "rankings":
       return <RankingsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
+
+    case "pending":
+      return <PendingApprovalsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

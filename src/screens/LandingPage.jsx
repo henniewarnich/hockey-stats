@@ -5,7 +5,7 @@ import { parseSAST, parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import RankBadge from '../components/RankBadge.jsx';
 
-export default function LandingPage() {
+export default function LandingPage({ currentUser, onLogout, emailConfirmed }) {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
@@ -52,7 +52,7 @@ export default function LandingPage() {
     const load = async () => {
       try {
         const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }] = await Promise.all([
-          supabase.from('teams').select('*').order('name'),
+          supabase.from('teams').select('*').eq('status', 'active').order('name'),
           supabase.from('matches')
             .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
             .eq('status', 'ended')
@@ -187,10 +187,32 @@ export default function LandingPage() {
             </svg>
             <div style={styles.logo}>kykie</div>
           </div>
-          <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
+          {currentUser ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 10, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+              <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "#EF444411", border: "1px solid #EF444444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Sign out</button>
+            </div>
+          ) : (
+            <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
+          )}
         </div>
         <div style={{ ...styles.tagline, textAlign: "center" }}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
       </div>
+
+      {/* Email confirmation banner */}
+      {emailConfirmed && (
+        <div style={{
+          margin: "0 16px 8px", padding: "12px 16px", borderRadius: 10,
+          background: "#10B98122", border: "1px solid #10B98144",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: 18 }}>✅</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#10B981" }}>Email verified!</div>
+            <div style={{ fontSize: 11, color: "#94A3B8" }}>Your account is active. Welcome to kykie!</div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky tabs + search */}
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
@@ -277,6 +299,24 @@ export default function LandingPage() {
               (m.away_team?.name || "").toLowerCase().includes(q) ||
               (m.venue || "").toLowerCase().includes(q)
             ) : liveMatches;
+
+            // Gate: must be logged in to view live matches
+            if (!currentUser && filtered.length > 0) {
+              return (
+                <div style={styles.section}>
+                  <div style={{ textAlign: "center", padding: 30 }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{filtered.length} live {filtered.length === 1 ? 'match' : 'matches'} right now</div>
+                    <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Sign in or register to watch live</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                      <button onClick={() => { window.location.hash = "#/login"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sign In</button>
+                      <button onClick={() => { window.location.hash = "#/register"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #334155", background: "none", color: "#94A3B8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Register</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
@@ -482,6 +522,24 @@ export default function LandingPage() {
 
       {/* Footer */}
       <div style={styles.footer}>
+        {currentUser && (
+          <button onClick={() => { window.location.hash = '#/submit'; }} style={{
+            display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700,
+            color: "#0B0F1A", background: "#F59E0B", border: "none", borderRadius: 8,
+            padding: "10px 20px", marginBottom: 12, cursor: "pointer",
+          }}>
+            ➕ Contribute a Match
+          </button>
+        )}
+        {!currentUser && (
+          <button onClick={() => { window.location.hash = '#/register'; }} style={{
+            display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600,
+            color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 8,
+            padding: "8px 16px", marginBottom: 12, cursor: "pointer",
+          }}>
+            Register to contribute matches
+          </button>
+        )}
         {visitorCount > 0 && (
           <div style={{ fontSize: 10, color: "#64748B", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />

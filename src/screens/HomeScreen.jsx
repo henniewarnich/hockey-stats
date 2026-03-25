@@ -6,10 +6,16 @@ import RoleSwitcher from '../components/RoleSwitcher.jsx';
 
 export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'upcoming')
       .then(({ count }) => setScheduledCount(count || 0));
+    // Fetch pending count for admin badge
+    Promise.all([
+      supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('teams').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]).then(([{ count: mc }, { count: tc }]) => setPendingCount((mc || 0) + (tc || 0)));
   }, []);
 
   const handleClearCache = () => {
@@ -59,6 +65,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
           ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
             ["users", "🔑", "Users", "Manage user accounts"],
             ["rankings", "🏆", "Rankings", "Manage team rankings"],
+            ["pending", "📋", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
           ] : []),
         ].map(([screen, icon, title, sub]) => (
           <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => onNavigate(screen)}>
