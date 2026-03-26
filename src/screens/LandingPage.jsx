@@ -173,6 +173,18 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
   const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
 
+  // "In Progress" = upcoming matches whose kickoff has passed but estimated end hasn't
+  const now = Date.now();
+  const inProgressUpcoming = upcomingMatches.filter(m => {
+    if (!m.scheduled_time) return false;
+    const kickoff = parseSAST(m.match_date, m.scheduled_time).getTime();
+    const duration = (m.match_length || 60) + 15; // match + buffer
+    return now >= kickoff && now <= kickoff + duration * 60000;
+  });
+  // Combined: live matches + in-progress upcoming (deduplicated by id)
+  const liveIds = new Set(liveMatches.map(m => m.id));
+  const allInProgress = [...liveMatches, ...inProgressUpcoming.filter(m => !liveIds.has(m.id))];
+
   const resultBadge = (m, teamId) => {
     const isHome = m.home_team?.id === teamId;
     const my = isHome ? m.home_score : m.away_score;
@@ -267,20 +279,20 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         <div style={{ padding: "0 16px 6px" }}>
           <div style={{ display: "flex", gap: 0, justifyContent: "center", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "0 auto" }}>
             {[
-              ...(currentUser ? [{ id: "dashboard", label: "Dashboard", color: "#8B5CF6" }] : []),
-              { id: "live", label: "Live", count: liveMatches.length, color: "#10B981", dot: true },
+              ...(currentUser ? [{ id: "dashboard", label: "Home" }] : []),
+              { id: "live", label: "Live", count: allInProgress.length, dot: liveMatches.length > 0 },
               { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
               { id: "results", label: "Results", count: resultsCount },
               { id: "teams", label: "Teams", count: teams.length },
             ].map(t => (
               <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
                 flex: 1, padding: "6px 0", textAlign: "center", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
-                background: activeTab === t.id ? (t.color ? t.color + "22" : "#33415577") : "#1E293B",
-                color: activeTab === t.id ? (t.color || "#F8FAFC") : "#64748B",
+                background: activeTab === t.id ? "#10B98122" : "#1E293B",
+                color: activeTab === t.id ? "#10B981" : "#64748B",
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, display: "inline-block", animation: "pulse 2s infinite" }} />}
+                  {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10B981", display: "inline-block", animation: "pulse 2s infinite" }} />}
                   {t.label}
                 </div>
                 {t.count > 0 && <div style={{ fontSize: 9, opacity: 0.7 }}>({t.count})</div>}
@@ -366,28 +378,49 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             );
           })()}
 
-          {/* ═══ LIVE TAB ═══ */}
+          {/* ═══ IN PROGRESS TAB ═══ */}
           {activeTab === "live" && (() => {
             const q = search.trim().toLowerCase();
-            const filtered = q ? liveMatches.filter(m =>
+            const filtered = q ? allInProgress.filter(m =>
               (m.home_team?.name || "").toLowerCase().includes(q) ||
               (m.away_team?.name || "").toLowerCase().includes(q) ||
               (m.venue || "").toLowerCase().includes(q)
-            ) : liveMatches;
+            ) : allInProgress;
 
             // Gate: must be logged in to view live matches
-            if (!currentUser && filtered.length > 0) {
+            const liveFiltered = filtered.filter(m => m.status === 'live');
+            if (!currentUser && liveFiltered.length > 0) {
               return (
                 <div style={styles.section}>
                   <div style={{ textAlign: "center", padding: 30 }}>
                     <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{filtered.length} live {filtered.length === 1 ? 'match' : 'matches'} right now</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{liveFiltered.length} live {liveFiltered.length === 1 ? 'match' : 'matches'} right now</div>
                     <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Register to view live matches</div>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                       <button onClick={() => { window.location.hash = "#/login"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sign In</button>
                       <button onClick={() => { window.location.hash = "#/register"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #334155", background: "none", color: "#94A3B8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Register</button>
                     </div>
                   </div>
+                  {/* Still show non-live in-progress below the gate */}
+                  {filtered.filter(m => m.status !== 'live').map(m => {
+                    const d = parseSASTDate(m.match_date);
+                    return (
+                      <div key={m.id} style={{ ...styles.scoreCard, border: "1px solid #F59E0B33", background: "#F59E0B08", opacity: 0.7 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 7, background: "#F59E0B22", border: "1.5px solid #F59E0B33", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span style={{ fontSize: 12 }}>🏑</span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                          <div style={styles.matchMeta}>
+                            {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                            {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                            {m.venue && ` · ${m.venue}`}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700 }}>In progress</div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }
@@ -396,28 +429,59 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             <div style={styles.section}>
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
-                  {q ? "No matches found" : "No live matches right now"}
+                  {q ? "No matches found" : "No matches in progress"}
                   {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to view live matches</button></div>}
                 </div>
               ) : (
                 filtered.map(m => {
+                  const isLive = m.status === 'live';
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  const d = parseSASTDate(m.match_date);
                   return (
-                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}`; }}
-                      style={{ ...styles.scoreCard, border: "1px solid #10B98133", background: "#10B98108", cursor: "pointer" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 7, background: "#10B98122", border: "1.5px solid #10B98144", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
+                    <div key={m.id}
+                      onClick={isLive ? () => { window.location.hash = `#/team/${homeSlug}`; } : undefined}
+                      style={{
+                        ...styles.scoreCard,
+                        border: isLive ? "1px solid #10B98133" : "1px solid #F59E0B33",
+                        background: isLive ? "#10B98108" : "#F59E0B08",
+                        cursor: isLive ? "pointer" : "default",
+                      }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 7,
+                        background: isLive ? "#10B98122" : "#F59E0B22",
+                        border: isLive ? "1.5px solid #10B98144" : "1.5px solid #F59E0B33",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {isLive ? (
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
+                        ) : (
+                          <span style={{ fontSize: 12 }}>🏑</span>
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
                         <div style={styles.matchMeta}>
-                          {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
-                          {liveMatchViewers[m.id] > 0 && (
-                            <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
+                          {isLive ? (
+                            <>
+                              {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
+                              {liveMatchViewers[m.id] > 0 && (
+                                <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                              {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                              {m.venue && ` · ${m.venue}`}
+                            </>
                           )}
                         </div>
                       </div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
+                      {isLive ? (
+                        <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
+                      ) : (
+                        <div style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700 }}>In progress</div>
+                      )}
                     </div>
                   );
                 })
@@ -528,8 +592,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 </>
               )}
               {currentUser && (
-                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                <div style={{ textAlign: "center", padding: "12px 0 4px", display: "flex", justifyContent: "center", gap: 8 }}>
                   <button onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Add upcoming match</button>
+                  <button onClick={() => { window.location.hash = '#/issues'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: "transparent", color: "#EF4444", fontSize: 11, fontWeight: 700, border: "1px solid #EF444444", cursor: "pointer" }}>Report issue</button>
                 </div>
               )}
               {!currentUser && (
@@ -582,8 +647,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 </div>
               )}
               {currentUser && (
-                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                <div style={{ textAlign: "center", padding: "12px 0 4px", display: "flex", justifyContent: "center", gap: 8 }}>
                   <button onClick={() => { window.location.hash = '#/submit?mode=result'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Add a result</button>
+                  <button onClick={() => { window.location.hash = '#/issues'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: "transparent", color: "#EF4444", fontSize: 11, fontWeight: 700, border: "1px solid #EF444444", cursor: "pointer" }}>Report issue</button>
                 </div>
               )}
               {!currentUser && (
@@ -624,8 +690,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 })
               )}
               {currentUser && (
-                <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
+                <div style={{ textAlign: "center", padding: "12px 0 4px", display: "flex", justifyContent: "center", gap: 8 }}>
                   <button onClick={() => { window.location.hash = '#/submit?mode=team'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>+ Suggest a team</button>
+                  <button onClick={() => { window.location.hash = '#/issues'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: "transparent", color: "#EF4444", fontSize: 11, fontWeight: 700, border: "1px solid #EF444444", cursor: "pointer" }}>Report issue</button>
                 </div>
               )}
               {!currentUser && (
