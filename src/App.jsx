@@ -33,6 +33,7 @@ import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
+import ContributorScreen from './screens/ContributorScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -68,7 +69,15 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const store = useMatchStore();
+
+  // Check maintenance mode on load
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'maintenance_mode').single()
+      .then(({ data }) => { if (data?.value === 'true') setMaintenanceMode(true); })
+      .catch(() => {});
+  }, []);
 
   // Listen for hash changes
   useEffect(() => {
@@ -160,6 +169,39 @@ export default function App() {
     }} />;
   }
 
+  // ── MAINTENANCE MODE ──
+  // Admin/CommAdmin bypass maintenance to toggle it off
+  if (maintenanceMode && !['admin', 'commentator_admin'].includes(currentUser?.role)) {
+    return (
+      <div style={{
+        fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto",
+        background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        textAlign: "center", padding: "0 20px",
+      }}>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <svg width="56" height="56" viewBox="0 0 56 56" style={{ marginBottom: 16 }}>
+          <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+          <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+          <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+        <div style={{ fontSize: 24, fontWeight: 900, color: "#F59E0B", marginBottom: 8 }}>kykie</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>We're upgrading!</div>
+        <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 24, lineHeight: 1.6 }}>
+          kykie is being upgraded with new features.<br />
+          We'll be back in a couple of minutes.
+        </div>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155", overflow: "hidden" }}>
+          <div style={{ width: "60%", height: "100%", background: "#F59E0B", borderRadius: 2, animation: "loading 1.5s ease-in-out infinite alternate" }} />
+        </div>
+        <div style={{ fontSize: 10, color: "#475569", marginTop: 16 }}>v{APP_VERSION}</div>
+        <style>{`@keyframes loading { from { width: 20%; margin-left: 0; } to { width: 60%; margin-left: 40%; } }`}</style>
+      </div>
+    );
+  }
+
   // ── PUBLIC ROUTES (no auth needed) ──
 
   if (route.type === 'team') {
@@ -228,7 +270,7 @@ export default function App() {
 
   // Commentator recorder
   if (route.type === 'record') {
-    if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
+    if (!currentUser || !['admin', 'commentator_admin', 'commentator', 'crowd'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     // Team-specific — old commentator page (kept for backward compat)
@@ -394,6 +436,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "sponsors":
       return <SponsorManagementScreen onBack={() => navigate("home")} />;
+
+    case "contributors":
+      return <ContributorScreen onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

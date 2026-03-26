@@ -1,7 +1,8 @@
 import { theme } from '../utils/styles.js';
 
-export default function LiveModeChooser({ show, onSelect, onClose }) {
+export default function LiveModeChooser({ show, onSelect, onClose, allowedModes }) {
   if (!show) return null;
+  const modes = allowedModes || ['lite', 'pro'];
 
   return (
     <div
@@ -17,9 +18,12 @@ export default function LiveModeChooser({ show, onSelect, onClose }) {
       }}>
         <div style={{ textAlign: "center", marginBottom: 14 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#F8FAFC" }}>Choose recording mode</div>
-          <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>You can switch within the first 5 minutes</div>
+          <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
+            {modes.length === 1 ? `You'll be using ${modes[0] === 'lite' ? 'Live' : 'Live Pro'} mode` : 'You can switch within the first 5 minutes'}
+          </div>
         </div>
 
+        {modes.includes('lite') && (
         <button onClick={() => onSelect('lite')} style={{
           width: "100%", padding: 14, borderRadius: 10,
           border: "1px solid #10B98144", background: "#10B98111",
@@ -33,7 +37,9 @@ export default function LiveModeChooser({ show, onSelect, onClose }) {
             <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>Simple tap scoring — goals, attacks, corners</div>
           </div>
         </button>
+        )}
 
+        {modes.includes('pro') && (
         <button onClick={() => onSelect('pro')} style={{
           width: "100%", padding: 14, borderRadius: 10,
           border: "1px solid #8B5CF644", background: "#8B5CF611",
@@ -47,6 +53,7 @@ export default function LiveModeChooser({ show, onSelect, onClose }) {
             <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>Full field recorder with zones and positions</div>
           </div>
         </button>
+        )}
 
         <button onClick={onClose} style={{
           width: "100%", marginTop: 4, padding: 8, borderRadius: 8,

@@ -41,6 +41,8 @@ export default function SystemHealthScreen({ onBack }) {
   const [archiving, setArchiving] = useState(false);
   const [archiveResult, setArchiveResult] = useState(null);
   const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [togglingMaintenance, setTogglingMaintenance] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -98,6 +100,10 @@ export default function SystemHealthScreen({ onBack }) {
       // Rough estimate: match_events ~200 bytes/row, others ~500 bytes/row avg
       const estBytes = (counts.match_events || 0) * 200 + (totalRows - (counts.match_events || 0)) * 500;
       setDbSize({ totalRows, estMB: Math.round(estBytes / 1024 / 1024) });
+
+      // Maintenance mode
+      const { data: maint } = await supabase.from('site_settings').select('value').eq('key', 'maintenance_mode').single();
+      if (maint) setMaintenanceMode(maint.value === 'true');
 
       setLoading(false);
     };
@@ -271,6 +277,40 @@ export default function SystemHealthScreen({ onBack }) {
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#10B981', marginRight: 6 }} />Green: within safe limits</div>
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#F59E0B', marginRight: 6 }} />Amber: approaching limits — monitor</div>
             <div><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: '#EF4444', marginRight: 6 }} />Red: action needed (prune / upgrade)</div>
+          </div>
+
+          {/* Maintenance Mode */}
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Maintenance mode</div>
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: maintenanceMode ? '#EF4444' : '#10B981' }}>
+                  {maintenanceMode ? '🔴 Maintenance ON' : '🟢 Site is live'}
+                </div>
+                <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                  {maintenanceMode ? 'Public users see upgrade page. Admins can still access.' : 'All users can access the site normally.'}
+                </div>
+              </div>
+              <button
+                disabled={togglingMaintenance}
+                onClick={async () => {
+                  const next = !maintenanceMode;
+                  if (next && !confirm('Enable maintenance mode? Public users will see an upgrade page.')) return;
+                  setTogglingMaintenance(true);
+                  await supabase.from('site_settings').update({ value: String(next), updated_at: new Date().toISOString() }).eq('key', 'maintenance_mode');
+                  setMaintenanceMode(next);
+                  setTogglingMaintenance(false);
+                }}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  background: maintenanceMode ? '#10B981' : '#EF444422',
+                  color: maintenanceMode ? '#fff' : '#EF4444',
+                  opacity: togglingMaintenance ? 0.5 : 1,
+                }}
+              >
+                {togglingMaintenance ? '...' : maintenanceMode ? 'Go live' : 'Enable'}
+              </button>
+            </div>
           </div>
 
           {/* Archive & Prune */}

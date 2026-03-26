@@ -30,6 +30,7 @@ export default function AdminDashboardPanel({ onNavigate, currentUser }) {
       ["pending", "📋", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
       ["health", "🩺", "System Health", "Database, users & activity"],
       ["sponsors", "🤝", "Sponsors", "Manage sponsor placements"],
+      ["contributors", "🏅", "Contributors", "Tiers, credits & rewards"],
     ] : []),
   ];
 

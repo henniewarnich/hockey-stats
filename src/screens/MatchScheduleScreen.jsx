@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
 import { listUsersByRole } from '../utils/auth.js';
+import { getContributorStats } from '../utils/credits.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
@@ -46,11 +47,19 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [editMatch, setEditMatch] = useState(null);
   const [matchComms, setMatchComms] = useState({}); // matchId -> [commentator profiles]
   const [latestRankings, setLatestRankings] = useState({});
+  const [crowdTier, setCrowdTier] = useState(null); // for crowd users: 'apprentice' | 'graduate' | 'veteran'
 
   const ml = parseInt(matchLength) || 60;
   const inputStyle = { width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
 
   useEffect(() => { load(); }, []);
+
+  // Fetch crowd contributor tier
+  useEffect(() => {
+    if (currentUser?.role === 'crowd') {
+      getContributorStats(currentUser.id).then(s => setCrowdTier(s?.tier || 'apprentice')).catch(() => {});
+    }
+  }, [currentUser]);
 
   // Auto-start demo if flagged from Dashboard
   useEffect(() => {
@@ -525,9 +534,13 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                     <div style={{ fontSize: 9, color: "#EF4444" }}>🔒 Started by another user</div>
                   ) : (
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => handleStartLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#F59E0B", color: "#0B0F1A", cursor: "pointer" }}>🏑 Start Live</button>
+                      {(currentUser?.role !== 'crowd' || crowdTier === 'graduate' || crowdTier === 'veteran') && (
+                        <button onClick={() => handleStartLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#F59E0B", color: "#0B0F1A", cursor: "pointer" }}>🏑 Start Live</button>
+                      )}
                       <button onClick={() => handleQuickScore(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>💾 Quick Score</button>
-                      <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
+                      {currentUser?.role !== 'crowd' && (
+                        <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
+                      )}
                       {(currentUser?.role === 'admin' || m.created_by === currentUser?.id) && (
                         <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>🗑</button>
                       )}
@@ -548,7 +561,8 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       <div style={{ textAlign: "center", padding: "12px 16px 20px" }}>
         <button onClick={handleStartDemo} style={{ background: "none", border: "1px solid #8B5CF644", borderRadius: 8, padding: "6px 16px", color: "#8B5CF6", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>🎮 Demo Match</button>
       </div>
-      <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)} />
+      <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)}
+        allowedModes={currentUser?.role === 'crowd' ? (crowdTier === 'veteran' ? ['lite', 'pro'] : crowdTier === 'graduate' ? ['lite'] : []) : ['lite', 'pro']} />
     </div>
   );
 }

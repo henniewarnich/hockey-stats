@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { fetchPending, approvePendingMatch, rejectPendingMatch, approvePendingTeam, rejectPendingTeam } from '../utils/sync.js';
+import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLiveMatchRejected } from '../utils/credits.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import NavLogo from '../components/NavLogo.jsx';
 
@@ -38,18 +39,30 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
 
   useEffect(() => { load(); }, []);
 
-  const handleApproveMatch = async (matchId, asUpcoming) => {
-    setActionLoading(matchId);
-    await approvePendingMatch(matchId, currentUser.id, asUpcoming ? 'upcoming' : 'ended');
-    setPendingMatches(prev => prev.filter(m => m.id !== matchId));
+  const handleApproveMatch = async (match, asUpcoming) => {
+    setActionLoading(match.id);
+    await approvePendingMatch(match.id, currentUser.id, asUpcoming ? 'upcoming' : 'ended');
+    // Award credits if crowd submission
+    if (match.submitted_by && match.submitted_type === 'crowd') {
+      const isLive = match.duration && match.duration > 0;
+      if (isLive) await onLiveMatchApproved(match.submitted_by, match.id);
+      else await onQuickScoreApproved(match.submitted_by, match.id);
+    }
+    setPendingMatches(prev => prev.filter(m => m.id !== match.id));
     setActionLoading(null);
   };
 
-  const handleRejectMatch = async (matchId) => {
+  const handleRejectMatch = async (match) => {
     if (!confirm('Reject this submission?')) return;
-    setActionLoading(matchId);
-    await rejectPendingMatch(matchId, currentUser.id);
-    setPendingMatches(prev => prev.filter(m => m.id !== matchId));
+    setActionLoading(match.id);
+    await rejectPendingMatch(match.id, currentUser.id);
+    // Deduct credits if crowd submission
+    if (match.submitted_by && match.submitted_type === 'crowd') {
+      const isLive = match.duration && match.duration > 0;
+      if (isLive) await onLiveMatchRejected(match.submitted_by, match.id);
+      else await onQuickScoreRejected(match.submitted_by, match.id);
+    }
+    setPendingMatches(prev => prev.filter(m => m.id !== match.id));
     setActionLoading(null);
   };
 
@@ -241,11 +254,11 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => handleApproveMatch(m.id, !isResult)} disabled={actionLoading === m.id}
+                      <button onClick={() => handleApproveMatch(m, !isResult)} disabled={actionLoading === m.id}
                         style={{ flex: 1, padding: 8, borderRadius: 6, border: 'none', background: '#10B981', color: '#F8FAFC', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                         {actionLoading === m.id ? '...' : `✓ Approve as ${isResult ? 'Result' : 'Upcoming'}`}
                       </button>
-                      <button onClick={() => handleRejectMatch(m.id)} disabled={actionLoading === m.id}
+                      <button onClick={() => handleRejectMatch(m)} disabled={actionLoading === m.id}
                         style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #EF444444', background: 'none', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                         ✕
                       </button>
