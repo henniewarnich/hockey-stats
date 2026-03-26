@@ -27,6 +27,7 @@ import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
 import RegisterPage from './screens/RegisterPage.jsx';
 import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
+import IssuesScreen from './screens/IssuesScreen.jsx';
 import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
 import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import LiveModeChooser from './components/LiveModeChooser.jsx';
@@ -51,6 +52,7 @@ function getHashRoute() {
     return { type: 'submit', mode: params.get('mode') };
   }
   if (hash === 'pending') return { type: 'pending' };
+  if (hash === 'issues') return { type: 'issues' };
   if (hash === 'health') return { type: 'health' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
@@ -214,6 +216,14 @@ export default function App() {
       return <LoginPage onLogin={handleLogin} />;
     }
     return <PendingApprovalsScreen currentUser={currentUser} onBack={() => { window.location.hash = '#/admin'; }} />;
+  }
+
+  // Issues (any authenticated user)
+  if (route.type === 'issues') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <IssuesScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
   }
 
   // Commentator recorder

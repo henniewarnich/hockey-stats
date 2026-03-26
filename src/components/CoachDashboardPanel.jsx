@@ -25,7 +25,7 @@ export default function CoachDashboardPanel({ currentUser }) {
           .or(teamIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
 
         const recs = {};
-        (matches || []).filter(m => m.match_type !== 'friendly').forEach(m => {
+        (matches || []).forEach(m => {
           teamIds.forEach(id => {
             if (m.home_team_id !== id && m.away_team_id !== id) return;
             if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0 };

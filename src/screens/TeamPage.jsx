@@ -168,6 +168,41 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
   const [loadingStats, setLoadingStats] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
+  const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
+
+  // Fetch opposition records for upcoming matches (coach scouting)
+  useEffect(() => {
+    if (!team || upcomingMatches.length === 0) return;
+    const oppIds = [...new Set(upcomingMatches.map(m =>
+      m.home_team_id === team.id ? m.away_team_id : m.home_team_id
+    ).filter(Boolean))];
+    // Include own team
+    const allIds = [...new Set([team.id, ...oppIds])];
+    if (allIds.length === 0) return;
+    supabase.from('matches')
+      .select('home_team_id, away_team_id, home_score, away_score, match_type')
+      .eq('status', 'ended')
+      .or(allIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+      .then(({ data }) => {
+        const recs = {};
+        (data || []).forEach(m => {
+          allIds.forEach(id => {
+            if (m.home_team_id !== id && m.away_team_id !== id) return;
+            if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+            const isHome = m.home_team_id === id;
+            const my = isHome ? m.home_score : m.away_score;
+            const their = isHome ? m.away_score : m.home_score;
+            recs[id].p++;
+            recs[id].gf += my;
+            recs[id].ga += their;
+            if (my > their) recs[id].w++;
+            else if (my === their) recs[id].d++;
+            else recs[id].l++;
+          });
+        });
+        setOppRecords(recs);
+      });
+  }, [team, upcomingMatches]);
   const { counts, myReactions, toggleReaction, loadReactions } = useReactions(liveMatch?.id || selectedMatch?.id);
 
   // Ensure contrasting team colors for live and selected matches
@@ -468,9 +503,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     </div>
   );
 
-  // Season stats (exclude friendlies)
-  const statsMatches = matches.filter(m => m.match_type !== 'friendly');
-  const seasonStats = statsMatches.reduce((s, m) => {
+  // Season stats (all matches)
+  const seasonStats = matches.reduce((s, m) => {
     const isHome = m.home_team?.id === team.id;
     const my = isHome ? m.home_score : m.away_score;
     const their = isHome ? m.away_score : m.home_score;
@@ -583,7 +617,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               background: tab === "overall" ? "#334155" : "#1E293B", color: tab === "overall" ? "#F8FAFC" : "#64748B",
             }}>Overall</button>
           )}
-          {!isCoach && upcomingMatches.length > 0 && (
+          {upcomingMatches.length > 0 && (
             <button onClick={() => setTab("upcoming")} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
               background: tab === "upcoming" ? "#F59E0B22" : "#1E293B", color: tab === "upcoming" ? "#F59E0B" : "#64748B",
@@ -740,31 +774,90 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               const isHome = m.home_team?.id === team.id;
               const opp = isHome ? m.away_team : m.home_team;
               const d = parseSASTDate(m.match_date);
+              // Countdown
+              const countdown = (() => {
+                if (!m.scheduled_time) return null;
+                const kickoff = parseSAST(m.match_date, m.scheduled_time);
+                const diff = kickoff - new Date();
+                if (diff <= 0) return { text: "Now", color: "#10B981" };
+                const mins = Math.floor(diff / 60000);
+                const hours = Math.floor(mins / 60);
+                const days = Math.floor(hours / 24);
+                if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
+                if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
+                return { text: `${mins}m`, color: "#EF4444" };
+              })();
+              const homeTeam = m.home_team;
+              const awayTeam = m.away_team;
+              const teamSlugNav = (name) => name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') || '';
               return (
-                <div key={m.id} style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4,
-                  background: "#1E293B", borderRadius: 10, border: "1px solid #334155",
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8, background: "#F59E0B11", border: "1.5px solid #F59E0B33",
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: "#F59E0B", lineHeight: 1 }}>{d.getDate()}</div>
-                    <div style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
-                      {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} {(() => { const r = latestRankings[opp?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                <div key={m.id} style={{ background: "#1E293B", borderRadius: 10, padding: 12, marginBottom: 6, border: "1px solid #33415544" }}>
+                  {/* Match header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: isCoach ? 8 : 0 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 7, background: "#0B0F1A",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, color: "#F59E0B" }}>{d.getDate()}</div>
+                      <div style={{ fontSize: 7, fontWeight: 700, color: "#64748B", marginTop: -1, textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                     </div>
-                    <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
-                      {d.toLocaleDateString("en-ZA", { weekday: "short" })}
-                      {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                      {m.venue && ` · ${m.venue}`}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
+                        {homeTeam?.name} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {' vs '}
+                        {awayTeam?.name} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#64748B", marginTop: 1 }}>
+                        {d.toLocaleDateString("en-ZA", { weekday: "short" })}
+                        {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
+                        {m.match_type && ` · ${m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)}`}
+                        {m.venue && ` @ ${m.venue}`}
+                      </div>
                     </div>
+                    {countdown && <div style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</div>}
                   </div>
-                  <div style={{ fontSize: 9, color: "#64748B", fontWeight: 600 }}>
-                    {m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) : ''}
-                  </div>
+                  {/* Coach scouting: side-by-side team stats */}
+                  {isCoach && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[homeTeam, awayTeam].map(t => {
+                        const r = oppRecords[t?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                        const gd = r.gf - r.ga;
+                        const isMine = t?.id === team.id;
+                        const rk = latestRankings[t?.id];
+                        return (
+                          <div key={t?.id || Math.random()} style={{
+                            flex: 1, background: "#0B0F1A", borderRadius: 8, padding: "8px 8px",
+                            border: isMine ? `1px solid ${team.color}44` : "1px solid #33415533",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                              <div style={{
+                                width: 14, height: 14, borderRadius: 3, background: t?.color || "#334155",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 7, fontWeight: 900, color: "#fff",
+                              }}>{(t?.name || '?').charAt(0)}</div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{t?.name || 'TBD'}</span>
+                              {rk && <span style={{ fontSize: 8, color: "#10B981" }}>#{rk.rank}</span>}
+                            </div>
+                            {r.p > 0 ? (
+                              <div style={{ display: "flex", gap: 3, textAlign: "center" }}>
+                                {[[r.p, "P", "#F8FAFC"], [r.w, "W", "#10B981"], [r.d, "D", "#F8FAFC"], [r.l, "L", "#EF4444"], [r.gf, "GF", "#F8FAFC"], [r.ga, "GA", "#F8FAFC"], [gd > 0 ? `+${gd}` : gd, "GD", gd > 0 ? "#10B981" : gd < 0 ? "#EF4444" : "#F8FAFC"]].map(([val, label, color]) => (
+                                  <div key={label} style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 900, color }}>{val}</div>
+                                    <div style={{ fontSize: 7, color: "#64748B" }}>{label}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 9, color: "#475569", textAlign: "center", marginBottom: 4 }}>No matches yet</div>
+                            )}
+                            {!isMine && t?.name && (
+                              <div onClick={() => { window.location.hash = `#/team/${teamSlugNav(t.name)}`; }} style={{ fontSize: 8, color: "#8B5CF6", fontWeight: 700, textAlign: "center", marginTop: 6, cursor: "pointer" }}>View stats →</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -785,9 +878,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 </div>
               ))}
             </div>
-            {matches.some(m => m.match_type === 'friendly') && (
-              <div style={{ fontSize: 9, color: "#64748B", fontStyle: "italic", marginTop: 6, textAlign: "center" }}>* These stats exclude Friendly matches</div>
-            )}
           </div>
 
           {matches.length === 0 ? (

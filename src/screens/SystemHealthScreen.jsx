@@ -40,6 +40,7 @@ export default function SystemHealthScreen({ onBack }) {
   const [visitors, setVisitors] = useState(0);
   const [archiving, setArchiving] = useState(false);
   const [archiveResult, setArchiveResult] = useState(null);
+  const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
 
   useEffect(() => {
     const load = async () => {
@@ -76,6 +77,20 @@ export default function SystemHealthScreen({ onBack }) {
           active30d: active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < d30).length,
           byRole,
         });
+
+        // Daily active users trend (last 30 days)
+        const days = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date(now - i * h24);
+          days.push({ date: d.toISOString().slice(0, 10), count: 0 });
+        }
+        active.forEach(p => {
+          if (!p.last_seen_at) return;
+          const dayKey = new Date(p.last_seen_at).toISOString().slice(0, 10);
+          const entry = days.find(d => d.date === dayKey);
+          if (entry) entry.count++;
+        });
+        setDailyActive(days);
       }
 
       // DB size estimate (rough: sum of row counts * avg row size)
@@ -196,6 +211,44 @@ export default function SystemHealthScreen({ onBack }) {
               <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Active 30d</div>
             </div>
           </div>
+
+          {/* Daily active users trend */}
+          {dailyActive.length > 0 && (() => {
+            const max = Math.max(...dailyActive.map(d => d.count), 1);
+            const total = dailyActive.reduce((s, d) => s + d.count, 0);
+            const chartW = 340;
+            const chartH = 100;
+            const barW = Math.floor(chartW / dailyActive.length) - 1;
+            return (
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>
+                Active users per day (30d) — total: {total}
+                <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 10px 6px', marginTop: 8, border: '1px solid #334155' }}>
+                  <svg width={chartW} height={chartH + 20} style={{ display: 'block' }}>
+                    {dailyActive.map((d, i) => {
+                      const h = max > 0 ? (d.count / max) * chartH : 0;
+                      const x = i * (barW + 1);
+                      const isToday = i === dailyActive.length - 1;
+                      return (
+                        <g key={d.date}>
+                          <rect x={x} y={chartH - h} width={barW} height={Math.max(h, 1)} rx={2}
+                            fill={isToday ? '#F59E0B' : d.count > 0 ? '#10B981' : '#334155'} opacity={isToday ? 1 : 0.7} />
+                          {d.count > 0 && (
+                            <text x={x + barW / 2} y={chartH - h - 3} textAnchor="middle" fill="#94A3B8" fontSize="7" fontWeight="700">{d.count}</text>
+                          )}
+                          {(i === 0 || i === 14 || i === dailyActive.length - 1) && (
+                            <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" fill="#475569" fontSize="7">
+                              {new Date(d.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                    <line x1="0" y1={chartH} x2={chartW} y2={chartH} stroke="#334155" strokeWidth="0.5" />
+                  </svg>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Users by role */}
           <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Users by role</div>

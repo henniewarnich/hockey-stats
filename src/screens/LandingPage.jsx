@@ -144,7 +144,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
   // Compute team records from ALL ended matches (exclude friendlies)
   const teamRecords = {};
-  allRecords.filter(m => m.match_type !== 'friendly').forEach(m => {
+  allRecords.forEach(m => {
     [m.home_team_id, m.away_team_id].forEach((tid, i) => {
       if (!tid) return;
       if (!teamRecords[tid]) teamRecords[tid] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
