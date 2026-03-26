@@ -4,7 +4,7 @@ import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 
-export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing }) {
+export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState("desc");
   const [syncResult, setSyncResult] = useState(null);
@@ -191,6 +191,12 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                 </div>
 
                 <div style={{ color: theme.textDimmer, fontSize: 14 }}>›</div>
+                {onVideoReview && isSynced && (
+                  <button onClick={(e) => { e.stopPropagation(); onVideoReview(g); }} style={{
+                    fontSize: 9, color: '#8B5CF6', background: '#8B5CF611', border: '1px solid #8B5CF644',
+                    borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
+                  }}>📹 Video</button>
+                )}
               </div>
             );
           })

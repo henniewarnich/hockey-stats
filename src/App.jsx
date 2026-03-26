@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMatchStore } from './hooks/useMatchStore.js';
 import { S, theme } from './utils/styles.js';
 import { saveData, loadData } from './utils/helpers.js';
-import { saveMatchToSupabase } from './utils/sync.js';
+import { saveMatchToSupabase, startVideoReview, clearMatchEvents } from './utils/sync.js';
 import { supabase } from './utils/supabase.js';
 import { APP_VERSION } from './utils/constants.js';
 import { getSession, getProfile, signOut } from './utils/auth.js';
@@ -337,6 +337,40 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     setScreen("game_review");
   };
 
+  const handleVideoReview = async (game) => {
+    const matchId = game.supabase_id || game.id;
+    // Lock check
+    const result = await startVideoReview(matchId, currentUser?.id);
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    // If existing events, confirm replacement
+    if (result.existingEvents > 0) {
+      const confirmed = window.confirm(
+        `This match has ${result.existingEvents} existing events from a previous recording. Starting video review will replace them. Continue?`
+      );
+      if (!confirmed) return;
+      await clearMatchEvents(matchId);
+    }
+    // Build config from game data
+    const config = {
+      home: game.teams?.home || {},
+      away: game.teams?.away || {},
+      matchLength: game.matchLength || 60,
+      breakFormat: game.breakFormat || 'quarters',
+      matchType: game.matchType || 'league',
+      venue: game.venue || '',
+      date: game.date,
+      isDemo: false,
+      isVideoReview: true,
+      videoReviewMatchId: matchId,
+      savedScore: { home: game.homeScore, away: game.awayScore },
+    };
+    setMatchConfig(config);
+    setScreen("live");
+  };
+
   const getTeamShareLink = (teamName) => {
     const slug = teamName.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
     return `${window.location.origin}${window.location.pathname}#/team/${slug}`;
@@ -404,7 +438,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       />;
 
     case "history":
-      return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} />;
+      return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} onVideoReview={handleVideoReview} />;
 
     case "game_review":
       if (!reviewGame) { navigate("history"); return null; }

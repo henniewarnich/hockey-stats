@@ -103,13 +103,35 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     };
     load();
 
-    // Poll live matches only every 10s (upcoming rarely changes)
+    // Poll live matches every 10s; refresh results if a match ended
+    const prevLiveIdsRef = { current: new Set((liveMatches || []).map(m => m.id)) };
     const poll = setInterval(async () => {
       try {
         const { data: live } = await supabase.from('matches')
           .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
           .eq('status', 'live');
-        if (live) setLiveMatches(live);
+        if (live) {
+          const newIds = new Set(live.map(m => m.id));
+          const prevIds = prevLiveIdsRef.current;
+          setLiveMatches(live);
+          // If a match disappeared from live (i.e. ended), refresh results
+          if (prevIds && [...prevIds].some(id => !newIds.has(id))) {
+            const [{ data: freshResults }, { count: freshCount }] = await Promise.all([
+              supabase.from('matches')
+                .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+                .eq('status', 'ended').order('match_date', { ascending: false }).limit(20),
+              supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
+            ]);
+            if (freshResults) setMatches(freshResults);
+            setResultsCount(freshCount || 0);
+            // Refresh allRecords for team stats
+            const { data: freshRecords } = await supabase.from('matches')
+              .select('home_team_id, away_team_id, home_score, away_score, match_type')
+              .eq('status', 'ended');
+            if (freshRecords) setAllRecords(freshRecords);
+          }
+          prevLiveIdsRef.current = newIds;
+        }
       } catch {}
     }, 10000);
     return () => clearInterval(poll);

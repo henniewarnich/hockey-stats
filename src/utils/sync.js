@@ -528,6 +528,47 @@ export async function unlockMatch(matchId, userId) {
   return !error;
 }
 
+// ── VIDEO REVIEW ──
+
+export async function startVideoReview(matchId, userId) {
+  // Check if already locked by someone else
+  const { data: match } = await supabase.from('matches').select('locked_by, home_score, away_score').eq('id', matchId).single();
+  if (!match) return { error: 'Match not found' };
+  if (match.locked_by && match.locked_by !== userId) return { error: 'Match is being recorded by another user' };
+
+  // Lock the match (keep status as 'ended')
+  await supabase.from('matches').update({ locked_by: userId }).eq('id', matchId);
+
+  // Check for existing events
+  const { count } = await supabase.from('match_events').select('id', { count: 'exact', head: true }).eq('match_id', matchId);
+
+  await logAudit('video_review_start', 'match', matchId, { existingEvents: count || 0 });
+  return { match, existingEvents: count || 0 };
+}
+
+export async function clearMatchEvents(matchId) {
+  const { error } = await supabase.from('match_events').delete().eq('match_id', matchId);
+  if (error) console.error('Clear events error:', error);
+  // Reset stats_archived so archive can run fresh
+  await supabase.from('matches').update({ stats_archived: false }).eq('id', matchId);
+  // Clear archived stats
+  await supabase.from('match_stats').delete().eq('match_id', matchId);
+  return !error;
+}
+
+export async function endVideoReview(matchId, homeScore, awayScore, duration) {
+  // Update duration + unlock, but keep status as 'ended' and keep original scores
+  const { error } = await supabase
+    .from('matches')
+    .update({ locked_by: null, duration, stats_archived: false })
+    .eq('id', matchId);
+  if (error) console.error('End video review error:', error);
+  if (!error) await logAudit('video_review_end', 'match', matchId, { homeScore, awayScore, duration });
+  // Archive stats
+  if (!error) archiveMatchStats(matchId).catch(e => console.error('Archive stats error:', e));
+  return !error;
+}
+
 /**
  * Fetch latest 2 ranking sets and return a map: teamId → { rank, prevRank }
  * Used for upcoming matches where we want current rankings, not snapshot.

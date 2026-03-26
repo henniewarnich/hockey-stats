@@ -4,7 +4,7 @@ import { generateInsight } from '../utils/commentary.js';
 import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
-import { createLiveMatch, pushLiveEvent, updateLiveScore, endLiveMatch } from '../utils/sync.js';
+import { createLiveMatch, pushLiveEvent, updateLiveScore, endLiveMatch, endVideoReview } from '../utils/sync.js';
 import { supabase } from '../utils/supabase.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import FieldRecorder from '../components/FieldRecorder.jsx';
@@ -15,7 +15,7 @@ import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
-  const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo } = matchConfig;
+  const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(home.color, away.color);
   const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
   const timer = useMatchTimer();
@@ -37,10 +37,12 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [pauseReason, setPauseReason] = useState(null);
   const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
   const [matchViewers, setMatchViewers] = useState(0);
+  const [showScoreMismatch, setShowScoreMismatch] = useState(null); // { recorded, saved }
+  const [showVideoReviewEnd, setShowVideoReviewEnd] = useState(false);
 
   // Track viewers via presence
   useEffect(() => {
-    if (!liveMatchId || isDemo) { setMatchViewers(0); return; }
+    if (!liveMatchId || isDemo || isVideoReview) { setMatchViewers(0); return; }
     const channel = supabase.channel(`match-viewers-${liveMatchId}`, { config: { presence: { key: 'commentator-' + Math.random().toString(36).slice(2) } } });
     channel.on('presence', { event: 'sync' }, () => {
       const count = Object.keys(channel.presenceState()).length;
@@ -56,9 +58,13 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const topTeam = flipped ? "home" : "away";
   const bottomTeam = flipped ? "away" : "home";
 
-  // Create live match in Supabase on mount (unless demo or existing match)
+  // Create live match in Supabase on mount (unless demo, video review, or existing match)
   useEffect(() => {
     if (isDemo) return;
+    if (isVideoReview && videoReviewMatchId) {
+      setLiveMatchId(videoReviewMatchId);
+      return;
+    }
     if (existingMatchId) {
       setLiveMatchId(existingMatchId);
       return;
@@ -137,7 +143,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
       setScore(prev => {
         const newScore = { ...prev, [attackingTeam]: prev[attackingTeam] + 1 };
-        if (liveMatchId && !isDemo) updateLiveScore(liveMatchId, newScore.home, newScore.away).catch(() => {});
+        if (liveMatchId && !isDemo && !isVideoReview) updateLiveScore(liveMatchId, newScore.home, newScore.away).catch(() => {});
         return newScore;
       });
       setPossession(null); setBallPos(null); setPrevBallPos(null); setShowRestart(true);
@@ -209,6 +215,16 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       return;
     }
 
+    // Video review: check score mismatch, then finalize
+    if (isVideoReview && videoReviewMatchId) {
+      if (savedScore && (score.home !== savedScore.home || score.away !== savedScore.away)) {
+        setShowScoreMismatch({ recorded: { ...score }, saved: { ...savedScore } });
+        return;
+      }
+      finalizeVideoReview();
+      return;
+    }
+
     const game = {
       id: liveMatchId || Date.now().toString(),
       supabase_id: liveMatchId || null,
@@ -222,6 +238,15 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     }
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);
+  };
+
+  const finalizeVideoReview = async (updateScore = false) => {
+    setShowScoreMismatch(null);
+    if (updateScore && videoReviewMatchId) {
+      await supabase.from('matches').update({ home_score: score.home, away_score: score.away }).eq('id', videoReviewMatchId);
+    }
+    await endVideoReview(videoReviewMatchId, score.home, score.away, timer.matchTime);
+    setShowVideoReviewEnd(true);
   };
 
   // Undo
@@ -365,12 +390,39 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       {showEndConfirm && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }} onClick={() => setShowEndConfirm(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 280, textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{isDemo ? "End Demo?" : "End Match?"}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{isDemo ? "End Demo?" : isVideoReview ? "End Video Review?" : "End Match?"}</div>
             <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teams.home.name} {score.home} – {score.away} {teams.away.name}</div>
             <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 14 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events{isDemo ? " (will not be saved)" : ""}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
-              <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : "End & Save"}</button>
+              <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : isVideoReview ? "End & Save Stats" : "End & Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Score Mismatch Warning (Video Review) */}
+      {showScoreMismatch && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 300, textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#F59E0B", marginBottom: 8 }}>Score mismatch</div>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 12 }}>
+              Your recorded score differs from the saved score.
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 14 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "#64748B", fontWeight: 700, marginBottom: 4 }}>RECORDED</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{showScoreMismatch.recorded.home}–{showScoreMismatch.recorded.away}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "#64748B", fontWeight: 700, marginBottom: 4 }}>SAVED</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>{showScoreMismatch.saved.home}–{showScoreMismatch.saved.away}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={() => finalizeVideoReview(false)} style={{ padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Keep saved score ({showScoreMismatch.saved.home}–{showScoreMismatch.saved.away})</button>
+              <button onClick={() => finalizeVideoReview(true)} style={{ padding: 10, borderRadius: 8, border: "1px solid #F59E0B44", background: "#F59E0B22", color: "#F59E0B", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Update to recorded score ({showScoreMismatch.recorded.home}–{showScoreMismatch.recorded.away})</button>
+              <button onClick={() => { setShowScoreMismatch(null); timer.resume(); }} style={{ padding: 8, borderRadius: 8, background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 10, fontWeight: 600 }}>Cancel — continue recording</button>
             </div>
           </div>
         </div>
@@ -388,6 +440,10 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         ) : showDemoEnd ? (
           <>
             <button onClick={() => onNavigate("home")} style={S.btnSm(theme.success, "#FFF")}>✓ Discard & Home</button>
+          </>
+        ) : showVideoReviewEnd ? (
+          <>
+            <button onClick={() => onNavigate("home")} style={S.btnSm(theme.success, "#FFF")}>✓ Stats saved — Home</button>
           </>
         ) : (
           <>
