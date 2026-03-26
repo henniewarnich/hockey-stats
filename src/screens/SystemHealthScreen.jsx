@@ -43,6 +43,8 @@ export default function SystemHealthScreen({ onBack }) {
   const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+  const [recordings, setRecordings] = useState({ live: 0, videoReview: 0 }); // active recording sessions
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -63,12 +65,13 @@ export default function SystemHealthScreen({ onBack }) {
       setMatchStats({ live: liveCount || 0, pending: pendingCount || 0, upcoming: upcomingCount || 0 });
 
       // User stats
-      const { data: allProfiles } = await supabase.from('profiles').select('role, last_seen_at, blocked');
+      const { data: allProfiles } = await supabase.from('profiles').select('firstname, lastname, alias_nickname, role, last_seen_at, blocked');
       if (allProfiles) {
         const now = Date.now();
         const h24 = 24 * 60 * 60 * 1000;
         const d7 = 7 * h24;
         const d30 = 30 * h24;
+        const m10 = 10 * 60 * 1000;
         const active = allProfiles.filter(p => !p.blocked);
         const byRole = {};
         active.forEach(p => { byRole[p.role] = (byRole[p.role] || 0) + 1; });
@@ -79,6 +82,11 @@ export default function SystemHealthScreen({ onBack }) {
           active30d: active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < d30).length,
           byRole,
         });
+        // Online now (last 10 minutes)
+        setOnlineUsers(
+          active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < m10)
+            .sort((a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at))
+        );
 
         // Daily active users trend (last 30 days)
         const days = [];
@@ -104,6 +112,15 @@ export default function SystemHealthScreen({ onBack }) {
       // Maintenance mode
       const { data: maint } = await supabase.from('site_settings').select('value').eq('key', 'maintenance_mode').single();
       if (maint) setMaintenanceMode(maint.value === 'true');
+
+      // Active recordings (locked matches)
+      const { data: locked } = await supabase.from('matches').select('status, locked_by').not('locked_by', 'is', null);
+      if (locked) {
+        setRecordings({
+          live: locked.filter(m => m.status === 'live').length,
+          videoReview: locked.filter(m => m.status === 'ended').length,
+        });
+      }
 
       setLoading(false);
     };
@@ -218,6 +235,31 @@ export default function SystemHealthScreen({ onBack }) {
             </div>
           </div>
 
+          {/* Who's online (last 10 minutes) */}
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>
+            Who's online ({onlineUsers.length})
+          </div>
+          {onlineUsers.length === 0 ? (
+            <div style={{ ...cardStyle, textAlign: 'center', fontSize: 11, color: '#475569' }}>No users active in the last 10 minutes</div>
+          ) : (
+            <div style={cardStyle}>
+              {onlineUsers.map((u, i) => {
+                const meta = roleMeta[u.role] || { color: '#64748B' };
+                const name = u.alias_nickname || `${u.firstname || ''} ${u.lastname || ''}`.trim() || 'Unknown';
+                const ago = Math.floor((Date.now() - new Date(u.last_seen_at).getTime()) / 60000);
+                const label = meta.label || (u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : '');
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: i < onlineUsers.length - 1 ? '1px solid #33415522' : 'none' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 3, background: ago < 2 ? '#10B981' : '#F59E0B', flexShrink: 0 }} />
+                    <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#F8FAFC' }}>{name}</div>
+                    <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700, background: meta.color + '22', color: meta.color }}>{label}</span>
+                    <div style={{ fontSize: 9, color: '#475569', minWidth: 30, textAlign: 'right' }}>{ago < 1 ? 'now' : `${ago}m`}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Daily active users trend */}
           {dailyActive.length > 0 && (() => {
             const max = Math.max(...dailyActive.map(d => d.count), 1);
@@ -282,10 +324,30 @@ export default function SystemHealthScreen({ onBack }) {
           {/* Maintenance Mode */}
           <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Maintenance mode</div>
           <div style={cardStyle}>
+            {/* Current activity */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1, background: '#0B0F1A', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: visitors > 0 ? '#10B981' : '#64748B' }}>{visitors}</div>
+                <div style={{ fontSize: 8, color: '#64748B' }}>Visitors online</div>
+              </div>
+              <div style={{ flex: 1, background: '#0B0F1A', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: recordings.live > 0 ? '#EF4444' : '#64748B' }}>{recordings.live}</div>
+                <div style={{ fontSize: 8, color: '#64748B' }}>Live recordings</div>
+              </div>
+              <div style={{ flex: 1, background: '#0B0F1A', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: recordings.videoReview > 0 ? '#8B5CF6' : '#64748B' }}>{recordings.videoReview}</div>
+                <div style={{ fontSize: 8, color: '#64748B' }}>Video reviews</div>
+              </div>
+            </div>
+            {(recordings.live > 0 || recordings.videoReview > 0) && (
+              <div style={{ fontSize: 10, color: '#F59E0B', marginBottom: 8, padding: '6px 8px', background: '#F59E0B11', borderRadius: 6 }}>
+                ⚠️ Active recordings in progress — taking offline may interrupt {recordings.live + recordings.videoReview} session{recordings.live + recordings.videoReview !== 1 ? 's' : ''}
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: maintenanceMode ? '#EF4444' : '#10B981' }}>
-                  {maintenanceMode ? '🔴 Maintenance ON' : '🟢 Site is live'}
+                  {maintenanceMode ? '🔴 Site is offline' : '🟢 Site is live'}
                 </div>
                 <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
                   {maintenanceMode ? 'Public users see upgrade page. Admins can still access.' : 'All users can access the site normally.'}
@@ -295,20 +357,20 @@ export default function SystemHealthScreen({ onBack }) {
                 disabled={togglingMaintenance}
                 onClick={async () => {
                   const next = !maintenanceMode;
-                  if (next && !confirm('Enable maintenance mode? Public users will see an upgrade page.')) return;
+                  if (next && !confirm(`Take site offline? ${visitors} visitor${visitors !== 1 ? 's' : ''} online, ${recordings.live + recordings.videoReview} active recording${recordings.live + recordings.videoReview !== 1 ? 's' : ''}.`)) return;
                   setTogglingMaintenance(true);
                   await supabase.from('site_settings').update({ value: String(next), updated_at: new Date().toISOString() }).eq('key', 'maintenance_mode');
                   setMaintenanceMode(next);
                   setTogglingMaintenance(false);
                 }}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                   background: maintenanceMode ? '#10B981' : '#EF444422',
                   color: maintenanceMode ? '#fff' : '#EF4444',
                   opacity: togglingMaintenance ? 0.5 : 1,
                 }}
               >
-                {togglingMaintenance ? '...' : maintenanceMode ? 'Go live' : 'Enable'}
+                {togglingMaintenance ? '...' : maintenanceMode ? 'Take online' : 'Take offline'}
               </button>
             </div>
           </div>

@@ -29,6 +29,13 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [searchResults, setSearchResults] = useState(null); // null = use default matches, array = search results
   const [allRecords, setAllRecords] = useState([]); // lightweight: all ended matches for record computation
   const [resultsCount, setResultsCount] = useState(0);
+  const [tick, setTick] = useState(0); // forces re-render for countdown timers
+
+  // Tick every 30s for in-progress countdowns
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   // Global presence tracking
   useEffect(() => {
@@ -195,13 +202,13 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
   const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
 
-  // "In Progress" = upcoming matches whose kickoff has passed but estimated end hasn't
+  // "In Progress" = upcoming matches whose kickoff has passed (up to 2h after estimated end for "Awaiting score")
   const now = Date.now();
   const inProgressUpcoming = upcomingMatches.filter(m => {
     if (!m.scheduled_time) return false;
     const kickoff = parseSAST(m.match_date, m.scheduled_time).getTime();
-    const duration = (m.match_length || 60) + 15; // match + buffer
-    return now >= kickoff && now <= kickoff + duration * 60000;
+    const awaitingBuffer = ((m.match_length || 60) + 120) * 60000; // match + 2h buffer
+    return now >= kickoff && now <= kickoff + awaitingBuffer;
   });
   // Combined: live matches + in-progress upcoming (deduplicated by id)
   const liveIds = new Set(liveMatches.map(m => m.id));
@@ -394,7 +401,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   <CoachDashboardPanel currentUser={currentUser} />
                 )}
                 {(role === 'crowd') && (
-                  <CrowdDashboardPanel />
+                  <CrowdDashboardPanel currentUser={currentUser} />
                 )}
               </div>
             );
@@ -439,7 +446,22 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                             {m.venue && ` · ${m.venue}`}
                           </div>
                         </div>
-                        <div style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700 }}>In progress</div>
+                        {(() => {
+                          const kickoff = m.scheduled_time ? parseSAST(m.match_date, m.scheduled_time).getTime() : 0;
+                          const duration = (m.match_length || 60) * 60000;
+                          const remaining = Math.max(0, kickoff + duration - Date.now());
+                          const mins = Math.ceil(remaining / 60000);
+                          const expired = remaining <= 0;
+                          void tick;
+                          return (
+                            <div style={{ textAlign: 'right' }}>
+                              {!expired && <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: mins <= 5 ? '#EF4444' : mins <= 15 ? '#F59E0B' : '#10B981' }}>{mins}m</div>}
+                              <div style={{ fontSize: 8, fontWeight: 700, color: expired ? '#EF4444' : '#F59E0B' }}>
+                                {expired ? 'Awaiting score' : 'In progress'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -501,9 +523,23 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                       </div>
                       {isLive ? (
                         <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
-                      ) : (
-                        <div style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700 }}>In progress</div>
-                      )}
+                      ) : (() => {
+                        const kickoff = m.scheduled_time ? parseSAST(m.match_date, m.scheduled_time).getTime() : 0;
+                        const duration = (m.match_length || 60) * 60000;
+                        const endTime = kickoff + duration;
+                        const remaining = Math.max(0, endTime - Date.now());
+                        const mins = Math.ceil(remaining / 60000);
+                        const expired = remaining <= 0;
+                        void tick; // use tick to ensure re-render
+                        return (
+                          <div style={{ textAlign: 'right' }}>
+                            {!expired && <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: mins <= 5 ? '#EF4444' : mins <= 15 ? '#F59E0B' : '#10B981' }}>{mins}m</div>}
+                            <div style={{ fontSize: 8, fontWeight: 700, color: expired ? '#EF4444' : '#F59E0B' }}>
+                              {expired ? 'Awaiting score' : 'In progress'}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })

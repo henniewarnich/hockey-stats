@@ -436,6 +436,17 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             {matchState === "paused" && <button onClick={handleResume} style={S.btnSm(theme.success, theme.bg)}>▶ Resume</button>}
             {(running || matchState === "paused") && <button onClick={() => setShowEndConfirm(true)} style={S.btnSm(theme.danger, "#FFF")}>⏹ End</button>}
             {events.length > 0 && <button onClick={undoLast} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>↩ Undo</button>}
+            {isVideoReview && <button onClick={async () => {
+              if (!confirm('Cancel video review? All recorded events will be discarded.')) return;
+              timer.end();
+              clearAutoSave();
+              if (videoReviewMatchId) {
+                await supabase.from('match_events').delete().eq('match_id', videoReviewMatchId);
+                await supabase.from('matches').update({ locked_by: null, stats_archived: false }).eq('id', videoReviewMatchId);
+                await supabase.from('match_stats').delete().eq('match_id', videoReviewMatchId);
+              }
+              onNavigate("home");
+            }} style={{ ...S.btnSm(theme.surface, theme.textMuted), border: `1px solid ${theme.border}` }}>✕ Cancel</button>}
           </>
         ) : showDemoEnd ? (
           <>

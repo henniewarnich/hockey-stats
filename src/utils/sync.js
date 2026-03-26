@@ -296,7 +296,7 @@ export async function updateLiveScore(matchId, homeScore, awayScore) {
 export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
   const { error } = await supabase
     .from('matches')
-    .update({ home_score: homeScore, away_score: awayScore, status: 'ended', duration })
+    .update({ home_score: homeScore, away_score: awayScore, status: 'ended', duration, locked_by: null })
     .eq('id', matchId);
   if (error) console.error('End live match error:', error);
   if (!error) await logAudit('match_end', 'match', matchId, { homeScore, awayScore, duration });
@@ -532,9 +532,13 @@ export async function unlockMatch(matchId, userId) {
 
 export async function startVideoReview(matchId, userId) {
   // Check if already locked by someone else
-  const { data: match } = await supabase.from('matches').select('locked_by, home_score, away_score').eq('id', matchId).single();
+  const { data: match } = await supabase.from('matches').select('locked_by, home_score, away_score, status').eq('id', matchId).single();
   if (!match) return { error: 'Match not found' };
-  if (match.locked_by && match.locked_by !== userId) return { error: 'Match is being recorded by another user' };
+  // Only block if locked by someone else AND match is currently being recorded (status=live or locked for video review)
+  // Stale locks from ended live matches are safe to override
+  if (match.locked_by && match.locked_by !== userId && match.status === 'live') {
+    return { error: 'Match has an active live recording by another user' };
+  }
 
   // Lock the match (keep status as 'ended')
   await supabase.from('matches').update({ locked_by: userId }).eq('id', matchId);

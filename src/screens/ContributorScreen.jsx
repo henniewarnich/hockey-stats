@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import NavLogo from '../components/NavLogo.jsx';
 
 const TIER_META = {
   apprentice: { label: 'Apprentice', color: '#64748B', icon: '🌱' },
@@ -159,7 +158,10 @@ export default function ContributorScreen({ onBack }) {
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       <div style={{ padding: "12px 14px 6px" }}>
-        <NavLogo onBack={onBack} />
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", fontWeight: 700, padding: 0, display: "flex", alignItems: "center", gap: 5 }}>
+          <svg width="16" height="16" viewBox="0 0 56 56"><circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/><circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/></svg>
+          ← kykie
+        </button>
         <div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B", marginTop: 8 }}>Contributors</div>
       </div>
 

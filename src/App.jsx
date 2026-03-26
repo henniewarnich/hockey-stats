@@ -132,7 +132,7 @@ export default function App() {
   const handleLogin = (profile) => {
     setCurrentUser(profile);
     sessionStorage.setItem('kykie-user-id', profile.id);
-    if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
+    if (['admin', 'commentator_admin'].includes(profile.role)) {
       window.location.hash = '#/admin';
     } else {
       window.location.hash = '';
@@ -209,6 +209,11 @@ export default function App() {
   }
 
   if (route.type === 'landing') {
+    // Admin/CommAdmin should be on #/admin for AppContent navigation
+    if (currentUser && ['admin', 'commentator_admin'].includes(currentUser.role)) {
+      window.location.hash = '#/admin';
+      return null;
+    }
     return <LandingPage
       currentUser={currentUser}
       onLogout={handleLogout}
@@ -304,7 +309,11 @@ export default function App() {
     );
   }
 
-  // Default landing — pass onRoleSwitch for logged-in users
+  // Default landing — redirect admin to #/admin, pass onRoleSwitch for logged-in users
+  if (currentUser && ['admin', 'commentator_admin'].includes(currentUser.role)) {
+    window.location.hash = '#/admin';
+    return null;
+  }
   return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
     onRoleSwitch={handleRoleSwitch} initialTab={currentUser ? "dashboard" : null} />;
 }
