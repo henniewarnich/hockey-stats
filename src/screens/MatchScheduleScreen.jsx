@@ -71,27 +71,35 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   const load = async () => {
     setLoading(true);
+    const isCrowd = currentUser?.role === 'crowd';
     const [matches, comms, commAdmins, { data: teams }] = await Promise.all([
       supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).order('scheduled_time', { ascending: true }).then(r => r.data || []),
-      listUsersByRole('commentator'),
-      listUsersByRole('commentator_admin'),
+      isCrowd ? Promise.resolve([]) : listUsersByRole('commentator'),
+      isCrowd ? Promise.resolve([]) : listUsersByRole('commentator_admin'),
       supabase.from('teams').select('*').order('name'),
     ]);
     setUpcoming(matches);
     setCommentators([...commAdmins, ...comms]);
     setAllTeams(teams || []);
 
-    // Load commentator assignments in one query
+    // Load commentator assignments (skip for crowd users who don't need them)
     const matchIds = matches.map(m => m.id);
     const commsMap = {};
-    if (matchIds.length > 0) {
-      const { data } = await supabase
-        .from('match_commentators')
-        .select('*, commentator:profiles!commentator_id(firstname, lastname)')
-        .in('match_id', matchIds);
-      (data || []).forEach(c => {
-        if (!commsMap[c.match_id]) commsMap[c.match_id] = [];
-        commsMap[c.match_id].push(c);
+    if (matchIds.length > 0 && !isCrowd) {
+      // Batch in parallel groups of 20 to avoid URL length issues
+      const batches = [];
+      for (let i = 0; i < matchIds.length; i += 20) {
+        batches.push(supabase
+          .from('match_commentators')
+          .select('*, commentator:profiles!commentator_id(firstname, lastname)')
+          .in('match_id', matchIds.slice(i, i + 20)));
+      }
+      const results = await Promise.all(batches);
+      results.forEach(({ data }) => {
+        (data || []).forEach(c => {
+          if (!commsMap[c.match_id]) commsMap[c.match_id] = [];
+          commsMap[c.match_id].push(c);
+        });
       });
     }
     setMatchComms(commsMap);
