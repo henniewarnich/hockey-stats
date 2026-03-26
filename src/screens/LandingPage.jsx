@@ -310,7 +310,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             {[
               ...(currentUser ? [{ id: "dashboard", label: "Home" }] : []),
               { id: "live", label: "Live", count: allInProgress.length, dot: liveMatches.length > 0 },
-              { id: "upcoming", label: "Upcoming", count: upcomingMatches.length },
+              { id: "upcoming", label: "Upcoming", count: upcomingMatches.length - inProgressUpcoming.length },
               { id: "results", label: "Results", count: resultsCount },
               { id: "teams", label: "Teams", count: teams.length },
             ].map(t => (
@@ -551,12 +551,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
           {/* ═══ UPCOMING TAB ═══ */}
           {activeTab === "upcoming" && (() => {
+            const inProgressIds = new Set(inProgressUpcoming.map(m => m.id));
+            const notStarted = upcomingMatches.filter(m => !inProgressIds.has(m.id));
             const q = search.trim().toLowerCase();
-            const filtered = q ? upcomingMatches.filter(m =>
+            const filtered = q ? notStarted.filter(m =>
               (m.home_team?.name || "").toLowerCase().includes(q) ||
               (m.away_team?.name || "").toLowerCase().includes(q) ||
               (m.venue || "").toLowerCase().includes(q)
-            ) : upcomingMatches;
+            ) : notStarted;
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (

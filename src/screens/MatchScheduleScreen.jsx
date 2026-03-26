@@ -248,18 +248,29 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   };
 
   // Countdown helper
-  const getCountdown = (matchDate, scheduledTime) => {
+  const getCountdown = (matchDate, scheduledTime, matchLength) => {
     if (!scheduledTime) return null;
     const kickoff = parseSAST(matchDate, scheduledTime);
     const now = new Date();
     const diff = kickoff - now;
-    if (diff <= 0) return { text: "Now", color: "#10B981" };
-    const mins = Math.floor(diff / 60000);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
-    if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
-    if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
-    return { text: `${mins}m`, color: "#EF4444" };
+    // Before kickoff — countdown to start
+    if (diff > 0) {
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return { text: `${days}d ${hours % 24}h`, color: "#64748B" };
+      if (hours > 0) return { text: `${hours}h ${mins % 60}m`, color: "#F59E0B" };
+      return { text: `${mins}m`, color: "#EF4444" };
+    }
+    // After kickoff — time remaining in match
+    const duration = (matchLength || 60) * 60000;
+    const remaining = kickoff.getTime() + duration - now.getTime();
+    if (remaining > 0) {
+      const mins = Math.ceil(remaining / 60000);
+      return { text: `${mins}m left`, color: mins <= 5 ? "#EF4444" : mins <= 15 ? "#F59E0B" : "#10B981", inProgress: true };
+    }
+    // Match time expired
+    return { text: "Awaiting score", color: "#EF4444", awaiting: true };
   };
 
   const filtered = search.trim()
@@ -499,11 +510,11 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
               const d = parseSASTDate(m.match_date);
               const isLive = m.status === 'live';
               const isMyLock = m.locked_by === currentUser?.id || m.created_by === currentUser?.id;
-              const countdown = getCountdown(m.match_date, m.scheduled_time);
+              const countdown = getCountdown(m.match_date, m.scheduled_time, m.match_length);
               return (
                 <div key={m.id} style={{
                   background: theme.surface, borderRadius: 10, padding: "10px 12px",
-                  border: isLive ? "1px solid #EF444444" : `1px solid ${theme.border}`,
+                  border: isLive ? "1px solid #EF444444" : countdown?.awaiting ? "1px solid #EF444433" : `1px solid ${theme.border}`,
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: m.home_team?.color }} />
@@ -511,7 +522,11 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                       {m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                     </div>
                     {isLive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
-                    {countdown && !isLive && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}
+                    {countdown && !isLive && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: countdown.color, fontFamily: countdown.awaiting ? 'inherit' : 'monospace' }}>{countdown.text}</div>
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>
                     {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
