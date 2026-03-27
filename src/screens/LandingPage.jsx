@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
-import { fetchLatestRankings } from '../utils/sync.js';
+import { fetchLatestRankings, approvePendingMatch } from '../utils/sync.js';
+import { logAudit } from '../utils/audit.js';
 import RankBadge from '../components/RankBadge.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import AdminDashboardPanel from '../components/AdminDashboardPanel.jsx';
@@ -30,12 +31,60 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [allRecords, setAllRecords] = useState([]); // lightweight: all ended matches for record computation
   const [resultsCount, setResultsCount] = useState(0);
   const [tick, setTick] = useState(0); // forces re-render for countdown timers
+  const [scoreEntryMatch, setScoreEntryMatch] = useState(null); // match to enter score for
+  const [seHomeScore, setSeHomeScore] = useState(0);
+  const [seAwayScore, setSeAwayScore] = useState(0);
+  const [seSubmitting, setSeSubmitting] = useState(false);
+  const [pendingScoreMatches, setPendingScoreMatches] = useState([]); // crowd-submitted scores awaiting approval
 
   // Tick every 30s for in-progress countdowns
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 30000);
     return () => clearInterval(t);
   }, []);
+
+  const openScoreEntry = (m) => {
+    setScoreEntryMatch(m);
+    setSeHomeScore(m.home_score || 0);
+    setSeAwayScore(m.away_score || 0);
+  };
+
+  const handleScoreSubmit = async () => {
+    if (!scoreEntryMatch || !currentUser) return;
+    setSeSubmitting(true);
+    const m = scoreEntryMatch;
+    const isAdmin = ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role);
+
+    if (isAdmin) {
+      // Admin: approve directly — set to ended
+      await supabase.from('matches').update({
+        home_score: seHomeScore, away_score: seAwayScore,
+        status: 'ended', approved_by: currentUser.id, approved_at: new Date().toISOString(),
+      }).eq('id', m.id);
+      logAudit('quick_score_admin', 'match', m.id, { home: seHomeScore, away: seAwayScore });
+      // Move from upcoming/pending to results
+      setUpcomingMatches(prev => prev.filter(u => u.id !== m.id));
+      setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
+    } else {
+      // Crowd: set to pending
+      await supabase.from('matches').update({
+        home_score: seHomeScore, away_score: seAwayScore,
+        status: 'pending', submitted_by: currentUser.id, submitted_type: 'crowd',
+      }).eq('id', m.id);
+      logAudit('quick_score_crowd', 'match', m.id, { home: seHomeScore, away: seAwayScore });
+      // Move from upcoming to pending score list
+      setUpcomingMatches(prev => prev.filter(u => u.id !== m.id));
+      setPendingScoreMatches(prev => [...prev, { ...m, home_score: seHomeScore, away_score: seAwayScore, status: 'pending', submitted_by: currentUser.id }]);
+    }
+    setScoreEntryMatch(null);
+    setSeSubmitting(false);
+  };
+
+  const handleApproveScore = async (m) => {
+    if (!confirm(`Approve ${m.home_team?.name} ${m.home_score}–${m.away_score} ${m.away_team?.name}?`)) return;
+    await approvePendingMatch(m.id, currentUser.id, 'ended');
+    setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
+  };
 
   // Global presence tracking
   useEffect(() => {
@@ -95,6 +144,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         if (upcoming) setUpcomingMatches(upcoming);
         if (allRecords) setAllRecords(allRecords);
         setResultsCount(totalResults || 0);
+
+        // Fetch pending matches with scores (crowd-submitted, awaiting approval)
+        supabase.from('matches')
+          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .eq('status', 'pending')
+          .not('home_score', 'is', null)
+          .then(({ data }) => setPendingScoreMatches(data || []))
+          .catch(() => {});
 
         // Fetch latest rankings for upcoming/live badges
         fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
@@ -210,9 +267,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     const awaitingBuffer = ((m.match_length || 60) + 120) * 60000; // match + 2h buffer
     return now >= kickoff && now <= kickoff + awaitingBuffer;
   });
-  // Combined: live matches + in-progress upcoming (deduplicated by id)
+  // Combined: live matches + in-progress upcoming + pending scores (deduplicated by id)
   const liveIds = new Set(liveMatches.map(m => m.id));
-  const allInProgress = [...liveMatches, ...inProgressUpcoming.filter(m => !liveIds.has(m.id))];
+  const inProgressIds = new Set(inProgressUpcoming.map(m => m.id));
+  const allInProgress = [
+    ...liveMatches,
+    ...inProgressUpcoming.filter(m => !liveIds.has(m.id)),
+    ...pendingScoreMatches.filter(m => !liveIds.has(m.id) && !inProgressIds.has(m.id)),
+  ];
 
   const resultBadge = (m, teamId) => {
     const isHome = m.home_team?.id === teamId;
@@ -425,25 +487,46 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               ) : (
                 filtered.map(m => {
                   const isLive = m.status === 'live';
+                  const isPending = m.status === 'pending';
                   const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
                   const d = parseSASTDate(m.match_date);
+                  const isAdmin = currentUser && ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role);
+
+                  // Determine awaiting state for upcoming matches
+                  const kickoff = m.scheduled_time ? parseSAST(m.match_date, m.scheduled_time).getTime() : 0;
+                  const duration = (m.match_length || 60) * 60000;
+                  const endTime = kickoff + duration;
+                  const remaining = Math.max(0, endTime - Date.now());
+                  const expired = !isLive && !isPending && remaining <= 0;
+                  const mins = Math.ceil(remaining / 60000);
+
+                  const cardClick = isLive
+                    ? () => { window.location.hash = `#/team/${homeSlug}`; }
+                    : (expired && currentUser) ? () => openScoreEntry(m)
+                    : undefined;
+
+                  const borderColor = isLive ? "#10B98133" : isPending ? "#8B5CF633" : "#F59E0B33";
+                  const bgColor = isLive ? "#10B98108" : isPending ? "#8B5CF608" : "#F59E0B08";
+
                   return (
                     <div key={m.id}
-                      onClick={isLive ? () => { window.location.hash = `#/team/${homeSlug}`; } : undefined}
+                      onClick={cardClick}
                       style={{
                         ...styles.scoreCard,
-                        border: isLive ? "1px solid #10B98133" : "1px solid #F59E0B33",
-                        background: isLive ? "#10B98108" : "#F59E0B08",
-                        cursor: isLive ? "pointer" : "default",
+                        border: `1px solid ${borderColor}`,
+                        background: bgColor,
+                        cursor: (isLive || (expired && currentUser)) ? "pointer" : "default",
                       }}>
                       <div style={{
                         width: 28, height: 28, borderRadius: 7,
-                        background: isLive ? "#10B98122" : "#F59E0B22",
-                        border: isLive ? "1.5px solid #10B98144" : "1.5px solid #F59E0B33",
+                        background: isLive ? "#10B98122" : isPending ? "#8B5CF622" : "#F59E0B22",
+                        border: isLive ? "1.5px solid #10B98144" : isPending ? "1.5px solid #8B5CF644" : "1.5px solid #F59E0B33",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
                         {isLive ? (
                           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", animation: "pulse 2s infinite", display: "inline-block" }} />
+                        ) : isPending ? (
+                          <span style={{ fontSize: 10 }}>⏳</span>
                         ) : (
                           <span style={{ fontSize: 12 }}>🏑</span>
                         )}
@@ -469,23 +552,26 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                       </div>
                       {isLive ? (
                         <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
-                      ) : (() => {
-                        const kickoff = m.scheduled_time ? parseSAST(m.match_date, m.scheduled_time).getTime() : 0;
-                        const duration = (m.match_length || 60) * 60000;
-                        const endTime = kickoff + duration;
-                        const remaining = Math.max(0, endTime - Date.now());
-                        const mins = Math.ceil(remaining / 60000);
-                        const expired = remaining <= 0;
-                        void tick; // use tick to ensure re-render
-                        return (
-                          <div style={{ textAlign: 'right' }}>
-                            {!expired && <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: mins <= 5 ? '#EF4444' : mins <= 15 ? '#F59E0B' : '#10B981' }}>{mins}m</div>}
-                            <div style={{ fontSize: 8, fontWeight: 700, color: expired ? '#EF4444' : '#F59E0B' }}>
-                              {expired ? 'Awaiting score' : 'In progress'}
-                            </div>
+                      ) : isPending ? (
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: "#8B5CF6" }}>{m.home_score}–{m.away_score}</div>
+                          {isAdmin ? (
+                            <button onClick={(e) => { e.stopPropagation(); handleApproveScore(m); }} style={{
+                              fontSize: 8, fontWeight: 700, color: '#10B981', background: '#10B98122', border: '1px solid #10B98144',
+                              borderRadius: 4, padding: '2px 6px', cursor: 'pointer', marginTop: 2,
+                            }}>Approve</button>
+                          ) : (
+                            <div style={{ fontSize: 8, fontWeight: 700, color: '#8B5CF6', marginTop: 2 }}>Pending Approval</div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'right' }}>
+                          {!expired && <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: mins <= 5 ? '#EF4444' : mins <= 15 ? '#F59E0B' : '#10B981' }}>{mins}m</div>}
+                          <div style={{ fontSize: 8, fontWeight: 700, color: expired ? (currentUser ? '#F59E0B' : '#EF4444') : '#F59E0B' }}>
+                            {expired ? (currentUser ? 'Enter score →' : 'Awaiting score') : 'In progress'}
                           </div>
-                        );
-                      })()}
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -721,6 +807,53 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         )}
         <div style={{ fontSize: 10, color: "#334155" }}>kykie · v{APP_VERSION}</div>
       </div>
+
+      {/* Score Entry Popup */}
+      {scoreEntryMatch && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+          onClick={() => setScoreEntryMatch(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#1E293B", borderRadius: 16, padding: "20px 16px", width: 300, textAlign: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>
+              {scoreEntryMatch.home_team?.name} vs {scoreEntryMatch.away_team?.name}
+            </div>
+            <div style={{ fontSize: 10, color: "#64748B", marginBottom: 16 }}>
+              {parseSASTDate(scoreEntryMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+              {scoreEntryMatch.venue && ` · ${scoreEntryMatch.venue}`}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>{(scoreEntryMatch.home_team?.name || "Home").slice(0, 12)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setSeHomeScore(Math.max(0, seHomeScore - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, cursor: "pointer" }}>–</button>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: "#F8FAFC", width: 40 }}>{seHomeScore}</div>
+                  <button onClick={() => setSeHomeScore(seHomeScore + 1)} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #F59E0B44", background: "#F59E0B22", color: "#F59E0B", fontSize: 18, cursor: "pointer" }}>+</button>
+                </div>
+              </div>
+              <div style={{ fontSize: 14, color: "#475569", marginTop: 20 }}>–</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>{(scoreEntryMatch.away_team?.name || "Away").slice(0, 12)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setSeAwayScore(Math.max(0, seAwayScore - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, cursor: "pointer" }}>–</button>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: "#F8FAFC", width: 40 }}>{seAwayScore}</div>
+                  <button onClick={() => setSeAwayScore(seAwayScore + 1)} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #F59E0B44", background: "#F59E0B22", color: "#F59E0B", fontSize: 18, cursor: "pointer" }}>+</button>
+                </div>
+              </div>
+            </div>
+            <button disabled={seSubmitting} onClick={handleScoreSubmit} style={{
+              width: "100%", padding: 12, borderRadius: 8, border: "none",
+              background: "#10B981", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              opacity: seSubmitting ? 0.5 : 1,
+            }}>
+              {seSubmitting ? "Saving..." : currentUser && ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role) ? "Save Final Score" : "Submit Score for Approval"}
+            </button>
+            <button onClick={() => setScoreEntryMatch(null)} style={{
+              width: "100%", marginTop: 6, padding: 8, borderRadius: 8,
+              border: "1px solid #334155", background: "transparent", color: "#64748B",
+              fontSize: 11, cursor: "pointer",
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

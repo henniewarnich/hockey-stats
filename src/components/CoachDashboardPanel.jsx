@@ -44,8 +44,9 @@ export default function CoachDashboardPanel({ currentUser }) {
       fetchLatestRankings().then(r => setRankings(r)).catch(() => {});
       setLoading(false);
 
-      // Single team coach: skip selection, go straight to team page
-      if (myTeams.length === 1) {
+      // Single team coach: skip selection on first visit only (not when returning via back button)
+      if (myTeams.length === 1 && !sessionStorage.getItem('kykie-coach-visited')) {
+        sessionStorage.setItem('kykie-coach-visited', '1');
         const slug = myTeams[0].name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
         window.location.hash = `#/team/${slug}`;
       }
