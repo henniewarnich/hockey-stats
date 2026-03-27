@@ -2,12 +2,19 @@
 
 export const STATS = [
   { key: "dEntries", label: "D Entries" },
-  { key: "shotsOn", label: "Shots on Goal" },
-  { key: "shotsOff", label: "Shots off Target" },
-  { key: "shortCorners", label: "Short Corners" },
-  { key: "longCorners", label: "Long Corners" },
-  { key: "turnoversWon", label: "Turnovers Won" },
+  { key: "shotsOn", label: "Shots On" },
+  { key: "shotsOff", label: "Shots Off" },
+  { key: "shortCorners", label: "Short Crnrs" },
+  { key: "longCorners", label: "Long Crnrs" },
+  { key: "turnoversWon", label: "TOs Won" },
   { key: "possLost", label: "Poss Lost" },
+];
+
+export const DISPLAY_STATS = [
+  { label: "Shots On %", calc: (s) => { const t = s.shotsOn + s.shotsOff; return t > 0 ? Math.round(s.shotsOn / t * 100) : 0; }, suffix: "%" },
+  { label: "Shots Off %", calc: (s) => { const t = s.shotsOn + s.shotsOff; return t > 0 ? Math.round(s.shotsOff / t * 100) : 0; }, suffix: "%" },
+  { label: "Short Crnr %", calc: (s) => s.dEntries > 0 ? Math.round(s.shortCorners / s.dEntries * 100) : 0, suffix: "%" },
+  { label: "Possession", calc: (s) => s.territory || 0, suffix: "%" },
 ];
 
 export const INVERTED = ["possLost", "shotsOff"];

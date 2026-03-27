@@ -153,6 +153,12 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     } else if (opt.id === "short_corner") {
       addLog(attackingTeam, "Short Corner", dLabel, `${teams[attackingTeam].name}: Short Corner in ${dLabel}`);
       setPrevBallPos(ballPos); setBallPos({ type: "sc", end });
+    } else if (opt.id === "dead_ball") {
+      addLog(defendingTeam, "Dead Ball", dLabel, `Dead ball in ${dLabel} — ${teams[defendingTeam].name} ball`);
+      setPossession(defendingTeam);
+      const outsideZone = end === "top" ? "z1" : "z4";
+      setPrevBallPos(ballPos);
+      setBallPos({ zoneId: outsideZone, pos: "centre" });
     } else {
       addLog(attackingTeam, opt.label, dLabel, `${teams[attackingTeam].name}: ${opt.label} in ${dLabel}`);
     }

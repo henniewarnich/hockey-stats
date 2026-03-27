@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
-import NavLogo from '../components/NavLogo.jsx';
 
 export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
@@ -90,10 +88,12 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
 
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Game History ({loadingCloud ? "..." : allGames.length})</div>
-        <NavLogo />
+      <div style={{ padding: "12px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", fontWeight: 700, padding: 0, display: "flex", alignItems: "center", gap: 5 }}>
+          <svg width="16" height="16" viewBox="0 0 56 56"><circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/><circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/></svg>
+          ← kykie
+        </button>
+        <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? "..." : allGames.length} matches</div>
       </div>
       <div style={S.page}>
         {/* Sync banner */}
@@ -104,10 +104,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
           }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>
-                📱 {unsyncedCount} game{unsyncedCount !== 1 ? "s" : ""} not synced to cloud
-              </div>
-              <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
-                These games are only on this device
+                📱 {unsyncedCount} game{unsyncedCount !== 1 ? "s" : ""} not synced
               </div>
             </div>
             <button onClick={handleSync} disabled={syncing} style={{
@@ -128,7 +125,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
             color: syncResult.failed > 0 ? "#EF4444" : "#10B981",
             fontSize: 11, fontWeight: 600, textAlign: "center",
           }}>
-            {syncResult.synced > 0 && `✓ ${syncResult.synced} game${syncResult.synced > 1 ? "s" : ""} synced`}
+            {syncResult.synced > 0 && `✓ ${syncResult.synced} synced`}
             {syncResult.synced > 0 && syncResult.failed > 0 && " · "}
             {syncResult.failed > 0 && `✗ ${syncResult.failed} failed`}
           </div>
@@ -158,45 +155,35 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
             const rc = resultColor(g);
             const isSynced = !!g.supabase_id;
             return (
-              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}
-                onClick={() => onSelect(g)}>
-                {/* Score */}
-                <div style={{ minWidth: 54, textAlign: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-                    <span style={{ fontSize: 18, fontWeight: 900, color: g.teams?.home?.color || theme.text }}>{g.homeScore}</span>
-                    <span style={{ fontSize: 12, color: theme.textDim }}>–</span>
-                    <span style={{ fontSize: 18, fontWeight: 900, color: g.teams?.away?.color || theme.text }}>{g.awayScore}</span>
-                  </div>
-                  <div style={{ width: "100%", height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
-                </div>
-
-                {/* Teams + Meta */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
-                    <span style={{ color: g.teams?.home?.color }}>{g.teams?.home?.name}</span>
-                    <span style={{ color: theme.textDim, margin: "0 4px" }}>vs</span>
-                    <span style={{ color: g.teams?.away?.color }}>{g.teams?.away?.name}</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                    {g.duration ? ` · ${fmt(g.duration)}` : ""}
-                    {g.venue && ` · ${g.matchType ? (g.matchType.charAt(0).toUpperCase() + g.matchType.slice(1)) + ' @ ' : ''}${g.venue}`}
-                    {g.quickScore && " · Quick"}
-                    {g.imported && " · Imported"}
-                    {/* Sync indicator */}
-                    <span style={{ fontSize: 10, marginLeft: 2 }} title={isSynced ? "Synced to cloud" : "Local only"}>
-                      {isSynced ? "☁️" : "📱"}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ color: theme.textDimmer, fontSize: 14 }}>›</div>
+              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+                {/* Video Stats button */}
                 {onVideoReview && isSynced && (
                   <button onClick={(e) => { e.stopPropagation(); onVideoReview(g); }} style={{
-                    fontSize: 9, color: '#8B5CF6', background: '#8B5CF611', border: '1px solid #8B5CF644',
-                    borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
-                  }}>📹 Video</button>
+                    width: 36, height: 36, borderRadius: 8, border: '1px solid #8B5CF644', background: '#8B5CF611',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', flexShrink: 0, padding: 0,
+                  }}>
+                    <span style={{ fontSize: 14, lineHeight: 1 }}>📹</span>
+                    <span style={{ fontSize: 6, fontWeight: 700, color: '#8B5CF6', marginTop: 1 }}>Video Stats</span>
+                  </button>
                 )}
+
+                {/* Teams + Meta */}
+                <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onSelect(g)}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
+                    {g.teams?.home?.name} vs {g.teams?.away?.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
+                    {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                    {g.venue && ` · ${g.venue}`}
+                  </div>
+                </div>
+
+                {/* Score */}
+                <div style={{ minWidth: 44, textAlign: "center", cursor: "pointer" }} onClick={() => onSelect(g)}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: rc, letterSpacing: 1 }}>{g.homeScore}–{g.awayScore}</div>
+                  <div style={{ height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
+                </div>
               </div>
             );
           })

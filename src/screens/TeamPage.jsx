@@ -745,6 +745,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             matchStatsList={Object.values(matchStatsMap)}
             teamName={team.name}
             teamColor={team.color}
+            teamId={team.id}
+            allMatches={matches}
             matchCount={matches.filter(m => m.duration > 0).length}
           />
         )
