@@ -318,12 +318,12 @@ export async function archiveMatchStats(matchId) {
   // Fetch all events
   const { data: rawEvents } = await supabase
     .from('match_events')
-    .select('team, event, match_time, detail')
+    .select('team, event, match_time, detail, zone')
     .eq('match_id', matchId)
     .order('match_time');
   if (!rawEvents || rawEvents.length === 0) return false;
 
-  const events = rawEvents.map(e => ({ team: e.team, event: e.event, time: e.match_time, detail: e.detail }));
+  const events = rawEvents.map(e => ({ team: e.team, event: e.event, time: e.match_time, detail: e.detail, zone: e.zone }));
   const rows = [];
 
   // Compute totals for home and away
@@ -332,7 +332,8 @@ export async function archiveMatchStats(matchId) {
     rows.push({
       match_id: matchId, team: side, quarter: 0,
       goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
-      d_entries: s.dEntries, short_corners: s.shortCorners,
+      d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
+      short_corners: s.shortCorners,
       long_corners: s.longCorners, turnovers_won: s.turnoversWon,
       poss_lost: s.possLost, territory_pct: s.territory,
     });
@@ -346,7 +347,8 @@ export async function archiveMatchStats(matchId) {
       rows.push({
         match_id: matchId, team: side, quarter: parseInt(q.label.replace(/\D/g, '')) || quarters.indexOf(q) + 1,
         goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
-        d_entries: s.dEntries, short_corners: s.shortCorners,
+        d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
+        short_corners: s.shortCorners,
         long_corners: s.longCorners, turnovers_won: s.turnoversWon,
         poss_lost: s.possLost, territory_pct: s.territory,
       });

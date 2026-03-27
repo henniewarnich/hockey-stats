@@ -309,12 +309,14 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               ))}
             </div>
             {[
-              ["Attack → D", "attack zone to D entry", t => atkConv(t), t => `${totalStat(t, "dEntries")} of ${totalStat(t, "atkZoneEntries")}`, true],
+              totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
+                ? ["Attack → D", "attack zone to D entry", t => atkConv(t), t => `${totalStat(t, "dEntries")} of ${totalStat(t, "atkZoneEntries")}`, true]
+                : null,
               ["Shots taken", "D Entry → Shot", t => dConv(t), t => `${shotsTaken(t)} of ${totalStat(t, "dEntries")}`],
               ["On target", "% of shots", t => onTargetPct(t), t => `${totalStat(t, "shotsOn")} of ${shotsTaken(t)}`],
               ["Off target", "% of shots", t => offTargetPct(t), t => `${totalStat(t, "shotsOff")} of ${shotsTaken(t)}`],
               ["Goals", "% of shots on target", t => goalPct(t), t => `${t === "home" ? homeScore : awayScore} of ${totalStat(t, "shotsOn")}`],
-            ].map(([label, sub, pctFn, detailFn, divider], i) => (
+            ].filter(Boolean).map(([label, sub, pctFn, detailFn, divider], i) => (
               <div key={label}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: divider ? 0 : 8 }}>
                 <div style={{ flex: 1, textAlign: "center" }}>
@@ -477,8 +479,10 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                               <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
                                 {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
                               </div>
+                              {(q.home.atkZoneEntries > 0 || q.away.atkZoneEntries > 0) && <>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC" }}>{qAtkConv(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Attack → D</div>
+                              </>}
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDConv(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Shots taken</div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qOnPct(t)}%</div>

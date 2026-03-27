@@ -32,14 +32,15 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
   const tShots = agg.team.shotsOn + agg.team.shotsOff;
   const oShots = agg.opp.shotsOn + agg.opp.shotsOff;
 
+  const hasAtkData = agg.team.atkZoneEntries > 0 || agg.opp.atkZoneEntries > 0;
   const convRows = [
-    {
+    ...(hasAtkData ? [{
       label: "Attack → D", sub: "attack zone to D entry", divider: true,
       tPct: agg.team.atkZoneEntries > 0 ? Math.round(agg.team.dEntries / agg.team.atkZoneEntries * 100) : 0,
       tDetail: `${agg.team.dEntries} of ${agg.team.atkZoneEntries}`,
       oPct: agg.opp.atkZoneEntries > 0 ? Math.round(agg.opp.dEntries / agg.opp.atkZoneEntries * 100) : 0,
       oDetail: `${agg.opp.dEntries} of ${agg.opp.atkZoneEntries}`,
-    },
+    }] : []),
     {
       label: "Shots taken", sub: "D Entry → Shot",
       tPct: agg.team.dEntries > 0 ? Math.round(tShots / agg.team.dEntries * 100) : 0,
