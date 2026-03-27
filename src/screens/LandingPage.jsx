@@ -416,65 +416,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               (m.venue || "").toLowerCase().includes(q)
             ) : allInProgress;
 
-            // Gate: must be logged in to view live matches
-            const liveFiltered = filtered.filter(m => m.status === 'live');
-            if (!currentUser && liveFiltered.length > 0) {
-              return (
-                <div style={styles.section}>
-                  <div style={{ textAlign: "center", padding: 30 }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{liveFiltered.length} live {liveFiltered.length === 1 ? 'match' : 'matches'} right now</div>
-                    <div style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>Register to view live matches</div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                      <button onClick={() => { window.location.hash = "#/login"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sign In</button>
-                      <button onClick={() => { window.location.hash = "#/register"; }} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #334155", background: "none", color: "#94A3B8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Register</button>
-                    </div>
-                  </div>
-                  {/* Still show non-live in-progress below the gate */}
-                  {filtered.filter(m => m.status !== 'live').map(m => {
-                    const d = parseSASTDate(m.match_date);
-                    return (
-                      <div key={m.id} style={{ ...styles.scoreCard, border: "1px solid #F59E0B33", background: "#F59E0B08", opacity: 0.7 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 7, background: "#F59E0B22", border: "1.5px solid #F59E0B33", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ fontSize: 12 }}>🏑</span>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
-                          <div style={styles.matchMeta}>
-                            {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
-                            {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                            {m.venue && ` · ${m.venue}`}
-                          </div>
-                        </div>
-                        {(() => {
-                          const kickoff = m.scheduled_time ? parseSAST(m.match_date, m.scheduled_time).getTime() : 0;
-                          const duration = (m.match_length || 60) * 60000;
-                          const remaining = Math.max(0, kickoff + duration - Date.now());
-                          const mins = Math.ceil(remaining / 60000);
-                          const expired = remaining <= 0;
-                          void tick;
-                          return (
-                            <div style={{ textAlign: 'right' }}>
-                              {!expired && <div style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: mins <= 5 ? '#EF4444' : mins <= 15 ? '#F59E0B' : '#10B981' }}>{mins}m</div>}
-                              <div style={{ fontSize: 8, fontWeight: 700, color: expired ? '#EF4444' : '#F59E0B' }}>
-                                {expired ? 'Awaiting score' : 'In progress'}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            }
-
             return (
             <div style={styles.section}>
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
                   {q ? "No matches found" : "No matches in progress"}
-                  {!currentUser && !q && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to view live matches</button></div>}
                 </div>
               ) : (
                 filtered.map(m => {

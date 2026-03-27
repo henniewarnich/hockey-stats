@@ -133,6 +133,7 @@ function computeStats(events, team, startTime, endTime) {
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
     dEntries: real.filter(e => e.event === "D Entry").length,
+    atkZoneEntries: real.filter(e => e.zone?.includes("Opp Quarter")).length,
     shotsOn: real.filter(e => e.event === "Shot on Goal").length,
     shotsOff: real.filter(e => e.event === "Shot Off Target").length,
     shortCorners: real.filter(e => e.event === "Short Corner").length,
@@ -209,6 +210,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const avgTerritory = (team) => activeQs.length ? Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length) : 0;
   const convRate = (team) => { const s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
+  const atkConv = (team) => { const a = totalStat(team, "atkZoneEntries"), d = totalStat(team, "dEntries"); return a > 0 ? Math.round(d / a * 100) : 0; };
   const shotsTaken = (team) => totalStat(team, "shotsOn") + totalStat(team, "shotsOff");
   const onTargetPct = (team) => { const s = shotsTaken(team); return s > 0 ? Math.round(totalStat(team, "shotsOn") / s * 100) : 0; };
   const offTargetPct = (team) => { const s = shotsTaken(team); return s > 0 ? Math.round(totalStat(team, "shotsOff") / s * 100) : 0; };
@@ -307,12 +309,14 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               ))}
             </div>
             {[
+              ["Attack → D", "attack zone to D entry", t => atkConv(t), t => `${totalStat(t, "dEntries")} of ${totalStat(t, "atkZoneEntries")}`, true],
               ["Shots taken", "D Entry → Shot", t => dConv(t), t => `${shotsTaken(t)} of ${totalStat(t, "dEntries")}`],
               ["On target", "% of shots", t => onTargetPct(t), t => `${totalStat(t, "shotsOn")} of ${shotsTaken(t)}`],
               ["Off target", "% of shots", t => offTargetPct(t), t => `${totalStat(t, "shotsOff")} of ${shotsTaken(t)}`],
               ["Goals", "% of shots on target", t => goalPct(t), t => `${t === "home" ? homeScore : awayScore} of ${totalStat(t, "shotsOn")}`],
-            ].map(([label, sub, pctFn, detailFn], i) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: i < 3 ? 8 : 0 }}>
+            ].map(([label, sub, pctFn, detailFn, divider], i) => (
+              <div key={label}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: divider ? 0 : 8 }}>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div style={{ fontSize: 20, fontWeight: 900, color: label === "Goals" ? "#F59E0B" : "#F8FAFC" }}>{pctFn("home")}%</div>
                   <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("home")}</div>
@@ -325,6 +329,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   <div style={{ fontSize: 20, fontWeight: 900, color: label === "Goals" ? "#F59E0B" : "#F8FAFC" }}>{pctFn("away")}%</div>
                   <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("away")}</div>
                 </div>
+              </div>
+              {divider && <div style={{ borderBottom: "1px solid #33415544", margin: "8px 0" }} />}
               </div>
             ))}
           </div>
@@ -343,63 +349,57 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             </div>
           </div>
 
-          {/* Territory by quarter */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Territory by Period</div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {quarterData.map(q => {
-                const isLive = q.status === "live";
-                const isUpcoming = q.status === "upcoming";
-                return (
-                  <div key={q.label} style={{ flex: 1, textAlign: "center", opacity: isUpcoming ? 0.25 : 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: isLive ? "#10B981" : "#94A3B8", marginBottom: 4 }}>{q.label}</div>
-                    <div style={{ height: 60, borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", border: isLive ? "1px solid #10B98133" : "1px solid #334155" }}>
-                      <div style={{ height: `${q.home.territory}%`, background: HC, transition: "height 0.5s" }} />
-                      <div style={{ height: `${q.away.territory}%`, background: AC, transition: "height 0.5s" }} />
-                    </div>
-                    {!isUpcoming && (
-                      <div style={{ marginTop: 3 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: HC }}>{q.home.territory}%</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: AC }}>{q.away.territory}%</div>
-                      </div>
-                    )}
-                    {isUpcoming && <div style={{ fontSize: 10, color: "#475569", marginTop: 3 }}>–</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Possession by quarter */}
+          {/* Zone Control — time-based */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Possession by Period</div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {quarterData.map(q => {
-                const isLive = q.status === "live";
-                const isUpcoming = q.status === "upcoming";
-                // Possession = proportion of all events by each team
-                const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
-                const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
-                const total = hEvents + aEvents || 1;
-                const hPoss = Math.round(hEvents / total * 100);
-                const aPoss = 100 - hPoss;
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Zone Control</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 3, background: HC }} />
+                <span style={{ color: HC }}>{teams.home.short || teams.home.name.slice(0, 3).toUpperCase()}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
+                <span style={{ color: AC }}>{teams.away.short || teams.away.name.slice(0, 3).toUpperCase()}</span>
+                <div style={{ width: 10, height: 10, borderRadius: 3, background: AC }} />
+              </div>
+            </div>
+            {(() => {
+              const zoned = events
+                .filter(e => e.team !== "commentary" && e.team !== "meta" && e.zone)
+                .sort((a, b) => (a.time || 0) - (b.time || 0));
+              const time = { attack: { home: 0, away: 0 }, midfield: { home: 0, away: 0 }, defense: { home: 0, away: 0 } };
+              for (let i = 0; i < zoned.length - 1; i++) {
+                const ev = zoned[i];
+                const dur = (zoned[i + 1].time || 0) - (ev.time || 0);
+                if (dur <= 0 || dur > 300) continue;
+                const z = ev.zone || "";
+                const area = z.includes("Opp Quarter") ? "attack" : z.includes("Own Quarter") ? "defense" : "midfield";
+                if (ev.team === "home" || ev.team === "away") time[area][ev.team] += dur;
+              }
+              return [
+                { label: "Attack", sub: "Opp Quarter", ...time.attack },
+                { label: "Midfield", sub: "Opp Mid + Own Mid", ...time.midfield },
+                { label: "Defense", sub: "Own Quarter", ...time.defense },
+              ].map(z => {
+                const zTotal = z.home + z.away || 1;
+                const hPct = Math.round(z.home / zTotal * 100);
+                const aPct = 100 - hPct;
+                const mins = Math.round((z.home + z.away) / 60);
                 return (
-                  <div key={q.label} style={{ flex: 1, textAlign: "center", opacity: isUpcoming ? 0.25 : 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: isLive ? "#10B981" : "#94A3B8", marginBottom: 4 }}>{q.label}</div>
-                    <div style={{ height: 60, borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", border: isLive ? "1px solid #10B98133" : "1px solid #334155" }}>
-                      <div style={{ height: `${hPoss}%`, background: HC, transition: "height 0.5s" }} />
-                      <div style={{ height: `${aPoss}%`, background: AC, transition: "height 0.5s" }} />
+                  <div key={z.label} style={{ marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC" }}>{z.label}</div>
+                      <div style={{ fontSize: 8, color: "#475569" }}>{z.sub} · {mins}m</div>
                     </div>
-                    {!isUpcoming && (
-                      <div style={{ marginTop: 3 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: HC }}>{hPoss}%</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: AC }}>{aPoss}%</div>
-                      </div>
-                    )}
-                    {isUpcoming && <div style={{ fontSize: 10, color: "#475569", marginTop: 3 }}>–</div>}
+                    <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${hPct}%`, background: `rgba(34,197,94,${0.15 + hPct * 0.003})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: HC, transition: "width 0.5s" }}>{hPct > 8 ? `${hPct}%` : ""}</div>
+                      <div style={{ width: `${aPct}%`, background: `rgba(148,163,184,${0.08 + aPct * 0.003})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: AC, transition: "width 0.5s" }}>{aPct > 8 ? `${aPct}%` : ""}</div>
+                    </div>
                   </div>
                 );
-              })}
+              });
+            })()}
+            <div style={{ textAlign: "center", fontSize: 9, color: "#475569", marginTop: 4 }}>
+              Overall: <span style={{ color: HC, fontWeight: 700 }}>{avgTerritory("home")}%</span> – <span style={{ color: AC, fontWeight: 700 }}>{avgTerritory("away")}%</span> · Time-based
             </div>
           </div>
         </div>
@@ -440,6 +440,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   {isExp && !isUpcoming && (() => {
                     const qConvRate = (t) => { const s = q[t].shotsOn + q[t].shotsOff; const g = q[t].goals; return s > 0 ? Math.round(g / s * 100) : 0; };
                     const qDConv = (t) => { const d = q[t].dEntries; const s = q[t].shotsOn + q[t].shotsOff; return d > 0 ? Math.round(s / d * 100) : 0; };
+                    const qAtkConv = (t) => { const a = q[t].atkZoneEntries; const d = q[t].dEntries; return a > 0 ? Math.round(d / a * 100) : 0; };
                     const qShots = (t) => q[t].shotsOn + q[t].shotsOff;
                     const qOnPct = (t) => { const s = qShots(t); return s > 0 ? Math.round(q[t].shotsOn / s * 100) : 0; };
                     const qOffPct = (t) => { const s = qShots(t); return s > 0 ? Math.round(q[t].shotsOff / s * 100) : 0; };
@@ -476,7 +477,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                               <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
                                 {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
                               </div>
-                              <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{qDConv(t)}%</div>
+                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC" }}>{qAtkConv(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Attack → D</div>
+                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDConv(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Shots taken</div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qOnPct(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>On target</div>

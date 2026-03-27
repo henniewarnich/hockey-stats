@@ -34,6 +34,7 @@ export function computeStats(events, team, startTime, endTime) {
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
     dEntries: real.filter(e => e.event === "D Entry").length,
+    atkZoneEntries: real.filter(e => e.zone?.includes("Opp Quarter")).length,
     shotsOn: real.filter(e => e.event === "Shot on Goal").length,
     shotsOff: real.filter(e => e.event === "Shot Off Target").length,
     shortCorners: real.filter(e => e.event === "Short Corner").length,
@@ -90,14 +91,16 @@ export function aggregateStats(matchStatsList) {
 
   return {
     team: {
-      goals: sum("goals"), dEntries: sum("dEntries"), shotsOn: sum("shotsOn"),
-      shotsOff: sum("shotsOff"), shortCorners: sum("shortCorners"), longCorners: sum("longCorners"),
-      turnoversWon: sum("turnoversWon"), possLost: sum("possLost"), territory: avgTerritory,
+      goals: sum("goals"), dEntries: sum("dEntries"), atkZoneEntries: sum("atkZoneEntries"),
+      shotsOn: sum("shotsOn"), shotsOff: sum("shotsOff"), shortCorners: sum("shortCorners"),
+      longCorners: sum("longCorners"), turnoversWon: sum("turnoversWon"), possLost: sum("possLost"),
+      territory: avgTerritory,
     },
     opp: {
-      goals: sumOpp("goals"), dEntries: sumOpp("dEntries"), shotsOn: sumOpp("shotsOn"),
-      shotsOff: sumOpp("shotsOff"), shortCorners: sumOpp("shortCorners"), longCorners: sumOpp("longCorners"),
-      turnoversWon: sumOpp("turnoversWon"), possLost: sumOpp("possLost"), territory: avgOppTerritory,
+      goals: sumOpp("goals"), dEntries: sumOpp("dEntries"), atkZoneEntries: sumOpp("atkZoneEntries"),
+      shotsOn: sumOpp("shotsOn"), shotsOff: sumOpp("shotsOff"), shortCorners: sumOpp("shortCorners"),
+      longCorners: sumOpp("longCorners"), turnoversWon: sumOpp("turnoversWon"), possLost: sumOpp("possLost"),
+      territory: avgOppTerritory,
     },
     matchCount: n,
   };
@@ -121,6 +124,7 @@ export function statsFromArchive(rows, teamId, homeTeamId) {
   const toStats = (row) => ({
     goals: row?.goals || 0,
     dEntries: row?.d_entries || 0,
+    atkZoneEntries: row?.atk_zone_entries || 0,
     shotsOn: row?.shots_on || 0,
     shotsOff: row?.shots_off || 0,
     shortCorners: row?.short_corners || 0,

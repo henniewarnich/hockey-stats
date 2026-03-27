@@ -156,7 +156,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     } else if (opt.id === "dead_ball") {
       addLog(defendingTeam, "Dead Ball", dLabel, `Dead ball in ${dLabel} — ${teams[defendingTeam].name} ball`);
       setPossession(defendingTeam);
-      const outsideZone = end === "top" ? "z1" : "z4";
+      // When flipped, zones are reversed on screen: z4 at top, z1 at bottom
+      const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
       setBallPos({ zoneId: outsideZone, pos: "centre" });
     } else {

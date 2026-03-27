@@ -43,6 +43,12 @@ export default function CoachDashboardPanel({ currentUser }) {
 
       fetchLatestRankings().then(r => setRankings(r)).catch(() => {});
       setLoading(false);
+
+      // Single team coach: skip selection, go straight to team page
+      if (myTeams.length === 1) {
+        const slug = myTeams[0].name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+        window.location.hash = `#/team/${slug}`;
+      }
     };
     load();
   }, [currentUser.id]);
