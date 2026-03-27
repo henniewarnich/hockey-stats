@@ -371,6 +371,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                 { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
                 { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
                 { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
+                { id: "dead_ball", label: "Dead Ball", icon: "⊘", color: "#94A3B8" },
               ].map(opt => (
                 <button key={opt.id} onClick={() => handleDOption(opt)} style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",

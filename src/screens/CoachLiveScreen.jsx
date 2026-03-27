@@ -20,7 +20,7 @@ const DISPLAY_STATS = [
   { label: "Shots On %", calc: (s) => { const t = s.shotsOn + s.shotsOff; return t > 0 ? Math.round(s.shotsOn / t * 100) : 0; }, suffix: "%" },
   { label: "Shots Off %", calc: (s) => { const t = s.shotsOn + s.shotsOff; return t > 0 ? Math.round(s.shotsOff / t * 100) : 0; }, suffix: "%" },
   { label: "Short Crnr %", calc: (s) => s.dEntries > 0 ? Math.round(s.shortCorners / s.dEntries * 100) : 0, suffix: "%" },
-  { label: "Possession", calc: (s) => s.territory || 0, suffix: "%" },
+  { label: "Territory", calc: (s) => s.territory || 0, suffix: "%" },
 ];
 
 const INVERTED = ["possLost", "shotsOff"];
@@ -343,9 +343,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             </div>
           </div>
 
-          {/* Possession by quarter */}
+          {/* Territory by quarter */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Possession by Period</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Territory by Period</div>
             <div style={{ display: "flex", gap: 4 }}>
               {quarterData.map(q => {
                 const isLive = q.status === "live";

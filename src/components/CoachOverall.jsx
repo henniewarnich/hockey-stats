@@ -127,7 +127,7 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
             { label: "D Entries", val: (agg.team.dEntries / n).toFixed(1) },
             { label: "Shots", val: (tShots / n).toFixed(1) },
             { label: "SCs", val: (agg.team.shortCorners / n).toFixed(1) },
-            { label: "Possession", val: agg.team.territory + "%" },
+            { label: "Territory", val: agg.team.territory + "%" },
             { label: "GD/Match", val: totalMatches > 0 ? ((allGD / totalMatches) > 0 ? "+" : "") + (allGD / totalMatches).toFixed(1) : "0" },
           ].map(s => (
             <div key={s.label}>
