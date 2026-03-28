@@ -374,7 +374,16 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                 const dur = (zoned[i + 1].time || 0) - (ev.time || 0);
                 if (dur <= 0 || dur > 300) continue;
                 const z = ev.zone || "";
-                const area = z.includes("Opp Quarter") ? "attack" : z.includes("Own Quarter") ? "defense" : "midfield";
+                const isOppQ = z.includes("Opp Quarter");
+                const isOwnQ = z.includes("Own Quarter");
+                // Zone labels are from home perspective: "Opp Quarter" = near away goal
+                // Home in Opp Quarter = attacking, Away in Opp Quarter = defending (near their own goal)
+                let area = "midfield";
+                if (ev.team === "home") {
+                  area = isOppQ ? "attack" : isOwnQ ? "defense" : "midfield";
+                } else {
+                  area = isOwnQ ? "attack" : isOppQ ? "defense" : "midfield";
+                }
                 if (ev.team === "home" || ev.team === "away") time[area][ev.team] += dur;
               }
               return [
