@@ -636,44 +636,46 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         return (
                         <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", borderTop: "1px solid #33415544" }}>
                           {/* Prediction */}
-                          {pred && (
+                          {pred && (() => {
+                            const isDraw = pred.draw >= pred.homeWin && pred.draw >= pred.awayWin;
+                            const homeWins = pred.homeWin >= pred.awayWin && pred.homeWin > pred.draw;
+                            const winner = homeWins ? m.home_team?.name : m.away_team?.name;
+                            return (
                             <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                                 <span style={{ fontSize: 12 }}>🔮</span>
                                 <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1 }}>kykie predicts</span>
                               </div>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 10 }}>
-                                <div style={{ textAlign: "center" }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: hc, marginBottom: 2 }}>{(m.home_team?.name || "").slice(0, 14)}</div>
-                                  <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.homeScore}</div>
+                              <div style={{ textAlign: "center", marginBottom: 10 }}>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: isDraw ? "#F59E0B" : "#F8FAFC" }}>
+                                  {isDraw ? "Draw" : `${winner} to win`}
                                 </div>
-                                <div style={{ fontSize: 12, color: "#475569" }}>–</div>
-                                <div style={{ textAlign: "center" }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: ac, marginBottom: 2 }}>{(m.away_team?.name || "").slice(0, 14)}</div>
-                                  <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.awayScore}</div>
+                                <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
+                                  Based on {hRec?.p || 0} and {aRec?.p || 0} matches played
                                 </div>
                               </div>
                               <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
                                 <div style={{ width: `${pred.homeWin}%`, background: "#10B981" }} />
                                 <div style={{ width: `${pred.draw}%`, background: "#F59E0B" }} />
-                                <div style={{ width: `${pred.awayWin}%`, background: "#3B82F6" }} />
+                                <div style={{ width: `${pred.awayWin}%`, background: "#64748B" }} />
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
                                 <span style={{ color: "#10B981" }}>{m.home_team?.name?.split(' ')[0]} {pred.homeWin}%</span>
                                 <span style={{ color: "#F59E0B" }}>Draw {pred.draw}%</span>
-                                <span style={{ color: "#3B82F6" }}>{m.away_team?.name?.split(' ')[0]} {pred.awayWin}%</span>
+                                <span style={{ color: "#64748B" }}>{m.away_team?.name?.split(' ')[0]} {pred.awayWin}%</span>
                               </div>
                               {pred.reasons.length > 0 && (
                                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
                                   {pred.reasons.map((r, i) => (
-                                    <div key={i} style={{ fontSize: 9, color: r.type === 'home' ? '#10B981' : r.type === 'away' ? '#3B82F6' : '#F59E0B', lineHeight: 1.6 }}>
-                                      {r.type === 'home' ? '+' : r.type === 'away' ? '–' : '~'} {r.text}
+                                    <div key={i} style={{ fontSize: 9, color: r.type === 'home' ? '#10B981' : r.type === 'away' ? '#64748B' : '#F59E0B', lineHeight: 1.6 }}>
+                                      {r.type === 'neutral' ? '~' : '+'} {r.text}
                                     </div>
                                   ))}
                                 </div>
                               )}
                             </div>
-                          )}
+                            );
+                          })()}
                           {/* Scouting cards */}
                           <div style={{ display: "flex", gap: 6 }}>
                           {[[m.home_team, homeSlug, hc], [m.away_team, awaySlug, ac]].map(([t, slug, c]) => {
