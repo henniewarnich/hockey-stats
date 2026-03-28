@@ -12,6 +12,7 @@ import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
+import { predictMatch } from '../utils/predict.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -818,8 +819,50 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     </div>
                     {countdown && <div style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</div>}
                   </div>
-                  {/* Coach scouting: side-by-side team stats */}
-                  {isCoach && (
+                  {/* Coach scouting: prediction + side-by-side team stats */}
+                  {isCoach && (() => {
+                    const hRec = oppRecords[homeTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                    const aRec = oppRecords[awayTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                    const pred = predictMatch(hRec, aRec, homeTeam?.name, awayTeam?.name);
+                    return (<>
+                    {pred && (
+                      <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12 }}>🔮</span>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1 }}>kykie predicts</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 10 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: homeTeam?.color || "#F8FAFC", marginBottom: 2 }}>{(homeTeam?.name || "").slice(0, 14)}</div>
+                            <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.homeScore}</div>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#475569" }}>–</div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: awayTeam?.color || "#F8FAFC", marginBottom: 2 }}>{(awayTeam?.name || "").slice(0, 14)}</div>
+                            <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.awayScore}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                          <div style={{ width: `${pred.homeWin}%`, background: "#10B981" }} />
+                          <div style={{ width: `${pred.draw}%`, background: "#F59E0B" }} />
+                          <div style={{ width: `${pred.awayWin}%`, background: "#3B82F6" }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
+                          <span style={{ color: "#10B981" }}>{homeTeam?.name?.split(' ')[0]} {pred.homeWin}%</span>
+                          <span style={{ color: "#F59E0B" }}>Draw {pred.draw}%</span>
+                          <span style={{ color: "#3B82F6" }}>{awayTeam?.name?.split(' ')[0]} {pred.awayWin}%</span>
+                        </div>
+                        {pred.reasons.length > 0 && (
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
+                            {pred.reasons.map((r, i) => (
+                              <div key={i} style={{ fontSize: 9, color: r.type === 'home' ? '#10B981' : r.type === 'away' ? '#3B82F6' : '#F59E0B', lineHeight: 1.6 }}>
+                                {r.type === 'home' ? '+' : r.type === 'away' ? '–' : '~'} {r.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 6 }}>
                       {[homeTeam, awayTeam].map(t => {
                         const r = oppRecords[t?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
@@ -859,7 +902,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                         );
                       })}
                     </div>
-                  )}
+                    </>);
+                  })()}
                 </div>
               );
             })

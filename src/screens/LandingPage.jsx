@@ -11,6 +11,7 @@ import CommDashboardPanel from '../components/CommDashboardPanel.jsx';
 import CoachDashboardPanel from '../components/CoachDashboardPanel.jsx';
 import CrowdDashboardPanel from '../components/CrowdDashboardPanel.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
+import { predictMatch } from '../utils/predict.js';
 
 export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
@@ -532,7 +533,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                         <div style={styles.matchMeta}>
                           {isLive ? (
                             <>
@@ -616,7 +617,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                           <div style={styles.matchMeta}>
                             {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -628,8 +629,53 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           {m.venue && <div style={{ fontSize: 9, color: "#475569", fontWeight: 600 }}>{m.venue}</div>}
                         </div>
                       </div>
-                      {isExp && (
-                        <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", display: "flex", gap: 6, borderTop: "1px solid #33415544" }}>
+                      {isExp && (() => {
+                        const hRec = teamRecords[m.home_team?.id];
+                        const aRec = teamRecords[m.away_team?.id];
+                        const pred = predictMatch(hRec, aRec, m.home_team?.name, m.away_team?.name);
+                        return (
+                        <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", borderTop: "1px solid #33415544" }}>
+                          {/* Prediction */}
+                          {pred && (
+                            <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                                <span style={{ fontSize: 12 }}>🔮</span>
+                                <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1 }}>kykie predicts</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 10 }}>
+                                <div style={{ textAlign: "center" }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: hc, marginBottom: 2 }}>{(m.home_team?.name || "").slice(0, 14)}</div>
+                                  <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.homeScore}</div>
+                                </div>
+                                <div style={{ fontSize: 12, color: "#475569" }}>–</div>
+                                <div style={{ textAlign: "center" }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: ac, marginBottom: 2 }}>{(m.away_team?.name || "").slice(0, 14)}</div>
+                                  <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.awayScore}</div>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                                <div style={{ width: `${pred.homeWin}%`, background: "#10B981" }} />
+                                <div style={{ width: `${pred.draw}%`, background: "#F59E0B" }} />
+                                <div style={{ width: `${pred.awayWin}%`, background: "#3B82F6" }} />
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
+                                <span style={{ color: "#10B981" }}>{m.home_team?.name?.split(' ')[0]} {pred.homeWin}%</span>
+                                <span style={{ color: "#F59E0B" }}>Draw {pred.draw}%</span>
+                                <span style={{ color: "#3B82F6" }}>{m.away_team?.name?.split(' ')[0]} {pred.awayWin}%</span>
+                              </div>
+                              {pred.reasons.length > 0 && (
+                                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
+                                  {pred.reasons.map((r, i) => (
+                                    <div key={i} style={{ fontSize: 9, color: r.type === 'home' ? '#10B981' : r.type === 'away' ? '#3B82F6' : '#F59E0B', lineHeight: 1.6 }}>
+                                      {r.type === 'home' ? '+' : r.type === 'away' ? '–' : '~'} {r.text}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {/* Scouting cards */}
+                          <div style={{ display: "flex", gap: 6 }}>
                           {[[m.home_team, homeSlug, hc], [m.away_team, awaySlug, ac]].map(([t, slug, c]) => {
                             const rec = teamRecords[t?.id];
                             return (
@@ -646,7 +692,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                                   fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
                                 }}>{t?.name?.charAt(0)}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                                 </div>
                               </div>
                               {rec ? (
@@ -670,8 +716,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                               <div style={{ fontSize: 9, color: c, fontWeight: 700, textAlign: "center" }}>View stats →</div>
                             </div>
                           );})}
+                          </div>
                         </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -720,7 +768,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                       <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                          {m.home_team?.name} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
+                          {m.home_team?.name} <RankBadge rank={m.home_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} />
                           {m.duration > 0 && <CommentaryIcon />}
                         </div>
                         <div style={styles.matchMeta}>
@@ -769,7 +817,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                     <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
                       <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
                       <div style={{ flex: 1 }}>
-                        <div style={styles.teamName}>{t.name} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} prevRank={lr.prevRank} /> : null; })()}</div>
+                        <div style={styles.teamName}>{t.name} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} /> : null; })()}</div>
                         {r ? (
                           <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
                         ) : (

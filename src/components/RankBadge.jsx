@@ -1,9 +1,9 @@
 /**
  * RankBadge — inline rank display with trend indicator
  * 
- * Improved (lower number):  prevRank(gray) ▲ rank(green)
- * Dropped  (higher number): prevRank(gray) ▼ rank(red)
- * Unchanged or no prev:     #rank (amber)
+ * Improved (lower number):  ▲ rank (green)
+ * Dropped  (higher number): ▼ rank (red)
+ * Unchanged or no prev:     # rank (amber)
  * No rank:                  nothing
  */
 export default function RankBadge({ rank, prevRank }) {
@@ -22,7 +22,6 @@ export default function RankBadge({ rank, prevRank }) {
     );
   }
 
-  // Lower number = improved (green ▲), higher = dropped (red ▼)
   const improved = rank < prevRank;
   const color = improved ? "#10B981" : "#EF4444";
   const triangle = improved
@@ -31,7 +30,6 @@ export default function RankBadge({ rank, prevRank }) {
 
   return (
     <span style={style}>
-      <span style={{ color: "#94A3B8" }}>{prevRank}</span>
       {triangle}
       <span style={{ color }}>{rank}</span>
     </span>
