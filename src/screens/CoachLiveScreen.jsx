@@ -376,8 +376,6 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                 const z = ev.zone || "";
                 const isOppQ = z.includes("Opp Quarter");
                 const isOwnQ = z.includes("Own Quarter");
-                // Zone labels are from home perspective: "Opp Quarter" = near away goal
-                // Home in Opp Quarter = attacking, Away in Opp Quarter = defending (near their own goal)
                 let area = "midfield";
                 if (ev.team === "home") {
                   area = isOppQ ? "attack" : isOwnQ ? "defense" : "midfield";
@@ -386,28 +384,34 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                 }
                 if (ev.team === "home" || ev.team === "away") time[area][ev.team] += dur;
               }
-              return [
-                { label: "Attack", sub: "Opp Quarter", ...time.attack },
-                { label: "Midfield", sub: "Opp Mid + Own Mid", ...time.midfield },
-                { label: "Defense", sub: "Own Quarter", ...time.defense },
-              ].map(z => {
-                const zTotal = z.home + z.away || 1;
-                const hPct = Math.round(z.home / zTotal * 100);
-                const aPct = 100 - hPct;
-                const mins = Math.round((z.home + z.away) / 60);
-                return (
-                  <div key={z.label} style={{ marginBottom: 6 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC" }}>{z.label}</div>
-                      <div style={{ fontSize: 8, color: "#475569" }}>{z.sub} · {mins}m</div>
+              const totalH = time.attack.home + time.midfield.home + time.defense.home || 1;
+              const totalA = time.attack.away + time.midfield.away + time.defense.away || 1;
+              const zones = [
+                { label: "Attack", home: time.attack.home, away: time.attack.away },
+                { label: "Midfield", home: time.midfield.home, away: time.midfield.away },
+                { label: "Defense", home: time.defense.home, away: time.defense.away },
+              ];
+              return (
+                <>
+                {zones.map(z => {
+                  const hPct = Math.round(z.home / totalH * 100);
+                  const aPct = Math.round(z.away / totalA * 100);
+                  return (
+                    <div key={z.label} style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC", marginBottom: 3 }}>{z.label}</div>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <div style={{ flex: 1, display: "flex", height: 20, borderRadius: 5, overflow: "hidden", background: "#0B0F1A" }}>
+                          <div style={{ width: `${hPct}%`, background: `rgba(34,197,94,${0.2 + hPct * 0.005})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: HC, transition: "width 0.5s" }}>{hPct > 8 ? `${hPct}%` : ""}</div>
+                        </div>
+                        <div style={{ flex: 1, display: "flex", height: 20, borderRadius: 5, overflow: "hidden", background: "#0B0F1A" }}>
+                          <div style={{ width: `${aPct}%`, background: `rgba(148,163,184,${0.12 + aPct * 0.004})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: AC, transition: "width 0.5s" }}>{aPct > 8 ? `${aPct}%` : ""}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", height: 24, borderRadius: 6, overflow: "hidden" }}>
-                      <div style={{ width: `${hPct}%`, background: `rgba(34,197,94,${0.15 + hPct * 0.003})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: HC, transition: "width 0.5s" }}>{hPct > 8 ? `${hPct}%` : ""}</div>
-                      <div style={{ width: `${aPct}%`, background: `rgba(148,163,184,${0.08 + aPct * 0.003})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: AC, transition: "width 0.5s" }}>{aPct > 8 ? `${aPct}%` : ""}</div>
-                    </div>
-                  </div>
-                );
-              });
+                  );
+                })}
+                </>
+              );
             })()}
             <div style={{ textAlign: "center", fontSize: 9, color: "#475569", marginTop: 4 }}>
               Overall: <span style={{ color: HC, fontWeight: 700 }}>{avgTerritory("home")}%</span> – <span style={{ color: AC, fontWeight: 700 }}>{avgTerritory("away")}%</span> · Time-based
