@@ -34,6 +34,7 @@ import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
 import ContributorScreen from './screens/ContributorScreen.jsx';
+import WhatIfScreen from './components/WhatIfScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -457,6 +458,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "match_setup":
       return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
+
+    case "what_if":
+      return <WhatIfScreen onBack={() => navigate("home")} />;
 
     case "choose_live_mode":
       if (!matchConfig) { navigate("home"); return null; }

@@ -326,31 +326,75 @@ export async function archiveMatchStats(matchId) {
   const events = rawEvents.map(e => ({ team: e.team, event: e.event, time: e.match_time, detail: e.detail, zone: e.zone }));
   const rows = [];
 
+  // Compute time-based possession and territory from zone events
+  function computeTimeBased(evts, startTime, endTime) {
+    const zoned = evts
+      .filter(e => e.team === 'home' || e.team === 'away')
+      .filter(e => e.zone && e.time >= startTime && e.time <= endTime)
+      .sort((a, b) => (a.time || 0) - (b.time || 0));
+    const ballTime = { home: 0, away: 0 };
+    const oppHalfTime = { home: 0, away: 0 };
+    for (let i = 0; i < zoned.length - 1; i++) {
+      const ev = zoned[i];
+      const dur = (zoned[i + 1].time || 0) - (ev.time || 0);
+      if (dur <= 0 || dur > 300) continue; // skip pauses > 5min
+      const team = ev.team;
+      ballTime[team] += dur;
+      const z = ev.zone || '';
+      const isOppQ = z.includes('Opp Quarter');
+      const isOwnQ = z.includes('Own Quarter');
+      const isOppMid = z.includes('Opp Midfield');
+      const isOwnMid = z.includes('Own Midfield');
+      // Opposition half: from each team's perspective
+      if (team === 'home' && (isOppQ || isOppMid)) oppHalfTime.home += dur;
+      if (team === 'away' && (isOwnQ || isOwnMid)) oppHalfTime.away += dur;
+    }
+    const totalBall = ballTime.home + ballTime.away || 1;
+    return {
+      home: {
+        possessionTimePct: Math.round(ballTime.home / totalBall * 100),
+        territoryTimePct: ballTime.home > 0 ? Math.round(oppHalfTime.home / ballTime.home * 100) : 0,
+      },
+      away: {
+        possessionTimePct: Math.round(ballTime.away / totalBall * 100),
+        territoryTimePct: ballTime.away > 0 ? Math.round(oppHalfTime.away / ballTime.away * 100) : 0,
+      },
+    };
+  }
+
   // Compute totals for home and away
+  const totalTimeBased = computeTimeBased(events, 0, 999999);
   for (const side of ['home', 'away']) {
     const s = computeStats(events, side, 0, 999999);
+    const tb = totalTimeBased[side];
     rows.push({
       match_id: matchId, team: side, quarter: 0,
-      goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
+      goals: s.goals, sc_goals: s.scGoals, shots_on: s.shotsOn, shots_off: s.shotsOff,
       d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
       short_corners: s.shortCorners,
       long_corners: s.longCorners, turnovers_won: s.turnoversWon,
       poss_lost: s.possLost, territory_pct: s.territory,
+      possession_time_pct: tb.possessionTimePct,
+      territory_time_pct: tb.territoryTimePct,
     });
   }
 
   // Compute per-quarter stats
   const quarters = getQuarters(events, match.break_format || 'quarters', match.match_length || 60, match.duration || 0);
   for (const q of quarters) {
+    const qTimeBased = computeTimeBased(events, q.start, q.end);
     for (const side of ['home', 'away']) {
       const s = computeStats(events, side, q.start, q.end);
+      const tb = qTimeBased[side];
       rows.push({
         match_id: matchId, team: side, quarter: parseInt(q.label.replace(/\D/g, '')) || quarters.indexOf(q) + 1,
-        goals: s.goals, shots_on: s.shotsOn, shots_off: s.shotsOff,
+        goals: s.goals, sc_goals: s.scGoals, shots_on: s.shotsOn, shots_off: s.shotsOff,
         d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
         short_corners: s.shortCorners,
         long_corners: s.longCorners, turnovers_won: s.turnoversWon,
         poss_lost: s.possLost, territory_pct: s.territory,
+        possession_time_pct: tb.possessionTimePct,
+        territory_time_pct: tb.territoryTimePct,
       });
     }
   }

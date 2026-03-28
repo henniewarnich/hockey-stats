@@ -132,6 +132,7 @@ function computeStats(events, team, startTime, endTime) {
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
+    scGoals: real.filter(e => e.event === "Goal! (SC)").length,
     dEntries: real.filter(e => e.event === "D Entry").length,
     atkZoneEntries: real.filter(e => e.zone?.includes("Opp Quarter")).length,
     shotsOn: real.filter(e => e.event === "Shot on Goal").length,
@@ -213,8 +214,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const atkConv = (team) => { const a = totalStat(team, "atkZoneEntries"), d = totalStat(team, "dEntries"); return a > 0 ? Math.round(d / a * 100) : 0; };
   const shotsTaken = (team) => totalStat(team, "shotsOn") + totalStat(team, "shotsOff");
   const onTargetPct = (team) => { const s = shotsTaken(team); return s > 0 ? Math.round(totalStat(team, "shotsOn") / s * 100) : 0; };
-  const offTargetPct = (team) => { const s = shotsTaken(team); return s > 0 ? Math.round(totalStat(team, "shotsOff") / s * 100) : 0; };
   const goalPct = (team) => { const on = totalStat(team, "shotsOn"); const g = team === "home" ? homeScore : awayScore; return on > 0 ? Math.round(g / on * 100) : 0; };
+  const dToSC = (team) => { const d = totalStat(team, "dEntries"), sc = totalStat(team, "shortCorners"); return d > 0 ? Math.round(sc / d * 100) : 0; };
+  const scToGoal = (team) => { const sc = totalStat(team, "shortCorners"), g = totalStat(team, "scGoals"); return sc > 0 ? Math.round(g / sc * 100) : 0; };
   const matchInsights = generateMatchInsights(quarterData, teams, homeScore, awayScore);
 
   const StatBar = ({ hVal, aVal, label, suffix = "" }) => {
@@ -312,23 +314,24 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
                 ? ["Attack → D", "attack zone to D entry", t => atkConv(t), t => `${totalStat(t, "dEntries")} of ${totalStat(t, "atkZoneEntries")}`, true]
                 : null,
+              ["D → Short Crnr", "% of D entries", t => dToSC(t), t => `${totalStat(t, "shortCorners")} of ${totalStat(t, "dEntries")}`],
+              ["SC → Goal", "% of short corners", t => scToGoal(t), t => `${totalStat(t, "scGoals")} of ${totalStat(t, "shortCorners")}`, true, "#8B5CF6"],
               ["Shots taken", "D Entry → Shot", t => dConv(t), t => `${shotsTaken(t)} of ${totalStat(t, "dEntries")}`],
               ["On target", "% of shots", t => onTargetPct(t), t => `${totalStat(t, "shotsOn")} of ${shotsTaken(t)}`],
-              ["Off target", "% of shots", t => offTargetPct(t), t => `${totalStat(t, "shotsOff")} of ${shotsTaken(t)}`],
-              ["Goals", "% of shots on target", t => goalPct(t), t => `${t === "home" ? homeScore : awayScore} of ${totalStat(t, "shotsOn")}`],
-            ].filter(Boolean).map(([label, sub, pctFn, detailFn, divider], i) => (
+              ["Goals", "% of shots on target", t => goalPct(t), t => `${t === "home" ? homeScore : awayScore} of ${totalStat(t, "shotsOn")}`, false, "#F59E0B"],
+            ].filter(Boolean).map(([label, sub, pctFn, detailFn, divider, color], i) => (
               <div key={label}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: divider ? 0 : 8 }}>
                 <div style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: label === "Goals" ? "#F59E0B" : "#F8FAFC" }}>{pctFn("home")}%</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: color || "#F8FAFC" }}>{pctFn("home")}%</div>
                   <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("home")}</div>
                 </div>
                 <div style={{ width: 80, textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontSize: 10, color: color || "#94A3B8", fontWeight: 600 }}>{label}</div>
                   <div style={{ fontSize: 8, color: "#475569" }}>{sub}</div>
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: label === "Goals" ? "#F59E0B" : "#F8FAFC" }}>{pctFn("away")}%</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: color || "#F8FAFC" }}>{pctFn("away")}%</div>
                   <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("away")}</div>
                 </div>
               </div>
@@ -337,19 +340,6 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             ))}
           </div>
 
-          {/* Stats comparison */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Stats Comparison</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {(() => {
-                const hStats = { shotsOn: totalStat("home", "shotsOn"), shotsOff: totalStat("home", "shotsOff"), shortCorners: totalStat("home", "shortCorners"), dEntries: totalStat("home", "dEntries"), territory: avgTerritory("home") };
-                const aStats = { shotsOn: totalStat("away", "shotsOn"), shotsOff: totalStat("away", "shotsOff"), shortCorners: totalStat("away", "shortCorners"), dEntries: totalStat("away", "dEntries"), territory: avgTerritory("away") };
-                return DISPLAY_STATS.map(({ label, calc, suffix }) => (
-                  <StatBar key={label} hVal={calc(hStats)} aVal={calc(aStats)} label={label} suffix={suffix || ""} />
-                ));
-              })()}
-            </div>
-          </div>
 
           {/* Zone Control — time-based */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
@@ -397,15 +387,19 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   const hPct = Math.round(z.home / totalH * 100);
                   const aPct = Math.round(z.away / totalA * 100);
                   return (
-                    <div key={z.label} style={{ marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC", marginBottom: 3 }}>{z.label}</div>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <div style={{ flex: 1, display: "flex", height: 20, borderRadius: 5, overflow: "hidden", background: "#0B0F1A" }}>
-                          <div style={{ width: `${hPct}%`, background: `rgba(34,197,94,${0.2 + hPct * 0.005})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: HC, transition: "width 0.5s" }}>{hPct > 8 ? `${hPct}%` : ""}</div>
+                    <div key={z.label} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{z.label}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {/* Home bar */}
+                        <div style={{ width: 28, fontSize: 11, fontWeight: 900, color: HC, textAlign: "right" }}>{hPct}%</div>
+                        <div style={{ flex: 1, height: 14, borderRadius: 4, background: "#0B0F1A", overflow: "hidden", display: "flex", justifyContent: "flex-end" }}>
+                          <div style={{ width: `${Math.max(hPct, 3)}%`, background: `rgba(34,197,94,${0.25 + hPct * 0.005})`, borderRadius: 4, transition: "width 0.5s" }} />
                         </div>
-                        <div style={{ flex: 1, display: "flex", height: 20, borderRadius: 5, overflow: "hidden", background: "#0B0F1A" }}>
-                          <div style={{ width: `${aPct}%`, background: `rgba(148,163,184,${0.12 + aPct * 0.004})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: AC, transition: "width 0.5s" }}>{aPct > 8 ? `${aPct}%` : ""}</div>
+                        {/* Away bar */}
+                        <div style={{ flex: 1, height: 14, borderRadius: 4, background: "#0B0F1A", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.max(aPct, 3)}%`, background: `rgba(148,163,184,${0.15 + aPct * 0.004})`, borderRadius: 4, transition: "width 0.5s" }} />
                         </div>
+                        <div style={{ width: 28, fontSize: 11, fontWeight: 900, color: AC }}>{aPct}%</div>
                       </div>
                     </div>
                   );
@@ -458,8 +452,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                     const qAtkConv = (t) => { const a = q[t].atkZoneEntries; const d = q[t].dEntries; return a > 0 ? Math.round(d / a * 100) : 0; };
                     const qShots = (t) => q[t].shotsOn + q[t].shotsOff;
                     const qOnPct = (t) => { const s = qShots(t); return s > 0 ? Math.round(q[t].shotsOn / s * 100) : 0; };
-                    const qOffPct = (t) => { const s = qShots(t); return s > 0 ? Math.round(q[t].shotsOff / s * 100) : 0; };
                     const qGoalPct = (t) => { const on = q[t].shotsOn; return on > 0 ? Math.round(q[t].goals / on * 100) : 0; };
+                    const qDToSC = (t) => { const d = q[t].dEntries; return d > 0 ? Math.round(q[t].shortCorners / d * 100) : 0; };
+                    const qSCGoal = (t) => { const sc = q[t].shortCorners; return sc > 0 ? Math.round(q[t].scGoals / sc * 100) : 0; };
                     const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
                     const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
                     const possTotal = hEvents + aEvents || 1;
@@ -496,12 +491,14 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC" }}>{qAtkConv(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Attack → D</div>
                               </>}
+                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDToSC(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>D → Short Crnr</div>
+                              <div style={{ fontSize: 14, fontWeight: 900, color: "#8B5CF6", marginTop: 4 }}>{qSCGoal(t)}%</div>
+                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>SC → Goal</div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDConv(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Shots taken</div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qOnPct(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>On target</div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qOffPct(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Off target</div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F59E0B", marginTop: 4 }}>{qGoalPct(t)}%</div>
                               <div style={{ fontSize: 9, color: "#CBD5E1" }}>Goals</div>
                             </div>

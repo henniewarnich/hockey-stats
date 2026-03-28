@@ -22,6 +22,7 @@ export default function AdminDashboardPanel({ onNavigate, currentUser }) {
   const cards = [
     ["match_schedule", "📅", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
     ["match_setup", "⚡", "New Match", "Live match or quick score"],
+    ["what_if", "🔮", "What-If Match", "Pick two teams — see prediction"],
     ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
     ["history", "📊", "Game History", "View all recorded matches"],
     ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [

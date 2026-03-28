@@ -1,8 +1,89 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { getWeekStart } from '../utils/stats.js';
 import { parseSASTDate } from '../utils/helpers.js';
-import MiniChart from './MiniChart.jsx';
+
+function TrendChart({ data, label, color, suffix = "%" }) {
+  if (!data || data.length === 0) return null;
+
+  const vals = data.map(d => d.value);
+  const n = data.length;
+  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / n);
+  const last5 = vals.slice(-5);
+  const last5Avg = Math.round(last5.reduce((a, b) => a + b, 0) / last5.length);
+  const trend = last5Avg > avg ? "↑" : last5Avg < avg ? "↓" : "→";
+  const trendColor = last5Avg > avg ? "#10B981" : last5Avg < avg ? "#EF4444" : "#F59E0B";
+
+  // Moving average (5-match window)
+  const ma = vals.map((_, i) => {
+    const start = Math.max(0, i - 4);
+    const slice = vals.slice(start, i + 1);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  });
+
+  const allVals = [...vals, ...ma];
+  const min = Math.min(...allVals) - 5;
+  const max = Math.max(...allVals) + 5;
+  const range = max - min || 1;
+  const W = 340, H = 80;
+  const xStep = n > 1 ? W / (n - 1) : W;
+
+  const toX = (i) => i * xStep;
+  const toY = (v) => H - ((v - min) / range) * (H - 10) - 5;
+
+  // Dots
+  const dots = data.map((d, i) => (
+    <circle key={i} cx={toX(i)} cy={toY(d.value)} r={2.5} fill={color} opacity={0.35} />
+  ));
+
+  // Trend line
+  const trendPath = ma.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(v)}`).join(' ');
+
+  // Grid lines
+  const gridVals = [25, 50, 75].filter(v => v > min && v < max);
+  const grid = gridVals.map(v => (
+    <g key={v}>
+      <line x1={0} y1={toY(v)} x2={W} y2={toY(v)} stroke="#33415544" strokeWidth={0.5} />
+      <text x={W + 3} y={toY(v) + 3} fontSize={7} fill="#475569">{v}{suffix}</text>
+    </g>
+  ));
+
+  // X-axis labels (every 10th match)
+  const xLabels = data.map((d, i) => {
+    if (n <= 10) return <text key={i} x={toX(i)} y={H + 7} textAnchor="middle" fontSize={6} fill="#475569">{d.label}</text>;
+    if (i % 10 === 0 || i === n - 1) return <text key={i} x={toX(i)} y={H + 7} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} fontSize={6} fill="#475569">{d.label}</text>;
+    return null;
+  });
+
+  return (
+    <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 9 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, color: "#475569" }}>
+            <svg width={8} height={8}><circle cx={4} cy={4} r={2.5} fill={color} opacity={0.35} /></svg> per match
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, color: "#475569" }}>
+            <svg width={14} height={8}><line x1={0} y1={4} x2={14} y2={4} stroke={color} strokeWidth={2} /></svg> 5-avg
+          </span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W + 22} ${H + 10}`} style={{ width: "100%", height: H + 10 }}>
+        {grid}
+        {dots}
+        <path d={trendPath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {xLabels}
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#475569", marginTop: 2 }}>
+        <span>{n} match{n !== 1 ? "es" : ""}</span>
+        <span>
+          Avg: <span style={{ color, fontWeight: 700 }}>{avg}{suffix}</span>
+          {" · Last 5: "}
+          <span style={{ color: trendColor, fontWeight: 700 }}>{last5Avg}{suffix} {trend}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor }) {
   const [rankings, setRankings] = useState([]);
@@ -23,77 +104,61 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
     return <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No match data for trends</div>;
   }
 
-  // Group matches by week (Monday start)
-  const weekMap = {};
-  matches.filter(m => m.status === 'ended' && matchStatsMap[m.id]).forEach(m => {
-    const week = getWeekStart(m.match_date);
-    if (!weekMap[week]) weekMap[week] = [];
-    weekMap[week].push(m);
-  });
+  // Per-match data sorted chronologically
+  const matchData = matches
+    .filter(m => m.status === 'ended' && matchStatsMap[m.id])
+    .sort((a, b) => (a.match_date || '').localeCompare(b.match_date || ''))
+    .map((m, i) => {
+      const s = matchStatsMap[m.id];
+      const t = s.team;
+      const o = s.opp;
+      const d = parseSASTDate(m.match_date);
+      const label = d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+      const tShots = t.shotsOn + t.shotsOff;
+      return {
+        label,
+        atkToD: t.atkZoneEntries > 0 ? Math.round(t.dEntries / t.atkZoneEntries * 100) : null,
+        dToSC: t.dEntries > 0 ? Math.round(t.shortCorners / t.dEntries * 100) : 0,
+        scToGoal: t.shortCorners > 0 ? Math.round((t.scGoals || 0) / t.shortCorners * 100) : 0,
+        possession: t.possessionTimePct != null ? t.possessionTimePct : t.territory || 0,
+        territory: t.territoryTimePct != null ? t.territoryTimePct : t.territory || 0,
+        hasTimeBased: t.possessionTimePct != null,
+      };
+    });
 
-  const weeks = Object.keys(weekMap).sort();
-  const fmtWeek = (w) => {
-    const d = parseSASTDate(w);
-    return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
-  };
+  if (matchData.length === 0) {
+    return <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No recorded match data for trends</div>;
+  }
 
-  // Compute weekly stats
-  const weeklyData = weeks.map(w => {
-    const ms = weekMap[w];
-    const stats = ms.map(m => matchStatsMap[m.id]).filter(Boolean);
-    const n = stats.length || 1;
-    const teamGoals = stats.reduce((s, st) => s + st.team.goals, 0);
-    const oppGoals = stats.reduce((s, st) => s + st.opp.goals, 0);
-    return {
-      week: w,
-      label: fmtWeek(w),
-      gd: teamGoals - oppGoals,
-      territory: Math.round(stats.reduce((s, st) => s + st.team.territory, 0) / n),
-      possession: Math.round(stats.reduce((s, st) => s + st.team.territory, 0) / n), // territory ≈ possession in our model
-      dEntries: Math.round(stats.reduce((s, st) => s + st.team.dEntries, 0) / n * 10) / 10,
-      shortCorners: Math.round(stats.reduce((s, st) => s + st.team.shortCorners, 0) / n * 10) / 10,
-      matches: ms.length,
-    };
-  });
-
-  // Rankings by week
-  const rankingData = rankings
-    .filter(r => r.ranking_set?.scraped_at)
-    .sort((a, b) => a.ranking_set.scraped_at.localeCompare(b.ranking_set.scraped_at))
-    .map(r => ({
-      label: parseSASTDate(r.ranking_set.scraped_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }),
-      value: r.position,
-    }));
+  const hasAtkData = matchData.some(m => m.atkToD !== null);
 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
       <div style={{ fontSize: 10, color: "#64748B", textAlign: "center", marginBottom: 10 }}>
-        Weekly trends across {matches.filter(m => m.status === 'ended').length} matches
+        Per-match trends · {matchData.length} recorded match{matchData.length !== 1 ? "es" : ""} · 5-game moving average
       </div>
 
-      {rankingData.length > 0 && (
-        <MiniChart data={rankingData} label="Ranking" color="#F59E0B" suffix="" invert={true} />
+      {hasAtkData && (
+        <TrendChart
+          data={matchData.filter(m => m.atkToD !== null).map(m => ({ label: m.label, value: m.atkToD }))}
+          label="Attack → D Entry" color="#10B981" />
       )}
 
-      {weeklyData.length > 0 && (
-        <>
-          <MiniChart
-            data={weeklyData.map(w => ({ label: w.label, value: w.gd }))}
-            label="Goal Difference" color={teamColor} showZeroLine suffix="" />
-          <MiniChart
-            data={weeklyData.map(w => ({ label: w.label, value: w.territory }))}
-            label="Territory" color={teamColor} suffix="%" />
-          <MiniChart
-            data={weeklyData.map(w => ({ label: w.label, value: w.possession }))}
-            label="Possession" color={teamColor} suffix="%" />
-          <MiniChart
-            data={weeklyData.map(w => ({ label: w.label, value: w.dEntries }))}
-            label="D-Entries (avg/match)" color={teamColor} />
-          <MiniChart
-            data={weeklyData.map(w => ({ label: w.label, value: w.shortCorners }))}
-            label="Short Corners (avg/match)" color={teamColor} />
-        </>
-      )}
+      <TrendChart
+        data={matchData.map(m => ({ label: m.label, value: m.dToSC }))}
+        label="D Entry → Short Corner" color="#8B5CF6" />
+
+      <TrendChart
+        data={matchData.map(m => ({ label: m.label, value: m.scToGoal }))}
+        label="Short Corner → Goal" color="#F59E0B" />
+
+      <TrendChart
+        data={matchData.map(m => ({ label: m.label, value: m.possession }))}
+        label="Possession %" color="#3B82F6" />
+
+      <TrendChart
+        data={matchData.map(m => ({ label: m.label, value: m.territory }))}
+        label="Territory %" color="#22C55E" />
     </div>
   );
 }

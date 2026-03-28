@@ -33,6 +33,7 @@ export function computeStats(events, team, startTime, endTime) {
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
+    scGoals: real.filter(e => e.event === "Goal! (SC)").length,
     dEntries: real.filter(e => e.event === "D Entry").length,
     atkZoneEntries: real.filter(e => e.zone?.includes("Opp Quarter")).length,
     shotsOn: real.filter(e => e.event === "Shot on Goal").length,
@@ -89,18 +90,26 @@ export function aggregateStats(matchStatsList) {
   const avgTerritory = Math.round(matchStatsList.reduce((s, m) => s + m.team.territory, 0) / n);
   const avgOppTerritory = Math.round(matchStatsList.reduce((s, m) => s + m.opp.territory, 0) / n);
 
+  // Time-based averages (only from matches that have them)
+  const withTimePoss = matchStatsList.filter(m => m.team.possessionTimePct != null);
+  const withTimeTerritory = matchStatsList.filter(m => m.team.territoryTimePct != null);
+  const avgPossTime = withTimePoss.length > 0 ? Math.round(withTimePoss.reduce((s, m) => s + m.team.possessionTimePct, 0) / withTimePoss.length) : null;
+  const avgOppPossTime = withTimePoss.length > 0 ? Math.round(withTimePoss.reduce((s, m) => s + m.opp.possessionTimePct, 0) / withTimePoss.length) : null;
+  const avgTerritoryTime = withTimeTerritory.length > 0 ? Math.round(withTimeTerritory.reduce((s, m) => s + m.team.territoryTimePct, 0) / withTimeTerritory.length) : null;
+  const avgOppTerritoryTime = withTimeTerritory.length > 0 ? Math.round(withTimeTerritory.reduce((s, m) => s + m.opp.territoryTimePct, 0) / withTimeTerritory.length) : null;
+
   return {
     team: {
-      goals: sum("goals"), dEntries: sum("dEntries"), atkZoneEntries: sum("atkZoneEntries"),
+      goals: sum("goals"), scGoals: sum("scGoals"), dEntries: sum("dEntries"), atkZoneEntries: sum("atkZoneEntries"),
       shotsOn: sum("shotsOn"), shotsOff: sum("shotsOff"), shortCorners: sum("shortCorners"),
       longCorners: sum("longCorners"), turnoversWon: sum("turnoversWon"), possLost: sum("possLost"),
-      territory: avgTerritory,
+      territory: avgTerritory, possessionTimePct: avgPossTime, territoryTimePct: avgTerritoryTime,
     },
     opp: {
-      goals: sumOpp("goals"), dEntries: sumOpp("dEntries"), atkZoneEntries: sumOpp("atkZoneEntries"),
+      goals: sumOpp("goals"), scGoals: sumOpp("scGoals"), dEntries: sumOpp("dEntries"), atkZoneEntries: sumOpp("atkZoneEntries"),
       shotsOn: sumOpp("shotsOn"), shotsOff: sumOpp("shotsOff"), shortCorners: sumOpp("shortCorners"),
       longCorners: sumOpp("longCorners"), turnoversWon: sumOpp("turnoversWon"), possLost: sumOpp("possLost"),
-      territory: avgOppTerritory,
+      territory: avgOppTerritory, possessionTimePct: avgOppPossTime, territoryTimePct: avgOppTerritoryTime,
     },
     matchCount: n,
   };
@@ -123,6 +132,7 @@ export function statsFromArchive(rows, teamId, homeTeamId) {
 
   const toStats = (row) => ({
     goals: row?.goals || 0,
+    scGoals: row?.sc_goals || 0,
     dEntries: row?.d_entries || 0,
     atkZoneEntries: row?.atk_zone_entries || 0,
     shotsOn: row?.shots_on || 0,
@@ -132,6 +142,8 @@ export function statsFromArchive(rows, teamId, homeTeamId) {
     turnoversWon: row?.turnovers_won || 0,
     possLost: row?.poss_lost || 0,
     territory: row?.territory_pct || 0,
+    possessionTimePct: row?.possession_time_pct ?? null,
+    territoryTimePct: row?.territory_time_pct ?? null,
   });
 
   const teamTotals = rows.find(r => r.team === teamSide && (r.quarter === 0 || r.quarter === null));

@@ -1,23 +1,4 @@
-import { STATS, DISPLAY_STATS, INVERTED, aggregateStats } from '../utils/stats.js';
-
-function StatBar({ teamVal, oppVal, label, suffix = "", teamColor, oppColor }) {
-  const max = Math.max(teamVal, oppVal, 1);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4, height: 18 }}>
-      <div style={{ width: 28, fontSize: 10, fontWeight: 700, color: teamVal >= oppVal ? teamColor : "#64748B", textAlign: "right" }}>{teamVal}{suffix}</div>
-      <div style={{ flex: 1, display: "flex", gap: 2 }}>
-        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ height: 8, borderRadius: 4, background: teamColor, width: `${teamVal / max * 100}%`, transition: "width 0.5s" }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ height: 8, borderRadius: 4, background: oppColor, width: `${oppVal / max * 100}%`, transition: "width 0.5s" }} />
-        </div>
-      </div>
-      <div style={{ width: 28, fontSize: 10, fontWeight: 700, color: oppVal >= teamVal ? oppColor : "#64748B" }}>{oppVal}{suffix}</div>
-      <div style={{ width: 74, fontSize: 10, color: "#94A3B8" }}>{label}</div>
-    </div>
-  );
-}
+import { aggregateStats } from '../utils/stats.js';
 
 export default function CoachOverall({ matchStatsList, teamName, teamColor, teamId, allMatches, matchCount }) {
   if (!matchStatsList || matchStatsList.length === 0) {
@@ -42,6 +23,20 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
       oDetail: `${agg.opp.dEntries} of ${agg.opp.atkZoneEntries}`,
     }] : []),
     {
+      label: "D → Short Crnr", sub: "% of D entries",
+      tPct: agg.team.dEntries > 0 ? Math.round(agg.team.shortCorners / agg.team.dEntries * 100) : 0,
+      tDetail: `${agg.team.shortCorners} of ${agg.team.dEntries}`,
+      oPct: agg.opp.dEntries > 0 ? Math.round(agg.opp.shortCorners / agg.opp.dEntries * 100) : 0,
+      oDetail: `${agg.opp.shortCorners} of ${agg.opp.dEntries}`,
+    },
+    {
+      label: "SC → Goal", sub: "% of short corners", divider: true, color: "#8B5CF6",
+      tPct: agg.team.shortCorners > 0 ? Math.round((agg.team.scGoals || 0) / agg.team.shortCorners * 100) : 0,
+      tDetail: `${agg.team.scGoals || 0} of ${agg.team.shortCorners}`,
+      oPct: agg.opp.shortCorners > 0 ? Math.round((agg.opp.scGoals || 0) / agg.opp.shortCorners * 100) : 0,
+      oDetail: `${agg.opp.scGoals || 0} of ${agg.opp.shortCorners}`,
+    },
+    {
       label: "Shots taken", sub: "D Entry → Shot",
       tPct: agg.team.dEntries > 0 ? Math.round(tShots / agg.team.dEntries * 100) : 0,
       tDetail: `${tShots} of ${agg.team.dEntries}`,
@@ -56,14 +51,7 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
       oDetail: `${agg.opp.shotsOn} of ${oShots}`,
     },
     {
-      label: "Off target", sub: "% of shots",
-      tPct: tShots > 0 ? Math.round(agg.team.shotsOff / tShots * 100) : 0,
-      tDetail: `${agg.team.shotsOff} of ${tShots}`,
-      oPct: oShots > 0 ? Math.round(agg.opp.shotsOff / oShots * 100) : 0,
-      oDetail: `${agg.opp.shotsOff} of ${oShots}`,
-    },
-    {
-      label: "Goals", sub: "% of shots on target", isGoals: true,
+      label: "Goals", sub: "% of shots on target", color: "#F59E0B",
       tPct: agg.team.shotsOn > 0 ? Math.round(agg.team.goals / agg.team.shotsOn * 100) : 0,
       tDetail: `${agg.team.goals} of ${agg.team.shotsOn}`,
       oPct: agg.opp.shotsOn > 0 ? Math.round(agg.opp.goals / agg.opp.shotsOn * 100) : 0,
@@ -102,31 +90,21 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
           <div key={r.label}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: r.divider ? 0 : 8 }}>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: r.isGoals ? "#F59E0B" : "#F8FAFC" }}>{r.tPct}%</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: r.color || "#F8FAFC" }}>{r.tPct}%</div>
               <div style={{ fontSize: 9, color: "#94A3B8" }}>{r.tDetail}</div>
             </div>
             <div style={{ width: 80, textAlign: "center" }}>
-              <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600 }}>{r.label}</div>
+              <div style={{ fontSize: 10, color: r.color || "#94A3B8", fontWeight: 600 }}>{r.label}</div>
               <div style={{ fontSize: 8, color: "#475569" }}>{r.sub}</div>
             </div>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: r.isGoals ? "#F59E0B" : "#F8FAFC" }}>{r.oPct}%</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: r.color || "#F8FAFC" }}>{r.oPct}%</div>
               <div style={{ fontSize: 9, color: "#94A3B8" }}>{r.oDetail}</div>
             </div>
           </div>
           {r.divider && <div style={{ borderBottom: "1px solid #33415544", margin: "8px 0" }} />}
           </div>
         ))}
-      </div>
-
-      {/* Stats comparison */}
-      <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Season Totals</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {DISPLAY_STATS.map(({ label, calc, suffix }) => (
-            <StatBar key={label} teamVal={calc(agg.team)} oppVal={calc(agg.opp)} label={label} suffix={suffix || ""} teamColor={teamColor} oppColor={oppColor} />
-          ))}
-        </div>
       </div>
 
       {/* Per-match averages */}
@@ -138,7 +116,7 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
             { label: "D Entries", val: (agg.team.dEntries / n).toFixed(1) },
             { label: "Shots", val: (tShots / n).toFixed(1) },
             { label: "SCs", val: (agg.team.shortCorners / n).toFixed(1) },
-            { label: "Territory", val: agg.team.territory + "%" },
+            { label: "Possession", val: (agg.team.possessionTimePct != null ? agg.team.possessionTimePct : agg.team.territory) + "%" },
             { label: "GD/Match", val: totalMatches > 0 ? ((allGD / totalMatches) > 0 ? "+" : "") + (allGD / totalMatches).toFixed(1) : "0" },
           ].map(s => (
             <div key={s.label}>
