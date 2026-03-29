@@ -397,12 +397,12 @@ export default function SystemHealthScreen({ onBack }) {
                   if (!unarchived || unarchived.length === 0) {
                     setArchiveResult('All matches already archived');
                   } else {
-                    let ok = 0, fail = 0;
+                    let ok = 0, fail = 0, lastErr = '';
                     for (const m of unarchived) {
                       const success = await archiveMatchStats(m.id);
-                      if (success) ok++; else fail++;
+                      if (success) ok++; else { fail++; lastErr = m.id; }
                     }
-                    setArchiveResult(`Archived ${ok} match${ok !== 1 ? 'es' : ''}${fail > 0 ? `, ${fail} failed` : ''}`);
+                    setArchiveResult(`Archived ${ok} match${ok !== 1 ? 'es' : ''}${fail > 0 ? `, ${fail} failed` : ''}${lastErr ? ` (check console for errors)` : ''}`);
                     // Refresh table counts
                     const { count } = await supabase.from('match_stats').select('id', { count: 'exact', head: true });
                     setTableCounts(prev => ({ ...prev, match_stats: count || 0 }));
