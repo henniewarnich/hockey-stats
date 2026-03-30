@@ -155,13 +155,12 @@ export default function App() {
   const handleRoleSwitch = (newRole) => {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
-    // Set hash + route synchronously BEFORE updating user role to avoid race condition
     const isAdmin = newRole === 'admin' || newRole === 'commentator_admin';
-    const isCoach = newRole === 'coach';
-    const newHash = isAdmin ? '#/admin' : isCoach ? '#/coach' : '';
+    const newHash = isAdmin ? '#/admin' : '';
     window.location.hash = newHash;
     setRoute(getHashRoute());
     setScreen("home");
+    setSubScreen(null);
     setCurrentUser(prev => ({ ...prev, role: newRole }));
   };
 
@@ -318,10 +317,6 @@ export default function App() {
   const activeRole = sessionStorage.getItem('kykie-active-role') || currentUser?.role;
   if (currentUser && ['admin', 'commentator_admin'].includes(activeRole)) {
     window.location.hash = '#/admin';
-    return null;
-  }
-  if (currentUser && activeRole === 'coach') {
-    window.location.hash = '#/coach';
     return null;
   }
 
