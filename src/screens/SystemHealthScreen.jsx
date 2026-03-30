@@ -115,12 +115,13 @@ export default function SystemHealthScreen({ onBack }) {
       const { data: maint } = await supabase.from('site_settings').select('value').eq('key', 'maintenance_mode').single();
       if (maint) setMaintenanceMode(maint.value === 'true');
 
-      // Active recordings (locked matches)
-      const { data: locked } = await supabase.from('matches').select('status, locked_by').not('locked_by', 'is', null);
+      // Active recordings (locked matches — only count recent locks, not stale ones)
+      const { data: locked } = await supabase.from('matches').select('status, locked_by, updated_at').not('locked_by', 'is', null);
       if (locked) {
+        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
         setRecordings({
           live: locked.filter(m => m.status === 'live').length,
-          videoReview: locked.filter(m => m.status === 'ended').length,
+          videoReview: locked.filter(m => m.status === 'ended' && m.updated_at > fourHoursAgo).length,
         });
       }
 

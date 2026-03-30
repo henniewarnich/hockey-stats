@@ -1,59 +1,48 @@
 # kykie.net — Next Session Planning
-**Date: 30 March 2026 | Current Version: 7.10.0**
+**Date: 30 March 2026 | Current Version: 7.10.14**
 
-## Immediate TODO (Before Deploying v7.10.0)
+## Immediate TODO
 
-### 1. Run Migration
+### 1. Pending Migration
 ```sql
--- Run in Supabase SQL Editor:
--- upgrade-scripts/v7.10.0/migration-institutions.sql
--- Then verify:
-SELECT count(*) FROM institutions;
-SELECT t.name, t.team_description, t.gender, t.age_group, t.sport, i.name AS inst_name, i.short_name
-FROM teams t LEFT JOIN institutions i ON t.institution_id = i.id LIMIT 20;
+-- If not already run:
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS variant TEXT;
 ```
 
-### 2. Verify Short Names
-After migration, check which institutions need short_name populated:
-```sql
-SELECT id, name, short_name FROM institutions WHERE short_name IS NULL ORDER BY name;
--- Update manually, e.g.:
--- UPDATE institutions SET short_name = 'PG' WHERE name = 'Paarl Girls High';
-```
-short_name is what shows on scoreboards, match cards, and predictions. Without it, the full institution name shows.
-
-### 3. Deploy & Test
-- Push to GitHub, verify on kykie.net
-- Check: Landing page shows institution names, not "Girls Hockey 1st"
-- Check: Team search works on institution names
-- Check: Scoreboards show short_name during live matches
-- Check: Coach dashboard shows institution names
-- Check: Predictions display correctly with short names
-
----
-
-## Remaining Institution Tasks (Next Session)
-
-### TeamsScreen Redesign (Task 6)
-Current TeamsScreen CRUD form only edits team.name. Needs:
-- Institution picker (search existing or create new)
-- Team fields: gender dropdown, age_group dropdown, sport dropdown
-- Institution fields: name, short_name, other_names, color
-- Preview showing "PG Girls Hockey 1st" format
-- Ability to create a second team under the same institution (e.g. U16)
-
-### suggestTeam() Update
-Crowd team suggestion flow needs to:
-- Ask for institution name (or pick existing)
-- Create institution with status=pending alongside team
-- Admin approves both together
-
-### App.jsx getTeamShareLink
-Currently receives a name string. Should receive a team object and use `teamSlug(team)`.
+### 2. Remaining Institution Tasks
+- `suggestTeam()` — crowd team suggestion needs institution creation flow
+- `App.jsx getTeamShareLink` — receives name string, should receive team object
 
 ---
 
 ## Planned Features
+
+### Public View
+- Screen viewer (similar to commentary feed — CT-style)
+- Add outcome predictor (fake users Pistol Pete + Suzi Snow + Kykie AI already exist, wire up to public view)
+
+### Match Setup
+- Add **Season** field (derive from match date year, e.g. "2026")
+- Add **Tournament** selection (create/pick tournament, link matches)
+
+### Coach
+- Stats screen: filter by **Season** and **Tournament**
+- **Compare to team** — side-by-side stats vs selected opponent
+- **Compare to benchmark** — compare stats vs top 10 ranked teams' averages
+- **Replay match** — graphical play-by-play replay from events (animated field)
+- **Analyse team** — Exit strategy, Attack strategy, Midfield play (heatmaps + flow analysis)
+
+### Commentator
+- Add **cards** (Green card + Yellow card events)
+- Revisit D-Zone stats collector (improve flow/UX)
+- Add **penalties** (penalty stroke events)
+- Clarify **goalie saves** — must be clear which shots the goalie saved vs missed
+- **Overheads** — how to record (hard press on zone? reclassify toast?)
+- **Match abandoned** (lightning/weather stoppage)
+- **Penalty shootout** score recording
+
+### Admin
+- **Stats interpretation skill (MD)** — export match data for further analysis by Claude AI
 
 ### Prediction Scoring on Match End
 Auto-score predictions when match ends (currently only via Retrofit).
@@ -84,12 +73,15 @@ Now partially done via institutions. Full org hierarchy enables multi-sport, mul
 ## Architecture Notes
 
 ### Institution Display Rules
-- `teamDisplayName(team)` = institution.short_name + " " + team.name (e.g. "PG Girls Hockey 1st")
-- `teamShortName(team)` = institution.short_name || institution.name (e.g. "PG" or "Paarl Girls")
+- `teamDerivedName(team)` = gender + sport + age_group (or variant if set, replacing age_group)
+- `teamDisplayName(team)` = institution short_name/name + derived (auto-dedupes gender)
+- `teamShortName(team)` = institution.short_name || institution.name
 - `teamColor(team)` = institution.color || team.color
 - `teamSlug(team)` = slug of institution.name (used for URLs)
-- `teamMatchesSearch(team, query)` = searches institution.name + short_name + other_names + team.name + team_description
+- `teamMatchesSearch(team, query)` = searches institution.name + short_name + other_names + derived name + team_description
 - All query constants in `src/utils/teams.js`: `TEAM_SELECT`, `MATCH_HOME_TEAM`, `MATCH_AWAY_TEAM`, etc.
+- `MatchCardTeams` component: two-line display (institution names + rank on line 1, derived + meta on line 2)
+- `FilterBar` component: cycling pills for Sport/Gender/Age across all landing page tabs
 
 ### Stats Engine
 - ONE button (Recompute All Stats) rebuilds everything from raw events
@@ -110,7 +102,7 @@ Now partially done via institutions. Full org hierarchy enables multi-sport, mul
 ---
 
 ## Files to Provide to Next Session
-1. **`hockey-stats-v7.10.0.zip`** — Full source + built docs/
+1. **`hockey-stats-v7.10.14.zip`** — Full source + built docs/
 2. **`HANDOFF.md`** (inside zip) — Complete project state
 3. **This file** (`next-session-planning.md`) — Context and plans
 
