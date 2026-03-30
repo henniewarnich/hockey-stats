@@ -171,13 +171,24 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
         </div>
 
         {/* Gender / Age Group / Sport — pill selectors */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <Pill label="Gender" options={GENDERS} value={editing?.gender || 'Girls'}
             onChange={v => setEditing(p => ({ ...p, gender: v }))} />
           <Pill label="Age group" options={AGE_GROUPS} value={editing?.age_group || '1st'}
             onChange={v => setEditing(p => ({ ...p, age_group: v }))} />
           <Pill label="Sport" options={SPORTS} value={editing?.sport || 'Hockey'}
             onChange={v => setEditing(p => ({ ...p, sport: v }))} />
+        </div>
+
+        {/* Variant (optional) */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ ...S.label, fontSize: 9 }}>Variant (optional)</label>
+          <input style={{ ...S.input, fontSize: 12 }} value={editing?.variant || ""}
+            onChange={e => setEditing(p => ({ ...p, variant: e.target.value }))}
+            placeholder="e.g. Festival, 2nds, Development" />
+          <div style={{ fontSize: 9, color: '#475569', marginTop: 3 }}>
+            Only needed when an institution has multiple teams in the same age group
+          </div>
         </div>
 
         {/* Preview */}

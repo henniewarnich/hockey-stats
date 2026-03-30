@@ -23,15 +23,16 @@ export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, name, gend
 // ── DERIVED NAME ──────────────────────────────────────
 
 /**
- * Derive team name from gender + sport + age_group
- * e.g. "Girls Hockey U18", "Boys Rugby U16"
+ * Derive team name from gender + sport + age_group + optional variant
+ * e.g. "Girls Hockey 1st", "Girls Hockey 1st (Festival)"
  */
 export function teamDerivedName(team) {
   if (!team) return 'Unknown';
   const g = team.gender || 'Girls';
   const s = team.sport || 'Hockey';
   const a = team.age_group || '1st';
-  return `${g} ${s} ${a}`;
+  const v = team.variant;
+  return v ? `${g} ${s} ${a} (${v})` : `${g} ${s} ${a}`;
 }
 
 // ── DISPLAY FUNCTIONS ─────────────────────────────────

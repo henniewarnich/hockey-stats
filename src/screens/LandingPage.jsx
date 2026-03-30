@@ -578,23 +578,16 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} />
-                        <div style={styles.matchMeta}>
-                          {isLive ? (
-                            <>
-                              {m.venue && `${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
-                              {liveMatchViewers[m.id] > 0 && (
-                                <span style={{ marginLeft: 6, color: "#10B981", fontWeight: 700 }}>👁 {liveMatchViewers[m.id]}</span>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
-                              {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                              {m.venue && ` · ${m.venue}`}
-                            </>
-                          )}
-                        </div>
+                        <MatchCardTeams home={m.home_team} away={m.away_team}
+                          homeRank={latestRankings[m.home_team?.id]?.rank}
+                          awayRank={latestRankings[m.away_team?.id]?.rank}
+                          meta={isLive
+                            ? `${m.venue ? (m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : '') + m.venue : ''}`
+                            : `${d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}${m.scheduled_time ? ' · ' + m.scheduled_time.slice(0, 5) : ''}${m.venue ? ' · ' + m.venue : ''}`
+                          } />
+                        {isLive && liveMatchViewers[m.id] > 0 && (
+                          <div style={{ fontSize: 9, color: "#10B981", fontWeight: 700, marginTop: 2 }}>👁 {liveMatchViewers[m.id]} watching</div>
+                        )}
                       </div>
                       {isLive ? (
                         <div style={{ fontSize: 22, fontWeight: 900, color: "#10B981" }}>{m.home_score}–{m.away_score}</div>
@@ -690,12 +683,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} />
-                          <div style={styles.matchMeta}>
-                            {d.toLocaleDateString("en-ZA", { weekday: "short" })}
-                            {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
-                            {m.match_type && ` · ${m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)}`}
-                          </div>
+                          <MatchCardTeams home={m.home_team} away={m.away_team}
+                            homeRank={latestRankings[m.home_team?.id]?.rank}
+                            awayRank={latestRankings[m.away_team?.id]?.rank}
+                            meta={`${d.toLocaleDateString("en-ZA", { weekday: "short" })}${m.scheduled_time ? ' · ' + m.scheduled_time.slice(0, 5) : ''}${m.match_type ? ' · ' + m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) : ''}`} />
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           {(() => { const cd = getCountdown(m.match_date, m.scheduled_time); return cd ? <div style={{ fontSize: 10, fontWeight: 700, color: cd.color, fontFamily: "monospace" }}>{cd.text}</div> : null; })()}
@@ -916,12 +907,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                            <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={m.home_rank} awayRank={m.away_rank} />
+                            <MatchCardTeams home={m.home_team} away={m.away_team}
+                              homeRank={m.home_rank ?? latestRankings[m.home_team?.id]?.rank}
+                              awayRank={m.away_rank ?? latestRankings[m.away_team?.id]?.rank}
+                              meta={`${d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}${m.venue ? ` · ${venueDisplay(m)}` : ''}`} />
                             {m.duration > 0 && <CommentaryIcon />}
-                          </div>
-                          <div style={styles.matchMeta}>
-                            {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                            {m.venue && ` · ${venueDisplay(m)}`}
                           </div>
                         </div>
                         <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>

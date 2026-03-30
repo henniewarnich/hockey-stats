@@ -19,7 +19,8 @@ export async function upsertTeam(team) {
   const gender = team.gender || 'Girls';
   const sport = team.sport || 'Hockey';
   const age_group = team.age_group || '1st';
-  const derivedName = `${gender} ${sport} ${age_group}`;
+  const variant = team.variant?.trim() || null;
+  const derivedName = variant ? `${gender} ${sport} ${age_group} (${variant})` : `${gender} ${sport} ${age_group}`;
 
   const row = {
     name: derivedName,
@@ -32,6 +33,7 @@ export async function upsertTeam(team) {
     gender,
     age_group,
     sport,
+    variant,
   };
 
   if (team.supabase_id || team.id) {
