@@ -828,15 +828,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                           <span style={{ fontSize: 12 }}>🔮</span>
                           <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: 1 }}>kykie predicts</span>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 10 }}>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: homeTeam?.color || "#F8FAFC", marginBottom: 2 }}>{(homeTeam?.name || "").slice(0, 14)}</div>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.homeScore}</div>
-                          </div>
-                          <div style={{ fontSize: 12, color: "#475569" }}>–</div>
-                          <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: awayTeam?.color || "#F8FAFC", marginBottom: 2 }}>{(awayTeam?.name || "").slice(0, 14)}</div>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{pred.awayScore}</div>
+                        <div style={{ textAlign: "center", marginBottom: 10 }}>
+                          {pred.draw >= pred.homeWin && pred.draw >= pred.awayWin ? (
+                            <div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>Draw</div>
+                          ) : pred.homeWin >= pred.awayWin ? (
+                            <div style={{ fontSize: 16, fontWeight: 900, color: homeTeam?.color || "#10B981" }}>{homeTeam?.name} to win</div>
+                          ) : (
+                            <div style={{ fontSize: 16, fontWeight: 900, color: awayTeam?.color || "#3B82F6" }}>{awayTeam?.name} to win</div>
+                          )}
+                          <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
+                            Based on {hRec?.p || 0} and {aRec?.p || 0} matches played
                           </div>
                         </div>
                         <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>

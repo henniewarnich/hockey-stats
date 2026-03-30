@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
 import { computeStats, computeSCOutcomes, getQuarters } from './stats.js';
+import { predictMatch } from './predict.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
@@ -785,4 +786,136 @@ export async function rejectPendingTeam(teamId, approverId) {
   });
   if (error) console.error('Reject team error:', error);
   return !error;
+}
+
+/**
+ * Retrofit predictions for Kykie + fictitious users on all completed matches.
+ * Builds progressive records chronologically so each prediction only uses
+ * data available before that match.
+ * 
+ * Returns { total, inserted, skipped, errors }
+ */
+export async function retrofitPredictions(onProgress) {
+  const PETE_ID = '873d6669-255c-46fb-add2-76ef69cf80d8';
+  const SUZI_ID = 'c05930be-7d2e-4b96-ba28-e406be0205a3';
+
+  // Fetch all ended matches ordered by date
+  const { data: matches, error: mErr } = await supabase
+    .from('matches')
+    .select('id, match_date, home_score, away_score, home_team_id, away_team_id, home_rank, away_rank')
+    .eq('status', 'ended')
+    .not('home_score', 'is', null)
+    .order('match_date', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (mErr) return { total: 0, inserted: 0, skipped: 0, errors: [mErr.message] };
+
+  // Fetch team names for predictMatch reasons
+  const { data: teams } = await supabase.from('teams').select('id, name');
+  const teamMap = {};
+  (teams || []).forEach(t => { teamMap[t.id] = t.name; });
+
+  // Fetch latest rankings for Suzi
+  const { data: rankData } = await supabase
+    .from('rankings')
+    .select('team_id, position')
+    .order('created_at', { ascending: false });
+  const rankMap = {};
+  (rankData || []).forEach(r => {
+    if (!rankMap[r.team_id]) rankMap[r.team_id] = r.position;
+  });
+
+  // Delete existing predictions for Kykie, Pete, Suzi
+  await supabase.from('predictions').delete().is('user_id', null);
+  await supabase.from('predictions').delete().eq('user_id', PETE_ID);
+  await supabase.from('predictions').delete().eq('user_id', SUZI_ID);
+
+  // Build progressive records
+  const records = {};
+  const getRec = (teamId) => records[teamId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+
+  const allRows = [];
+  let skipped = 0;
+
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const hId = m.home_team_id;
+    const aId = m.away_team_id;
+    const hs = m.home_score;
+    const as_ = m.away_score;
+    const hName = teamMap[hId] || 'Home';
+    const aName = teamMap[aId] || 'Away';
+    const actual = hs > as_ ? 'home' : as_ > hs ? 'away' : 'draw';
+
+    const hRec = { ...getRec(hId) };
+    const aRec = { ...getRec(aId) };
+
+    // Kykie prediction (needs 5+ games each)
+    const kykie = predictMatch(hRec, aRec, hName, aName);
+    if (kykie) {
+      const kPred = kykie.draw >= kykie.homeWin && kykie.draw >= kykie.awayWin ? 'draw'
+        : kykie.homeWin >= kykie.awayWin ? 'home' : 'away';
+      const kCorrect = kPred === actual;
+      allRows.push({
+        user_id: null, match_id: m.id, prediction: kPred,
+        home_win_pct: kykie.homeWin, draw_pct: kykie.draw, away_win_pct: kykie.awayWin,
+        points: kCorrect ? 1 : 0, correct: kCorrect, scored_at: new Date().toISOString(),
+      });
+    }
+
+    // Pete: highest GD wins, within 10 = draw
+    if (hRec.p >= 3 && aRec.p >= 3) {
+      const hGD = hRec.gf - hRec.ga;
+      const aGD = aRec.gf - aRec.ga;
+      let petePred;
+      if (Math.abs(hGD - aGD) <= 10) petePred = 'draw';
+      else if (hGD > aGD) petePred = 'home';
+      else petePred = 'away';
+      const pCorrect = petePred === actual;
+      allRows.push({
+        user_id: PETE_ID, match_id: m.id, prediction: petePred,
+        home_win_pct: null, draw_pct: null, away_win_pct: null,
+        points: pCorrect ? 1 : 0, correct: pCorrect, scored_at: new Date().toISOString(),
+      });
+    }
+
+    // Suzi: lowest rank wins, within 2 = draw, no rank = 199
+    const hRank = rankMap[hId] || m.home_rank || 199;
+    const aRank = rankMap[aId] || m.away_rank || 199;
+    if (hRank < 199 || aRank < 199) { // at least one team has a rank
+      let suziPred;
+      if (Math.abs(hRank - aRank) <= 2) suziPred = 'draw';
+      else if (hRank < aRank) suziPred = 'home'; // lower rank number = better
+      else suziPred = 'away';
+      const sCorrect = suziPred === actual;
+      allRows.push({
+        user_id: SUZI_ID, match_id: m.id, prediction: suziPred,
+        home_win_pct: null, draw_pct: null, away_win_pct: null,
+        points: sCorrect ? 1 : 0, correct: sCorrect, scored_at: new Date().toISOString(),
+      });
+    } else {
+      skipped++;
+    }
+
+    // Update progressive records AFTER prediction
+    if (!records[hId]) records[hId] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+    if (!records[aId]) records[aId] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+    records[hId].p++; records[aId].p++;
+    records[hId].gf += hs; records[hId].ga += as_;
+    records[aId].gf += as_; records[aId].ga += hs;
+    if (hs > as_) { records[hId].w++; records[aId].l++; }
+    else if (as_ > hs) { records[aId].w++; records[hId].l++; }
+    else { records[hId].d++; records[aId].d++; }
+
+    if (onProgress && i % 50 === 0) onProgress(i, matches.length);
+  }
+
+  // Insert in batches of 100
+  const errors = [];
+  for (let i = 0; i < allRows.length; i += 100) {
+    const batch = allRows.slice(i, i + 100);
+    const { error } = await supabase.from('predictions').insert(batch);
+    if (error) errors.push(`Batch ${i}: ${error.message}`);
+  }
+
+  return { total: matches.length, inserted: allRows.length, skipped, errors };
 }

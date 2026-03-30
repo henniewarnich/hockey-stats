@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { archiveMatchStats } from '../utils/sync.js';
+import { archiveMatchStats, retrofitPredictions } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import NavLogo from '../components/NavLogo.jsx';
 
@@ -40,6 +40,8 @@ export default function SystemHealthScreen({ onBack }) {
   const [visitors, setVisitors] = useState(0);
   const [archiving, setArchiving] = useState(false);
   const [archiveResult, setArchiveResult] = useState(null);
+  const [retrofitting, setRetrofitting] = useState(false);
+  const [retrofitResult, setRetrofitResult] = useState(null);
   const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
@@ -437,6 +439,45 @@ export default function SystemHealthScreen({ onBack }) {
             </button>
             {archiveResult && (
               <div style={{ fontSize: 10, color: archiveResult.includes('failed') ? '#F59E0B' : archiveResult.startsWith('Error') ? '#EF4444' : '#10B981', marginTop: 4 }}>{archiveResult}</div>
+            )}
+          </div>
+
+          {/* Prediction Retrofit */}
+          <div style={cardStyle}>
+            <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
+              Retrofit predictions for Kykie AI, Pistol Pete (GD-based), and Suzi Snow (rank-based) on all completed matches. Safe to re-run — clears and rebuilds.
+            </div>
+            <button
+              disabled={retrofitting}
+              onClick={async () => {
+                setRetrofitting(true);
+                setRetrofitResult(null);
+                try {
+                  const result = await retrofitPredictions((i, total) => {
+                    setRetrofitResult(`Processing ${i}/${total}...`);
+                  });
+                  let msg = `✓ ${result.inserted} predictions from ${result.total} matches`;
+                  if (result.skipped > 0) msg += ` · ${result.skipped} skipped`;
+                  if (result.errors.length > 0) msg += ` · ${result.errors.length} errors`;
+                  setRetrofitResult(msg);
+                  if (result.errors.length > 0) console.error('Retrofit errors:', result.errors);
+                  const { count } = await supabase.from('predictions').select('id', { count: 'exact', head: true });
+                  setTableCounts(prev => ({ ...prev, predictions: count || 0 }));
+                } catch (e) {
+                  setRetrofitResult('Error: ' + e.message);
+                }
+                setRetrofitting(false);
+              }}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 11, fontWeight: 700,
+                background: retrofitting ? '#334155' : '#F59E0B22', color: retrofitting ? '#64748B' : '#F59E0B',
+                cursor: retrofitting ? 'default' : 'pointer', marginBottom: 6,
+              }}
+            >
+              {retrofitting ? '⏳ Retrofitting...' : '🔮 Retrofit Predictions'}
+            </button>
+            {retrofitResult && (
+              <div style={{ fontSize: 10, color: retrofitResult.includes('Error') ? '#EF4444' : retrofitResult.includes('Processing') ? '#3B82F6' : '#10B981', marginTop: 4 }}>{retrofitResult}</div>
             )}
           </div>
 

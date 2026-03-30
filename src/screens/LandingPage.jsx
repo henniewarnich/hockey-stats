@@ -37,6 +37,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [seAwayScore, setSeAwayScore] = useState(0);
   const [seSubmitting, setSeSubmitting] = useState(false);
   const [pendingScoreMatches, setPendingScoreMatches] = useState([]); // crowd-submitted scores awaiting approval
+  const [userPredictions, setUserPredictions] = useState({}); // match_id -> { prediction, correct, points }
+  const [leaderboard, setLeaderboard] = useState(null); // [{ user_id, name, points, correct, total }]
 
   // Tick every 30s for in-progress countdowns
   useEffect(() => {
@@ -85,6 +87,24 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     if (!confirm(`Approve ${m.home_team?.name} ${m.home_score}–${m.away_score} ${m.away_team?.name}?`)) return;
     await approvePendingMatch(m.id, currentUser.id, 'ended');
     setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
+  };
+
+  const savePrediction = async (matchId, prediction) => {
+    if (!currentUser) return;
+    const existing = userPredictions[matchId];
+    // Toggle off if same prediction tapped again
+    if (existing && existing.prediction === prediction) {
+      await supabase.from('predictions').delete().eq('user_id', currentUser.id).eq('match_id', matchId);
+      setUserPredictions(prev => { const n = { ...prev }; delete n[matchId]; return n; });
+      return;
+    }
+    const row = { user_id: currentUser.id, match_id: matchId, prediction };
+    if (existing) {
+      await supabase.from('predictions').update({ prediction }).eq('user_id', currentUser.id).eq('match_id', matchId);
+    } else {
+      await supabase.from('predictions').insert(row);
+    }
+    setUserPredictions(prev => ({ ...prev, [matchId]: { prediction, correct: null, points: null } }));
   };
 
   // Global presence tracking
@@ -156,6 +176,52 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
         // Fetch latest rankings for upcoming/live badges
         fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
+
+        // Fetch predictions (user's + leaderboard)
+        (async () => {
+          // User's own predictions
+          if (currentUser) {
+            const { data: myPreds } = await supabase.from('predictions')
+              .select('match_id, prediction, correct, points')
+              .eq('user_id', currentUser.id);
+            if (myPreds) {
+              const pm = {};
+              myPreds.forEach(p => { pm[p.match_id] = p; });
+              setUserPredictions(pm);
+            }
+          }
+          // Leaderboard: aggregate predictions by user
+          const { data: allPreds } = await supabase.from('predictions')
+            .select('user_id, correct, points')
+            .not('scored_at', 'is', null);
+          if (allPreds) {
+            const byUser = {};
+            allPreds.forEach(p => {
+              const uid = p.user_id || '__kykie__';
+              if (!byUser[uid]) byUser[uid] = { user_id: p.user_id, points: 0, correct: 0, total: 0 };
+              byUser[uid].total++;
+              byUser[uid].points += p.points || 0;
+              if (p.correct) byUser[uid].correct++;
+            });
+            // Fetch names for non-Kykie users
+            const userIds = Object.keys(byUser).filter(k => k !== '__kykie__');
+            let nameMap = {};
+            if (userIds.length > 0) {
+              const { data: profiles } = await supabase.from('profiles')
+                .select('id, username, firstname, lastname, alias_nickname')
+                .in('id', userIds);
+              if (profiles) profiles.forEach(p => {
+                nameMap[p.id] = p.alias_nickname || p.username || `${p.firstname || ''} ${p.lastname || ''}`.trim() || 'User';
+              });
+            }
+            const lb = Object.values(byUser).map(u => ({
+              ...u,
+              name: u.user_id ? (nameMap[u.user_id] || 'User') : '🤖 Kykie',
+              accuracy: u.total > 0 ? Math.round(u.correct / u.total * 100) : 0,
+            })).sort((a, b) => b.points - a.points || b.accuracy - a.accuracy);
+            setLeaderboard(lb);
+          }
+        })();
 
         // Auto-select best tab (only if not directed to a specific tab)
         if (!initialTab) {
@@ -592,8 +658,37 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               (m.away_team?.name || "").toLowerCase().includes(q) ||
               (m.venue || "").toLowerCase().includes(q)
             ) : notStarted;
+            const LeaderboardSummary = () => {
+              if (!currentUser || !leaderboard || leaderboard.length === 0) return null;
+              const myEntry = leaderboard.find(l => l.user_id === currentUser.id);
+              const myRank = myEntry ? leaderboard.indexOf(myEntry) + 1 : null;
+              const kykieEntry = leaderboard.find(l => !l.user_id);
+              const kykieRank = kykieEntry ? leaderboard.indexOf(kykieEntry) + 1 : null;
+              const ordinal = n => n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+              return (
+                <div onClick={() => onNavigate && onNavigate('predictions')} style={{
+                  background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 10, padding: "10px 12px",
+                  marginBottom: 8, border: "1px solid #F59E0B33", display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#3B82F622", border: "2px solid #3B82F644", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#3B82F6", flexShrink: 0 }}>
+                    {myRank ? ordinal(myRank) : '—'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>
+                      {myEntry ? `${myEntry.points} pts · ${myEntry.accuracy}% accuracy` : 'No predictions yet'}
+                    </div>
+                    <div style={{ fontSize: 8, color: "#475569" }}>
+                      {myEntry ? `${myEntry.total} predictions` : 'Predict upcoming matches below'}
+                      {kykieEntry && kykieRank ? ` · 🤖 Kykie is ${ordinal(kykieRank)} (${kykieEntry.accuracy}%)` : ''}
+                    </div>
+                  </div>
+                  <div style={{ color: "#475569", fontSize: 14 }}>›</div>
+                </div>
+              );
+            };
             return (
             <div style={styles.section}>
+              <LeaderboardSummary />
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
                   {q ? "No matches found" : "No upcoming matches scheduled"}
@@ -629,6 +724,47 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           {m.venue && <div style={{ fontSize: 9, color: "#475569", fontWeight: 600 }}>{m.venue}</div>}
                         </div>
                       </div>
+                      {/* Prediction buttons */}
+                      {currentUser && (() => {
+                        const myPred = userPredictions[m.id];
+                        const hRec = teamRecords[m.home_team?.id];
+                        const aRec = teamRecords[m.away_team?.id];
+                        const kp = predictMatch(hRec, aRec, m.home_team?.name, m.away_team?.name);
+                        const kPred = kp ? (kp.draw >= kp.homeWin && kp.draw >= kp.awayWin ? 'draw' : kp.homeWin >= kp.awayWin ? 'home' : 'away') : null;
+                        const kLabel = kp ? (kPred === 'home' ? m.home_team?.name?.split(' ')[0] : kPred === 'away' ? m.away_team?.name?.split(' ')[0] : 'Draw') : null;
+                        const kConf = kp ? Math.max(kp.homeWin, kp.draw, kp.awayWin) : null;
+                        const agree = myPred && kPred && myPred.prediction === kPred;
+                        const disagree = myPred && kPred && myPred.prediction !== kPred;
+                        const btnStyle = (key) => ({
+                          flex: key === 'draw' ? 0.7 : 1, padding: "5px 0", borderRadius: 5,
+                          border: `1px solid ${myPred?.prediction === key ? '#F59E0B' : '#33415566'}`,
+                          background: myPred?.prediction === key ? '#F59E0B11' : '#0B0F1A',
+                          textAlign: "center", cursor: "pointer", fontSize: 9, fontWeight: 700,
+                          color: myPred?.prediction === key ? '#F59E0B' : '#64748B',
+                        });
+                        return (
+                          <div style={{ background: "#1E293B", borderRadius: isExp ? 0 : "0 0 10px 10px", padding: "4px 10px 6px", marginTop: -4, border: "1px solid #334155", borderTop: "1px solid #33415522" }}>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              {['home', 'draw', 'away'].map(key => (
+                                <div key={key} onClick={(e) => { e.stopPropagation(); savePrediction(m.id, key); }}
+                                  style={btnStyle(key)}>
+                                  {myPred?.prediction === key ? '✓ ' : ''}{key === 'home' ? (m.home_team?.name?.length > 12 ? m.home_team?.name?.split(' ')[0] : m.home_team?.name) : key === 'away' ? (m.away_team?.name?.length > 12 ? m.away_team?.name?.split(' ')[0] : m.away_team?.name) : 'Draw'}
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ textAlign: "center", fontSize: 7, color: "#475569", marginTop: 3 }}>
+                              {kp ? `🤖 Kykie: ${kLabel} (${kConf}%)` : '🤖 Kykie: not enough data'}
+                              {agree && <span style={{ color: "#10B981" }}> · you agree</span>}
+                              {disagree && <span style={{ color: "#EF4444" }}> · you disagree</span>}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {!currentUser && (
+                        <div style={{ background: "#1E293B", borderRadius: isExp ? 0 : "0 0 10px 10px", padding: "6px 10px", marginTop: -4, border: "1px solid #334155", borderTop: "1px solid #33415522", textAlign: "center", fontSize: 9, color: "#475569" }}>
+                          <span onClick={() => { window.location.hash = '#/login'; }} style={{ color: "#F59E0B", cursor: "pointer", fontWeight: 700 }}>Log in</span> to predict
+                        </div>
+                      )}
                       {isExp && (() => {
                         const hRec = teamRecords[m.home_team?.id];
                         const aRec = teamRecords[m.away_team?.id];
@@ -752,8 +888,37 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           {activeTab === "results" && (() => {
             const q = search.trim().toLowerCase();
             const filtered = q ? (searchResults || []) : matches;
+            const LeaderboardSummary = () => {
+              if (!currentUser || !leaderboard || leaderboard.length === 0) return null;
+              const myEntry = leaderboard.find(l => l.user_id === currentUser.id);
+              const myRank = myEntry ? leaderboard.indexOf(myEntry) + 1 : null;
+              const kykieEntry = leaderboard.find(l => !l.user_id);
+              const kykieRank = kykieEntry ? leaderboard.indexOf(kykieEntry) + 1 : null;
+              const ordinal = n => n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+              return (
+                <div onClick={() => onNavigate && onNavigate('predictions')} style={{
+                  background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 10, padding: "10px 12px",
+                  marginBottom: 8, border: "1px solid #F59E0B33", display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#3B82F622", border: "2px solid #3B82F644", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#3B82F6", flexShrink: 0 }}>
+                    {myRank ? ordinal(myRank) : '—'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>
+                      {myEntry ? `${myEntry.points} pts · ${myEntry.accuracy}% accuracy` : 'No predictions yet'}
+                    </div>
+                    <div style={{ fontSize: 8, color: "#475569" }}>
+                      {myEntry ? `${myEntry.total} predictions` : 'Predict upcoming matches'}
+                      {kykieEntry && kykieRank ? ` · 🤖 Kykie is ${ordinal(kykieRank)} (${kykieEntry.accuracy}%)` : ''}
+                    </div>
+                  </div>
+                  <div style={{ color: "#475569", fontSize: 14 }}>›</div>
+                </div>
+              );
+            };
             return (
             <div style={styles.section}>
+              <LeaderboardSummary />
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
                   {q ? "No matches found" : "No results yet"}
@@ -764,21 +929,36 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   const homeR = resultBadge(m, m.home_team?.id);
                   const d = parseSASTDate(m.match_date);
                   const homeSlug = teamSlug(m.home_team?.name || "");
+                  const myPred = userPredictions[m.id];
                   return (
-                    <div key={m.id} onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
-                      style={{ ...styles.scoreCard, cursor: "pointer" }}>
-                      <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                          {m.home_team?.name} <RankBadge rank={m.home_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} />
-                          {m.duration > 0 && <CommentaryIcon />}
+                    <div key={m.id} style={{ marginBottom: 4 }}>
+                      <div onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
+                        style={{ ...styles.scoreCard, cursor: "pointer", borderRadius: myPred ? "10px 10px 0 0" : 10 }}>
+                        <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
+                            {m.home_team?.name} <RankBadge rank={m.home_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} />
+                            {m.duration > 0 && <CommentaryIcon />}
+                          </div>
+                          <div style={styles.matchMeta}>
+                            {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                            {m.venue && ` · ${venueDisplay(m)}`}
+                          </div>
                         </div>
-                        <div style={styles.matchMeta}>
-                          {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                          {m.venue && ` · ${venueDisplay(m)}`}
-                        </div>
+                        <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
                       </div>
-                      <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                      {myPred && myPred.correct !== null && (() => {
+                        const actual = m.home_score > m.away_score ? 'home' : m.away_score > m.home_score ? 'away' : 'draw';
+                        // Find Kykie's prediction for this match
+                        const kykiePredObj = leaderboard ? null : null; // loaded separately below
+                        return (
+                          <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "3px 10px 6px", border: "1px solid #334155", borderTop: "1px solid #33415522", display: "flex", gap: 4 }}>
+                            <div style={{ flex: 1, textAlign: "center", padding: 3, borderRadius: 4, background: myPred.correct ? '#10B98118' : '#EF444418', fontSize: 8, fontWeight: 700, color: myPred.correct ? '#10B981' : '#EF4444' }}>
+                              {myPred.correct ? '✓' : '✗'} You: {myPred.prediction === 'home' ? m.home_team?.name?.split(' ')[0] : myPred.prediction === 'away' ? m.away_team?.name?.split(' ')[0] : 'Draw'} ({myPred.correct ? '+1' : '0'})
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
