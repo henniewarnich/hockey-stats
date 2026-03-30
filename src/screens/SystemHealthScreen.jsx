@@ -375,11 +375,11 @@ export default function SystemHealthScreen({ onBack }) {
             </div>
           </div>
 
-          {/* Archive & Prune */}
+          {/* Stats Recomputation */}
           <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Data Management</div>
           <div style={cardStyle}>
             <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
-              Archive pre-computes stats for ended matches so raw events can be pruned later. New matches are archived automatically on end. Use Backfill for older matches.
+              Pre-computes match stats from raw events. Safe to run any time — deletes old stats and rebuilds from scratch. Matches without events (quick scores) are skipped.
             </div>
             <button
               disabled={archiving}
@@ -387,22 +387,37 @@ export default function SystemHealthScreen({ onBack }) {
                 setArchiving(true);
                 setArchiveResult(null);
                 try {
-                  // Find ended matches with events that aren't archived yet
-                  const { data: unarchived } = await supabase
+                  // Find ALL ended matches with duration (have events)
+                  const { data: allEnded } = await supabase
                     .from('matches')
                     .select('id')
                     .eq('status', 'ended')
-                    .gt('duration', 0)
-                    .or('stats_archived.eq.false,stats_archived.is.null');
-                  if (!unarchived || unarchived.length === 0) {
-                    setArchiveResult('All matches already archived');
+                    .gt('duration', 0);
+                  if (!allEnded || allEnded.length === 0) {
+                    setArchiveResult('No matches with events found.');
                   } else {
-                    let ok = 0, fail = 0, lastErr = '';
-                    for (const m of unarchived) {
-                      const success = await archiveMatchStats(m.id);
-                      if (success) ok++; else { fail++; lastErr = m.id; }
+                    let ok = 0, noEvents = 0, errors = [];
+                    for (const m of allEnded) {
+                      try {
+                        const result = await archiveMatchStats(m.id);
+                        if (result.ok) {
+                          ok++;
+                        } else if (result.reason === 'no events') {
+                          noEvents++;
+                        } else {
+                          errors.push(m.id.slice(0,8) + ': ' + result.reason);
+                          console.error('Recompute failed:', m.id, result.reason);
+                        }
+                      } catch (e) {
+                        errors.push(m.id.slice(0,8) + ': ' + e.message);
+                        console.error('Recompute threw:', m.id, e);
+                      }
                     }
-                    setArchiveResult(`Archived ${ok} match${ok !== 1 ? 'es' : ''}${fail > 0 ? `, ${fail} failed` : ''}${lastErr ? ` (check console for errors)` : ''}`);
+                    let msg = `✓ ${ok} match${ok !== 1 ? 'es' : ''} computed`;
+                    if (noEvents > 0) msg += ` · ${noEvents} skipped (no events)`;
+                    if (errors.length > 0) msg += ` · ${errors.length} failed`;
+                    setArchiveResult(msg);
+                    if (errors.length > 0) console.error('Failed matches:', errors);
                     // Refresh table counts
                     const { count } = await supabase.from('match_stats').select('id', { count: 'exact', head: true });
                     setTableCounts(prev => ({ ...prev, match_stats: count || 0 }));
@@ -418,10 +433,10 @@ export default function SystemHealthScreen({ onBack }) {
                 cursor: archiving ? 'default' : 'pointer', marginBottom: 6,
               }}
             >
-              {archiving ? '⏳ Archiving...' : '📦 Backfill Archives'}
+              {archiving ? '⏳ Recomputing...' : '🔄 Recompute All Stats'}
             </button>
             {archiveResult && (
-              <div style={{ fontSize: 10, color: archiveResult.startsWith('Error') ? '#EF4444' : '#10B981', marginTop: 4 }}>{archiveResult}</div>
+              <div style={{ fontSize: 10, color: archiveResult.includes('failed') ? '#F59E0B' : archiveResult.startsWith('Error') ? '#EF4444' : '#10B981', marginTop: 4 }}>{archiveResult}</div>
             )}
           </div>
 

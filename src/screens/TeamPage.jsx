@@ -437,12 +437,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         const batch = matchIds.slice(i, i + 20);
         const { data } = await supabase
           .from('match_events')
-          .select('match_id, team, event, match_time')
+          .select('match_id, team, event, match_time, zone')
           .in('match_id', batch);
         if (data) {
           data.forEach(e => {
             if (!allEvents[e.match_id]) allEvents[e.match_id] = [];
-            allEvents[e.match_id].push({ team: e.team, event: e.event, time: e.match_time });
+            allEvents[e.match_id].push({ team: e.team, event: e.event, time: e.match_time, zone: e.zone });
           });
         }
       }

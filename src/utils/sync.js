@@ -308,20 +308,22 @@ export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
 // Pre-compute and store match stats so raw events can be pruned later
 export async function archiveMatchStats(matchId) {
   // Fetch match metadata
-  const { data: match } = await supabase
+  const { data: match, error: matchErr } = await supabase
     .from('matches')
-    .select('break_format, match_length, duration, stats_archived')
+    .select('break_format, match_length, duration')
     .eq('id', matchId)
     .single();
-  if (!match || match.stats_archived) return false;
+  if (matchErr) { console.error('Archive: match fetch error', matchId, matchErr.message); return { ok: false, reason: 'match fetch: ' + matchErr.message }; }
+  if (!match) { console.error('Archive: match not found', matchId); return { ok: false, reason: 'match not found' }; }
 
   // Fetch all events
-  const { data: rawEvents } = await supabase
+  const { data: rawEvents, error: evErr } = await supabase
     .from('match_events')
     .select('team, event, match_time, detail, zone')
     .eq('match_id', matchId)
     .order('match_time');
-  if (!rawEvents || rawEvents.length === 0) return false;
+  if (evErr) { console.error('Archive: events fetch error', matchId, evErr.message); return { ok: false, reason: 'events fetch: ' + evErr.message }; }
+  if (!rawEvents || rawEvents.length === 0) { return { ok: false, reason: 'no events' }; }
 
   const events = rawEvents.map(e => ({ team: e.team, event: e.event, time: e.match_time, detail: e.detail, zone: e.zone }));
   const rows = [];
@@ -403,13 +405,14 @@ export async function archiveMatchStats(matchId) {
     }
   }
 
-  // Upsert stats rows
-  const { error } = await supabase.from('match_stats').upsert(rows, { onConflict: 'match_id,team,quarter' });
-  if (error) { console.error('Archive match stats error:', error); return false; }
+  // Delete existing stats for this match, then insert fresh
+  const { error: delErr } = await supabase.from('match_stats').delete().eq('match_id', matchId);
+  if (delErr) { console.error('Archive: delete old stats error', matchId, delErr.message); return { ok: false, reason: 'delete old: ' + delErr.message }; }
 
-  // Mark match as archived
-  await supabase.from('matches').update({ stats_archived: true }).eq('id', matchId);
-  return true;
+  const { error } = await supabase.from('match_stats').insert(rows);
+  if (error) { console.error('Archive: insert stats error', matchId, error.message); return { ok: false, reason: 'insert: ' + error.message }; }
+
+  return { ok: true };
 }
 
 export async function pushLiveEvent(matchId, event, seq) {

@@ -295,9 +295,10 @@ export default function App() {
     return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
   }
 
-  // Admin area
+  // Admin area (also handles deferred navigation from other roles)
   if (route.type === 'admin') {
-    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
+    const hasNavTarget = !!sessionStorage.getItem('kykie-nav-target');
+    if (!currentUser || (!['admin', 'commentator_admin'].includes(currentUser.role) && !hasNavTarget)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     return (
@@ -315,12 +316,30 @@ export default function App() {
     window.location.hash = '#/admin';
     return null;
   }
+  const defaultNavigate = (target) => {
+    sessionStorage.setItem('kykie-nav-target', target);
+    window.location.hash = '#/admin';
+  };
   return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
+    onNavigate={currentUser ? defaultNavigate : null}
     onRoleSwitch={handleRoleSwitch} initialTab={currentUser ? "dashboard" : null} />;
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
+  // Check for deferred navigation from non-admin dashboard
+  useEffect(() => {
+    const target = sessionStorage.getItem('kykie-nav-target');
+    if (target) {
+      sessionStorage.removeItem('kykie-nav-target');
+      setScreen(target);
+    }
+  }, []);
+
   const navigate = (target, data) => {
+    if (target === "home" && currentUser && !['admin', 'commentator_admin'].includes(currentUser.role)) {
+      window.location.hash = '';
+      return;
+    }
     if (["game_review", "public_view", "coach_view", "match_edit"].includes(target) && data) {
       setReviewGame(data);
     }

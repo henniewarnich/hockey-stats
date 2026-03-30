@@ -180,19 +180,27 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   // D option
   const handleDOption = (opt) => {
     if (!showDPopup) return;
-    const { end } = showDPopup;
+    const { end, lastShot } = showDPopup;
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
     const defendingTeam = otherTeam(attackingTeam);
     const dLabel = `${teams[defendingTeam].name} D`;
 
+    // Shot on/off: log event but keep popup open for follow-up
+    if (opt.id === "shot_on" || opt.id === "shot_off") {
+      addLog(attackingTeam, opt.label, dLabel, `${teams[attackingTeam].name}: ${opt.label} in ${dLabel}`);
+      setShowDPopup({ end, lastShot: opt });
+      return;
+    }
+
     if (opt.id === "goal") {
-      // Check if from short corner
       const real = events.filter(e => e.team !== "commentary" && e.team !== "meta");
       const lastSC = real.find(e => e.event === "Short Corner" && e.team === attackingTeam);
       const btw = lastSC ? real.slice(0, real.indexOf(lastSC)) : [];
       const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === defendingTeam));
-      // Auto-log a shot on goal before the goal (fixes conversion stats)
-      addLog(attackingTeam, "Shot on Goal", dLabel, `${teams[attackingTeam].name} shot on goal`);
+      // Only auto-log shot if no shot was already recorded in this D sequence
+      if (!lastShot) {
+        addLog(attackingTeam, "Shot on Goal", dLabel, `${teams[attackingTeam].name} shot on goal`);
+      }
       addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
       setScore(prev => {
         const newScore = { ...prev, [attackingTeam]: prev[attackingTeam] + 1 };
@@ -428,8 +436,19 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       {/* D Popup */}
       {showDPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowDPopup(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 12, padding: 16, width: 280, border: `1px solid ${theme.border}` }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: theme.text, marginBottom: 10, textAlign: "center" }}>In the D — What happened?</div>
+          <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 12, padding: 16, width: 280, border: `1px solid ${showDPopup.lastShot ? showDPopup.lastShot.color + '66' : theme.border}` }}>
+            {showDPopup.lastShot ? (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 800, color: showDPopup.lastShot.color, marginBottom: 2, textAlign: "center" }}>
+                  After {showDPopup.lastShot.label} — what next?
+                </div>
+                <div style={{ fontSize: 9, color: "#475569", marginBottom: 10, textAlign: "center" }}>
+                  {showDPopup.lastShot.icon} {showDPopup.lastShot.label} logged · tap what happened next
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, fontWeight: 800, color: theme.text, marginBottom: 10, textAlign: "center" }}>In the D — What happened?</div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 { id: "goal", label: "Goal!", icon: "⚽", color: "#F59E0B" },
