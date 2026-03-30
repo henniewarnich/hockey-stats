@@ -212,21 +212,6 @@ export default function App() {
     return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
   }
 
-  if (route.type === 'landing') {
-    // Admin/CommAdmin should be on #/admin for AppContent navigation
-    if (currentUser && ['admin', 'commentator_admin'].includes(currentUser.role)) {
-      window.location.hash = '#/admin';
-      return null;
-    }
-    return <LandingPage
-      currentUser={currentUser}
-      onLogout={handleLogout}
-      emailConfirmed={emailConfirmed}
-      initialTab={currentUser ? "dashboard" : null}
-      onRoleSwitch={currentUser ? handleRoleSwitch : null}
-    />;
-  }
-
   if (route.type === 'login') {
     if (currentUser) {
       // Already logged in — redirect to landing (dashboard tab auto-selects)
