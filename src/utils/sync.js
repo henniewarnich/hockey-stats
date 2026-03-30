@@ -876,10 +876,10 @@ export async function retrofitPredictions(onProgress) {
       });
     }
 
-    // Pete: highest GD wins, within 10 = draw
-    if (hRec.p >= 3 && aRec.p >= 3) {
-      const hGD = hRec.gf - hRec.ga;
-      const aGD = aRec.gf - aRec.ga;
+    // Pete: highest GD wins, within 10 = draw. No data = GD 0, predicts draw.
+    {
+      const hGD = hRec.p > 0 ? hRec.gf - hRec.ga : 0;
+      const aGD = aRec.p > 0 ? aRec.gf - aRec.ga : 0;
       let petePred;
       if (Math.abs(hGD - aGD) <= 10) petePred = 'draw';
       else if (hGD > aGD) petePred = 'home';
@@ -892,13 +892,13 @@ export async function retrofitPredictions(onProgress) {
       });
     }
 
-    // Suzi: lowest rank wins, within 2 = draw, no rank = 199
-    const hRank = rankMap[hId] || m.home_rank || 199;
-    const aRank = rankMap[aId] || m.away_rank || 199;
-    if (hRank < 199 || aRank < 199) { // at least one team has a rank
+    // Suzi: lowest rank wins, within 2 = draw. No rank = 199, both unranked = draw.
+    {
+      const hRank = rankMap[hId] || m.home_rank || 199;
+      const aRank = rankMap[aId] || m.away_rank || 199;
       let suziPred;
       if (Math.abs(hRank - aRank) <= 2) suziPred = 'draw';
-      else if (hRank < aRank) suziPred = 'home'; // lower rank number = better
+      else if (hRank < aRank) suziPred = 'home';
       else suziPred = 'away';
       const sCorrect = suziPred === actual;
       allRows.push({
@@ -906,8 +906,6 @@ export async function retrofitPredictions(onProgress) {
         home_win_pct: null, draw_pct: null, away_win_pct: null,
         points: sCorrect ? 1 : 0, correct: sCorrect, scored_at: new Date().toISOString(),
       });
-    } else {
-      skipped++;
     }
 
     // Update progressive records AFTER prediction
