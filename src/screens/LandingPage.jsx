@@ -5,6 +5,7 @@ import { parseSAST, parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings, approvePendingMatch } from '../utils/sync.js';
 import { logAudit } from '../utils/audit.js';
 import RankBadge from '../components/RankBadge.jsx';
+import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import AdminDashboardPanel from '../components/AdminDashboardPanel.jsx';
 import CommDashboardPanel from '../components/CommDashboardPanel.jsx';
@@ -604,7 +605,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                        <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} />
                         <div style={styles.matchMeta}>
                           {isLive ? (
                             <>
@@ -717,7 +718,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={styles.matchTeams}>{teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} />
                           <div style={styles.matchMeta}>
                             {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -942,7 +943,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                            {teamDisplayName(m.home_team)} <RankBadge rank={m.home_rank} /> vs {teamDisplayName(m.away_team)} <RankBadge rank={m.away_rank} />
+                            <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={m.home_rank} awayRank={m.away_rank} />
                             {m.duration > 0 && <CommentaryIcon />}
                           </div>
                           <div style={styles.matchMeta}>

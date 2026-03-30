@@ -7,6 +7,7 @@ import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.j
 import { fetchLatestRankings } from '../utils/sync.js';
 import { useReactions } from '../hooks/useReactions.js';
 import ReactionBar from '../components/ReactionBar.jsx';
+import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import RankBadge from '../components/RankBadge.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
@@ -802,11 +803,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                       <div style={{ fontSize: 7, fontWeight: 700, color: "#64748B", marginTop: -1, textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
-                        {teamDisplayName(homeTeam)} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
-                        {' vs '}
-                        {teamDisplayName(awayTeam)} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
-                      </div>
+                      <MatchCardTeams home={homeTeam} away={awayTeam} homeRank={latestRankings[homeTeam?.id]?.rank} awayRank={latestRankings[awayTeam?.id]?.rank} homePrevRank={latestRankings[homeTeam?.id]?.prevRank} awayPrevRank={latestRankings[awayTeam?.id]?.prevRank} />
                       <div style={{ fontSize: 9, color: "#64748B", marginTop: 1 }}>
                         {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                         {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}

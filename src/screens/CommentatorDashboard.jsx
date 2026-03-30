@@ -4,6 +4,7 @@ import { fetchCommentatorMatches, lockMatch, unlockMatch, createLiveMatch, updat
 import { saveMatchToSupabase } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { parseSASTDate, parseSAST } from '../utils/helpers.js';
+import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
@@ -257,7 +258,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
 
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} homePrevRank={latestRankings[m.home_team?.id]?.prevRank} awayPrevRank={latestRankings[m.away_team?.id]?.prevRank} />
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
             {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -419,7 +420,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-                          {teamDisplayName(m.home_team)} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {teamDisplayName(m.away_team)} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
+                          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={m.home_rank} awayRank={m.away_rank} homePrevRank={m.home_prev_rank} awayPrevRank={m.away_prev_rank} />
                         </div>
                         <div style={{ fontSize: 16, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
                       </div>
@@ -484,7 +485,7 @@ function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQui
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-          {teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} homePrevRank={latestRankings[m.home_team?.id]?.prevRank} awayPrevRank={latestRankings[m.away_team?.id]?.prevRank} />
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
         {countdown && m.status !== 'live' && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}

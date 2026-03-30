@@ -6,6 +6,7 @@ import { getContributorStats } from '../utils/credits.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
+import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import RankBadge from '../components/RankBadge.jsx';
 import NavLogo from '../components/NavLogo.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
@@ -332,7 +333,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC", padding: 20 }}>
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+          <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} homePrevRank={latestRankings[m.home_team?.id]?.prevRank} awayPrevRank={latestRankings[m.away_team?.id]?.prevRank} />
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
             {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.venue && ` · ${m.venue}`}
@@ -528,7 +529,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: m.home_team?.color }} />
                     <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, flex: 1 }}>
-                      {teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                      <MatchCardTeams home={m.home_team} away={m.away_team} homeRank={latestRankings[m.home_team?.id]?.rank} awayRank={latestRankings[m.away_team?.id]?.rank} homePrevRank={latestRankings[m.home_team?.id]?.prevRank} awayPrevRank={latestRankings[m.away_team?.id]?.prevRank} />
                     </div>
                     {isLive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
                     {countdown && !isLive && (
