@@ -29,6 +29,7 @@ import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
 import IssuesScreen from './screens/IssuesScreen.jsx';
 import SystemHealthScreen from './screens/SystemHealthScreen.jsx';
+import PredictionLeaderboard from './screens/PredictionLeaderboard.jsx';
 import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
@@ -516,6 +517,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "history":
       return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} onVideoReview={handleVideoReview} />;
+
+    case "predictions":
+      return <PredictionLeaderboard currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "game_review":
       if (!reviewGame) { navigate("history"); return null; }
