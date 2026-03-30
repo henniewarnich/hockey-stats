@@ -39,6 +39,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [matchViewers, setMatchViewers] = useState(0);
   const [showScoreMismatch, setShowScoreMismatch] = useState(null); // { recorded, saved }
   const [showVideoReviewEnd, setShowVideoReviewEnd] = useState(false);
+  const [reclassifyToast, setReclassifyToast] = useState(null); // { type, options }
+  const toastTimerRef = useRef(null);
+  const lastEventSeqRef = useRef(0); // seq of last event for Supabase updates
 
   // Track viewers via presence
   useEffect(() => {
@@ -111,9 +114,53 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     // Push event to Supabase
     if (liveMatchId && !isDemo) {
       eventSeqRef.current += 1;
+      lastEventSeqRef.current = eventSeqRef.current;
       pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
     }
   }, [timer.matchTime, teams, liveMatchId, isDemo]);
+
+  // Show reclassify toast (auto-dismiss after 3s)
+  const showToast = (options) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setReclassifyToast(options);
+    toastTimerRef.current = setTimeout(() => setReclassifyToast(null), 3000);
+  };
+
+  const dismissToast = () => {
+    setReclassifyToast(null);
+    if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); toastTimerRef.current = null; }
+  };
+
+  // Reclassify last event
+  const reclassify = (newEvent) => {
+    setEvents(prev => {
+      // Find first non-commentary event
+      const idx = prev.findIndex(e => e.team !== 'commentary' && e.team !== 'meta');
+      if (idx < 0) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], event: newEvent };
+      return updated;
+    });
+    // Update in Supabase
+    if (liveMatchId && !isDemo && lastEventSeqRef.current > 0) {
+      supabase.from('match_events')
+        .update({ event: newEvent })
+        .eq('match_id', liveMatchId)
+        .eq('seq', lastEventSeqRef.current)
+        .then(() => {})
+        .catch(() => {});
+    }
+    dismissToast();
+  };
+
+  // Callback from FieldRecorder after ball movement
+  const handleBallMoved = (eventType) => {
+    if (['Ball forward', 'Ball back', 'Ball across'].includes(eventType)) {
+      showToast({ type: 'movement', buttons: [
+        { label: '↑ Overhead', event: 'Overhead throw', color: '#3B82F6' },
+      ]});
+    }
+  };
 
   // Ball tap = swap possession (except in D → show popup)
   const handleBallTap = () => {
@@ -122,6 +169,12 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     const other = otherTeam(possession);
     addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teams[other].name} won possession`);
     setPossession(other);
+    showToast({ type: 'turnover', buttons: [
+      { label: '🏑 Free Hit', event: 'Free Hit', color: '#10B981' },
+      { label: '⚠️ Foul', event: 'Foul Won', color: '#EF4444' },
+      { label: '🟢 Green', event: 'Green Card', color: '#22C55E' },
+      { label: '🟨 Yellow', event: 'Yellow Card', color: '#F59E0B' },
+    ]});
   };
 
   // D option
@@ -156,7 +209,18 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     } else if (opt.id === "dead_ball") {
       addLog(defendingTeam, "Dead Ball", dLabel, `Dead ball in ${dLabel} — ${teams[defendingTeam].name} ball`);
       setPossession(defendingTeam);
-      // When flipped, zones are reversed on screen: z4 at top, z1 at bottom
+      const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
+      setPrevBallPos(ballPos);
+      setBallPos({ zoneId: outsideZone, pos: "centre" });
+    } else if (opt.id === "penalty") {
+      addLog(attackingTeam, "Penalty", dLabel, `${teams[attackingTeam].name}: Penalty in ${dLabel}`);
+      setPossession(attackingTeam);
+      const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
+      setPrevBallPos(ballPos);
+      setBallPos({ zoneId: outsideZone, pos: "centre" });
+    } else if (opt.id === "long_corner") {
+      addLog(attackingTeam, "Long Corner", dLabel, `${teams[attackingTeam].name}: Long Corner at ${dLabel}`);
+      setPossession(attackingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
       setBallPos({ zoneId: outsideZone, pos: "centre" });
@@ -354,6 +418,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
           score={score} setScore={setScore}
           onAddLog={addLog}
+          onBallMoved={handleBallMoved}
           onShowDPopup={setShowDPopup} showDPopup={showDPopup}
           onShowTeamPicker={setShowTeamPicker}
           onBallTap={handleBallTap}
@@ -371,6 +436,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                 { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
                 { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
                 { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
+                { id: "penalty", label: "Penalty", icon: "🟡", color: "#F59E0B" },
+                { id: "long_corner", label: "Long Corner", icon: "📐", color: "#3B82F6" },
                 { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
                 { id: "dead_ball", label: "Dead Ball", icon: "⊘", color: "#94A3B8" },
               ].map(opt => (
@@ -564,6 +631,37 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           </div>
         </div>
       )}
+
+      {/* Reclassify toast */}
+      {reclassifyToast && (
+        <div style={{
+          position: "fixed", bottom: possession ? 48 : 10, left: "50%", transform: "translateX(-50%)",
+          zIndex: 35, display: "flex", alignItems: "center", gap: 6,
+          background: "#0F172Aee", padding: "6px 10px", borderRadius: 10,
+          border: "1px solid #33415566", backdropFilter: "blur(8px)",
+          animation: "toast-in 0.2s ease-out",
+        }}>
+          {reclassifyToast.buttons.map(b => (
+            <button key={b.event} onClick={() => reclassify(b.event)} style={{
+              padding: "5px 12px", borderRadius: 6, border: `1px solid ${b.color}44`,
+              background: `${b.color}22`, color: b.color, fontSize: 10, fontWeight: 700,
+              cursor: "pointer",
+            }}>{b.label}</button>
+          ))}
+          <button onClick={dismissToast} style={{
+            background: "none", border: "none", color: "#475569", fontSize: 10, cursor: "pointer", padding: "4px",
+          }}>✕</button>
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, height: 2, borderRadius: "0 0 10px 10px",
+            background: reclassifyToast.buttons[0]?.color || "#F59E0B",
+            animation: "toast-timer 3s linear forwards",
+          }} />
+        </div>
+      )}
+      <style>{`
+        @keyframes toast-in { from { transform: translateX(-50%) translateY(10px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+        @keyframes toast-timer { from { width: 100%; } to { width: 0%; } }
+      `}</style>
 
       {/* Fixed possession indicator */}
       {possession && (

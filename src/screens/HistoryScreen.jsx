@@ -154,8 +154,9 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
             const d = new Date(g.date);
             const rc = resultColor(g);
             const isSynced = !!g.supabase_id;
+            const isLivePro = !g.quickScore; // has duration = was recorded live
             return (
-              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", opacity: isLivePro ? 0.4 : 1 }}>
                 {/* Video Stats button */}
                 {onVideoReview && isSynced && (
                   <button onClick={(e) => { e.stopPropagation(); onVideoReview(g); }} style={{
@@ -176,6 +177,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                   <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                     {g.venue && ` · ${g.venue}`}
+                    {isLivePro && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#10B981", background: "#10B98118", padding: "1px 5px", borderRadius: 3 }}>LIVE PRO</span>}
                   </div>
                 </div>
 

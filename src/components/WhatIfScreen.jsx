@@ -4,6 +4,69 @@ import { predictMatch } from '../utils/predict.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import RankBadge from './RankBadge.jsx';
 
+function TeamPicker({ label, value, search, onSearch, onSelect, exclude, teams, records, rankings }) {
+  const filtered = teams.filter(t => t.id !== exclude && t.name.toLowerCase().includes(search.toLowerCase()));
+  const selected = teams.find(t => t.id === value);
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 9, color: "#94A3B8", fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      {selected ? (
+        <div onClick={() => { onSelect(''); onSearch(''); }} style={{
+          background: "#0B0F1A", border: `1px solid ${selected.color || '#334155'}44`, borderRadius: 8,
+          padding: "8px 10px", cursor: "pointer", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: selected.color || "#F8FAFC" }}>{selected.name}</div>
+          {records[selected.id] && <div style={{ fontSize: 8, color: "#64748B", marginTop: 2 }}>
+            {records[selected.id].p}P {records[selected.id].w}W {records[selected.id].d}D {records[selected.id].l}L
+            {rankings[selected.id] && <> · <RankBadge rank={rankings[selected.id].rank} /></>}
+          </div>}
+        </div>
+      ) : (
+        <div>
+          <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search team..."
+            style={{ width: "100%", boxSizing: "border-box", background: "#0B0F1A", border: "1px solid #334155", borderRadius: 8, padding: "8px 10px", color: "#F8FAFC", fontSize: 11, outline: "none" }} />
+          {search && (
+            <div style={{ maxHeight: 150, overflowY: "auto", background: "#0F172A", borderRadius: "0 0 8px 8px", border: "1px solid #334155", borderTop: "none" }}>
+              {filtered.slice(0, 8).map(t => (
+                <div key={t.id} onClick={() => { onSelect(t.id); onSearch(''); }}
+                  style={{ padding: "6px 10px", fontSize: 11, color: "#F8FAFC", cursor: "pointer", borderBottom: "1px solid #1E293B" }}>
+                  <span style={{ color: t.color || "#F8FAFC", fontWeight: 700 }}>{t.name}</span>
+                  {records[t.id] && <span style={{ color: "#64748B", fontSize: 9, marginLeft: 6 }}>{records[t.id].p}P</span>}
+                </div>
+              ))}
+              {filtered.length === 0 && <div style={{ padding: "6px 10px", fontSize: 10, color: "#475569" }}>No teams found</div>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoutCard({ team, rec, rank, color }) {
+  if (!team || !rec) return null;
+  const gd = rec.gf - rec.ga;
+  return (
+    <div style={{ flex: 1, padding: "8px 10px", background: "#0B0F1A", borderRadius: 8, border: `1px solid ${color}33` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <div style={{ width: 24, height: 24, borderRadius: 6, background: color + "22", border: `1.5px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color }}>{team.name[0]}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{team.name} {rank && <RankBadge rank={rank.rank} />}</div>
+      </div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", fontSize: 10 }}>
+        {[
+          ["P", rec.p, "#F8FAFC"], ["W", rec.w, "#10B981"], ["D", rec.d, "#F59E0B"], ["L", rec.l, "#EF4444"],
+          ["GF", rec.gf, "#F8FAFC"], ["GA", rec.ga, "#F8FAFC"], ["GD", gd, gd > 0 ? "#10B981" : gd < 0 ? "#EF4444" : "#F8FAFC"],
+        ].map(([lbl, val, c]) => (
+          <div key={lbl} style={{ textAlign: "center", minWidth: 22 }}>
+            <div style={{ fontWeight: 900, color: c }}>{gd > 0 && lbl === "GD" ? "+" : ""}{val}</div>
+            <div style={{ fontSize: 7, color: "#64748B" }}>{lbl}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function WhatIfScreen({ onBack }) {
   const [teams, setTeams] = useState([]);
   const [records, setRecords] = useState({});
@@ -72,69 +135,6 @@ export default function WhatIfScreen({ onBack }) {
   const hRank = rankings[homeTeamId];
   const aRank = rankings[awayTeamId];
 
-  const TeamPicker = ({ label, value, search, onSearch, onSelect, exclude }) => {
-    const filtered = teams.filter(t => t.id !== exclude && t.name.toLowerCase().includes(search.toLowerCase()));
-    const selected = teams.find(t => t.id === value);
-    return (
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 9, color: "#94A3B8", fontWeight: 700, marginBottom: 4 }}>{label}</div>
-        {selected ? (
-          <div onClick={() => { onSelect(''); onSearch(''); }} style={{
-            background: "#0B0F1A", border: `1px solid ${selected.color || '#334155'}44`, borderRadius: 8,
-            padding: "8px 10px", cursor: "pointer", textAlign: "center",
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: selected.color || "#F8FAFC" }}>{selected.name}</div>
-            {records[selected.id] && <div style={{ fontSize: 8, color: "#64748B", marginTop: 2 }}>
-              {records[selected.id].p}P {records[selected.id].w}W {records[selected.id].d}D {records[selected.id].l}L
-              {rankings[selected.id] && <> · <RankBadge rank={rankings[selected.id].rank} /></>}
-            </div>}
-          </div>
-        ) : (
-          <div>
-            <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search team..."
-              style={{ width: "100%", boxSizing: "border-box", background: "#0B0F1A", border: "1px solid #334155", borderRadius: 8, padding: "8px 10px", color: "#F8FAFC", fontSize: 11, outline: "none" }} />
-            {search && (
-              <div style={{ maxHeight: 150, overflowY: "auto", background: "#0F172A", borderRadius: "0 0 8px 8px", border: "1px solid #334155", borderTop: "none" }}>
-                {filtered.slice(0, 8).map(t => (
-                  <div key={t.id} onClick={() => { onSelect(t.id); onSearch(''); }}
-                    style={{ padding: "6px 10px", fontSize: 11, color: "#F8FAFC", cursor: "pointer", borderBottom: "1px solid #1E293B" }}>
-                    <span style={{ color: t.color || "#F8FAFC", fontWeight: 700 }}>{t.name}</span>
-                    {records[t.id] && <span style={{ color: "#64748B", fontSize: 9, marginLeft: 6 }}>{records[t.id].p}P</span>}
-                  </div>
-                ))}
-                {filtered.length === 0 && <div style={{ padding: "6px 10px", fontSize: 10, color: "#475569" }}>No teams found</div>}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const ScoutCard = ({ team, rec, rank, color }) => {
-    if (!team || !rec) return null;
-    const gd = rec.gf - rec.ga;
-    return (
-      <div style={{ flex: 1, padding: "8px 10px", background: "#0B0F1A", borderRadius: 8, border: `1px solid ${color}33` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <div style={{ width: 24, height: 24, borderRadius: 6, background: color + "22", border: `1.5px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color }}>{team.name[0]}</div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{team.name} {rank && <RankBadge rank={rank.rank} />}</div>
-        </div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", fontSize: 10 }}>
-          {[
-            ["P", rec.p, "#F8FAFC"], ["W", rec.w, "#10B981"], ["D", rec.d, "#F59E0B"], ["L", rec.l, "#EF4444"],
-            ["GF", rec.gf, "#F8FAFC"], ["GA", rec.ga, "#F8FAFC"], ["GD", gd, gd > 0 ? "#10B981" : gd < 0 ? "#EF4444" : "#F8FAFC"],
-          ].map(([lbl, val, c]) => (
-            <div key={lbl} style={{ textAlign: "center", minWidth: 22 }}>
-              <div style={{ fontWeight: 900, color: c }}>{gd > 0 && lbl === "GD" ? "+" : ""}{val}</div>
-              <div style={{ fontSize: 7, color: "#64748B" }}>{lbl}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC" }}>
       <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -149,9 +149,9 @@ export default function WhatIfScreen({ onBack }) {
           {/* Team Picker */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: 12, marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <TeamPicker label="HOME TEAM" value={homeTeamId} search={homeSearch} onSearch={setHomeSearch} onSelect={setHomeTeamId} exclude={awayTeamId} />
+              <TeamPicker label="HOME TEAM" value={homeTeamId} search={homeSearch} onSearch={setHomeSearch} onSelect={setHomeTeamId} exclude={awayTeamId} teams={teams} records={records} rankings={rankings} />
               <div style={{ alignSelf: "center", fontSize: 12, color: "#475569", fontWeight: 700, marginTop: 16 }}>vs</div>
-              <TeamPicker label="AWAY TEAM" value={awayTeamId} search={awaySearch} onSearch={setAwaySearch} onSelect={setAwayTeamId} exclude={homeTeamId} />
+              <TeamPicker label="AWAY TEAM" value={awayTeamId} search={awaySearch} onSearch={setAwaySearch} onSelect={setAwayTeamId} exclude={homeTeamId} teams={teams} records={records} rankings={rankings} />
             </div>
             <button disabled={!homeTeamId || !awayTeamId} onClick={doPredict} style={{
               width: "100%", padding: 12, borderRadius: 8, border: "none",

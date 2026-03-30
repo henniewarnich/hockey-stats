@@ -107,6 +107,49 @@ export default function CoachOverall({ matchStatsList, teamName, teamColor, team
         ))}
       </div>
 
+      {/* Short Corner Outcomes */}
+      {agg.team.scOutcomes && (agg.team.shortCorners > 0 || agg.opp.shortCorners > 0) && (() => {
+        const tSCO = agg.team.scOutcomes;
+        const oSCO = agg.opp.scOutcomes;
+        const tTotal = agg.team.shortCorners;
+        const oTotal = agg.opp.shortCorners;
+        const rows = [
+          { label: "⚽ Goal", key: "goal", color: "#F59E0B" },
+          { label: "◉ Shot on", key: "shotOn", color: "#10B981" },
+          { label: "○ Shot off", key: "shotOff", color: "#6B7280" },
+          { label: "🔲 Won SC", key: "wonSC", color: "#8B5CF6" },
+          { label: "✕ Lost poss", key: "lostPoss", color: "#EF4444" },
+          { label: "⊘ Dead ball", key: "deadBall", color: "#94A3B8" },
+        ];
+        return (
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Short Corner Outcomes</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: teamColor }}>
+                {teamName?.slice(0, 3).toUpperCase()} <span style={{ color: "#475569", fontWeight: 400 }}>({tTotal})</span>
+              </div>
+              <div style={{ width: 80 }} />
+              <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: oppColor }}>
+                OPP <span style={{ color: "#475569", fontWeight: 400 }}>({oTotal})</span>
+              </div>
+            </div>
+            {rows.filter(r => (tSCO[r.key] || 0) + (oSCO[r.key] || 0) > 0).map(r => (
+              <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                <div style={{ flex: 1, textAlign: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: tSCO[r.key] ? r.color : "#333" }}>{tSCO[r.key] || 0}</span>
+                  {tTotal > 0 && tSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(tSCO[r.key] / tTotal * 100)}%</span>}
+                </div>
+                <div style={{ width: 80, textAlign: "center", fontSize: 9, color: r.color, fontWeight: 600 }}>{r.label}</div>
+                <div style={{ flex: 1, textAlign: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: oSCO[r.key] ? r.color : "#333" }}>{oSCO[r.key] || 0}</span>
+                  {oTotal > 0 && oSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(oSCO[r.key] / oTotal * 100)}%</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Per-match averages */}
       <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Per-Match Averages</div>

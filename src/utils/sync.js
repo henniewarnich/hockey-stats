@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
-import { computeStats, getQuarters } from './stats.js';
+import { computeStats, computeSCOutcomes, getQuarters } from './stats.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
@@ -367,6 +367,7 @@ export async function archiveMatchStats(matchId) {
   for (const side of ['home', 'away']) {
     const s = computeStats(events, side, 0, 999999);
     const tb = totalTimeBased[side];
+    const sco = computeSCOutcomes(events, side, 0, 999999);
     rows.push({
       match_id: matchId, team: side, quarter: 0,
       goals: s.goals, sc_goals: s.scGoals, shots_on: s.shotsOn, shots_off: s.shotsOff,
@@ -376,6 +377,7 @@ export async function archiveMatchStats(matchId) {
       poss_lost: s.possLost, territory_pct: s.territory,
       possession_time_pct: tb.possessionTimePct,
       territory_time_pct: tb.territoryTimePct,
+      sc_outcomes: JSON.stringify(sco),
     });
   }
 
@@ -386,6 +388,7 @@ export async function archiveMatchStats(matchId) {
     for (const side of ['home', 'away']) {
       const s = computeStats(events, side, q.start, q.end);
       const tb = qTimeBased[side];
+      const sco = computeSCOutcomes(events, side, q.start, q.end);
       rows.push({
         match_id: matchId, team: side, quarter: parseInt(q.label.replace(/\D/g, '')) || quarters.indexOf(q) + 1,
         goals: s.goals, sc_goals: s.scGoals, shots_on: s.shotsOn, shots_off: s.shotsOff,
@@ -395,6 +398,7 @@ export async function archiveMatchStats(matchId) {
         poss_lost: s.possLost, territory_pct: s.territory,
         possession_time_pct: tb.possessionTimePct,
         territory_time_pct: tb.territoryTimePct,
+        sc_outcomes: JSON.stringify(sco),
       });
     }
   }

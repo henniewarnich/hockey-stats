@@ -340,6 +340,71 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             ))}
           </div>
 
+          {/* Short Corner Outcomes */}
+          {(() => {
+            const SKIP = new Set(['Ball forward', 'Ball back', 'Ball across', 'Ball in play', 'D Entry']);
+            const computeSCO = (team) => {
+              const out = { goal: 0, shotOn: 0, shotOff: 0, wonSC: 0, lostPoss: 0, deadBall: 0, other: 0 };
+              const sorted = events.filter(e => e.team !== 'commentary' && e.team !== 'meta').sort((a, b) => (a.time || 0) - (b.time || 0));
+              for (let i = 0; i < sorted.length; i++) {
+                if (sorted[i].event !== 'Short Corner' || sorted[i].team !== team) continue;
+                let found = false;
+                for (let j = i + 1; j < sorted.length; j++) {
+                  const n = sorted[j], ne = n.event || '';
+                  if (SKIP.has(ne)) continue;
+                  if (ne.startsWith('Goal') && n.team === team) { out.goal++; found = true; break; }
+                  if (ne === 'Shot on Goal' && n.team === team) { out.shotOn++; found = true; break; }
+                  if (ne === 'Shot Off Target' && n.team === team) { out.shotOff++; found = true; break; }
+                  if (ne === 'Short Corner' && n.team === team) { out.wonSC++; found = true; break; }
+                  if (ne === 'Dead Ball') { out.deadBall++; found = true; break; }
+                  if (ne === 'Start' || (n.team !== team && !SKIP.has(ne))) { out.lostPoss++; found = true; break; }
+                  if ((ne === 'Poss Conceded' || ne.startsWith('Sideline Out')) && n.team === team) { out.lostPoss++; found = true; break; }
+                }
+                if (!found) out.other++;
+              }
+              return out;
+            };
+            const hSCO = computeSCO('home');
+            const aSCO = computeSCO('away');
+            const hTotal = totalStat('home', 'shortCorners');
+            const aTotal = totalStat('away', 'shortCorners');
+            if (hTotal === 0 && aTotal === 0) return null;
+            const rows = [
+              { label: "⚽ Goal", key: "goal", color: "#F59E0B" },
+              { label: "◉ Shot on", key: "shotOn", color: "#10B981" },
+              { label: "○ Shot off", key: "shotOff", color: "#6B7280" },
+              { label: "🔲 Won SC", key: "wonSC", color: "#8B5CF6" },
+              { label: "✕ Lost poss", key: "lostPoss", color: "#EF4444" },
+              { label: "⊘ Dead ball", key: "deadBall", color: "#94A3B8" },
+            ];
+            return (
+              <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Short Corner Outcomes</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: HC }}>
+                    {teams.home.short || teams.home.name.slice(0, 3).toUpperCase()} <span style={{ color: "#475569", fontWeight: 400 }}>({hTotal})</span>
+                  </div>
+                  <div style={{ width: 80 }} />
+                  <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: AC }}>
+                    {teams.away.short || teams.away.name.slice(0, 3).toUpperCase()} <span style={{ color: "#475569", fontWeight: 400 }}>({aTotal})</span>
+                  </div>
+                </div>
+                {rows.filter(r => (hSCO[r.key] || 0) + (aSCO[r.key] || 0) > 0).map(r => (
+                  <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: hSCO[r.key] ? r.color : "#333" }}>{hSCO[r.key] || 0}</span>
+                      {hTotal > 0 && hSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(hSCO[r.key] / hTotal * 100)}%</span>}
+                    </div>
+                    <div style={{ width: 80, textAlign: "center", fontSize: 9, color: r.color, fontWeight: 600 }}>{r.label}</div>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: aSCO[r.key] ? r.color : "#333" }}>{aSCO[r.key] || 0}</span>
+                      {aTotal > 0 && aSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(aSCO[r.key] / aTotal * 100)}%</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Zone Control — time-based */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>

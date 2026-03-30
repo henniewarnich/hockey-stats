@@ -13,6 +13,8 @@ const D_OPTIONS = [
   { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
   { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
   { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
+  { id: "penalty", label: "Penalty", icon: "🟡", color: "#F59E0B" },
+  { id: "long_corner", label: "Long Corner", icon: "📐", color: "#3B82F6" },
   { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
   { id: "dead_ball", label: "Dead Ball", icon: "⊘", color: "#94A3B8" },
 ];
@@ -30,6 +32,7 @@ export default function FieldRecorder({
   sidelineOut, setSidelineOut,
   score, setScore,
   onAddLog,
+  onBallMoved, // callback after ball movement (zone tap)
   onShowDPopup, showDPopup, onDOptionSelect, onCloseDPopup,
   onShowTeamPicker,
   onBallTap,
@@ -93,6 +96,7 @@ export default function FieldRecorder({
     }
     doFlash(`${zoneId}-${pos}`);
     onAddLog(possession, event, `${zone.label} (${pos})`, `${teams[possession].name}: ${event} → ${zone.label} (${pos})`);
+    if (onBallMoved) onBallMoved(event);
     moveBall({ zoneId, pos });
   };
 
