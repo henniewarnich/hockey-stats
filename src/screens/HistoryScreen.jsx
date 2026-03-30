@@ -65,9 +65,9 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(g => {
-        const home = teamSearchString(g.teams?.home) || "";
-        const away = teamSearchString(g.teams?.away) || "";
-        const venue = (g.venue || "").toLowerCase();
+        const home = (g.teams?.home?.name || '').toLowerCase();
+        const away = (g.teams?.away?.name || '').toLowerCase();
+        const venue = (g.venue || '').toLowerCase();
         return home.includes(q) || away.includes(q) || venue.includes(q);
       });
     }
@@ -223,17 +223,17 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                     <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{g.homePenalty}-{g.awayPenalty} pen</div>
                   )}
                   <div style={{ height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
-                  <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 4 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', marginTop: 4 }}>
                     {isSynced && g.homeScore === g.awayScore && g.status !== 'abandoned' && (
-                      <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0 }); }}
-                        style={{ fontSize: 7, color: '#F59E0B', cursor: 'pointer' }}>
+                      <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0, homeName: g.teams?.home?.name || 'Home', awayName: g.teams?.away?.name || 'Away' }); }}
+                        style={{ fontSize: 8, color: '#F59E0B', cursor: 'pointer', fontWeight: 700, border: '1px solid #F59E0B44', borderRadius: 4, padding: '2px 6px', background: '#F59E0B11' }}>
                         {g.homePenalty != null ? '✏ pen' : '+ pen'}
                       </span>
                     )}
                     {isSynced && (
                       <span onClick={(e) => { e.stopPropagation(); toggleAbandoned(g); }}
-                        style={{ fontSize: 7, color: '#64748B', cursor: 'pointer' }}>
-                        {g.status === 'abandoned' ? '↩' : '⚡'}
+                        style={{ fontSize: 8, color: '#64748B', cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}>
+                        {g.status === 'abandoned' ? '↩ restore' : '⚡ abandon'}
                       </span>
                     )}
                   </div>
@@ -250,21 +250,27 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
           onClick={() => setPenEdit(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#1E293B', borderRadius: 16, padding: 20, width: 260, textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#F59E0B', marginBottom: 12 }}>Penalty Shootout</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button onClick={() => setPenEdit(p => ({ ...p, home: Math.max(0, p.home - 1) }))}
-                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
-                <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.home}</div>
-                <button onClick={() => setPenEdit(p => ({ ...p, home: p.home + 1 }))}
-                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 700, marginBottom: 6 }}>{penEdit.homeName}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setPenEdit(p => ({ ...p, home: Math.max(0, p.home - 1) }))}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.home}</div>
+                  <button onClick={() => setPenEdit(p => ({ ...p, home: p.home + 1 }))}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+                </div>
               </div>
-              <span style={{ fontSize: 11, color: '#475569' }}>–</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button onClick={() => setPenEdit(p => ({ ...p, away: Math.max(0, p.away - 1) }))}
-                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
-                <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.away}</div>
-                <button onClick={() => setPenEdit(p => ({ ...p, away: p.away + 1 }))}
-                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+              <span style={{ fontSize: 11, color: '#475569', marginTop: 24 }}>–</span>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#10B981', fontWeight: 700, marginBottom: 6 }}>{penEdit.awayName}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setPenEdit(p => ({ ...p, away: Math.max(0, p.away - 1) }))}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.away}</div>
+                  <button onClick={() => setPenEdit(p => ({ ...p, away: p.away + 1 }))}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
