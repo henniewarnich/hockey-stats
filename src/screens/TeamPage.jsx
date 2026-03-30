@@ -431,19 +431,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     const matchIds = endedWithDuration.map(m => m.id);
     
     (async () => {
-      // Fetch all events in batches of 20 matches
+      // Fetch events per match (Supabase default limit is 1000 — batching risks truncation)
       const allEvents = {};
-      for (let i = 0; i < matchIds.length; i += 20) {
-        const batch = matchIds.slice(i, i + 20);
+      for (const id of matchIds) {
         const { data } = await supabase
           .from('match_events')
           .select('match_id, team, event, match_time, zone')
-          .in('match_id', batch);
-        if (data) {
-          data.forEach(e => {
-            if (!allEvents[e.match_id]) allEvents[e.match_id] = [];
-            allEvents[e.match_id].push({ team: e.team, event: e.event, time: e.match_time, zone: e.zone });
-          });
+          .eq('match_id', id)
+          .limit(5000);
+        if (data && data.length > 0) {
+          allEvents[id] = data.map(e => ({ team: e.team, event: e.event, time: e.match_time, zone: e.zone }));
         }
       }
       
