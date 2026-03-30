@@ -231,12 +231,12 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
                     {/* Teams + score */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(m.home_team) }} />
-                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamShortName(m.home_team) || '?'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamDisplayName(m.home_team) || '?'}</div>
                       {isResult && <div style={{ fontSize: 18, fontWeight: 900 }}>{m.home_score}</div>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(m.away_team) }} />
-                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamShortName(m.away_team) || '?'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamDisplayName(m.away_team) || '?'}</div>
                       {isResult && <div style={{ fontSize: 18, fontWeight: 900 }}>{m.away_score}</div>}
                     </div>
 

@@ -18,34 +18,93 @@ export async function fetchTeams() {
 export async function upsertTeam(team) {
   // Map local team format to Supabase format
   const row = {
-    name: team.name.trim(),
+    name: team.name?.trim() || 'Girls Hockey 1st',
     color: team.color,
     short_name: team.short_name || null,
     school: team.school || false,
     coach_pin: team.coach_pin || null,
     commentator_pin: team.commentator_pin || null,
+    institution_id: team.institution_id || null,
+    gender: team.gender || 'Girls',
+    age_group: team.age_group || 'U18',
+    sport: team.sport || 'Hockey',
   };
 
-  if (team.supabase_id) {
-    // Update existing
+  if (team.supabase_id || team.id) {
+    const id = team.supabase_id || team.id;
     const { data, error } = await supabase
       .from('teams')
       .update(row)
-      .eq('id', team.supabase_id)
-      .select()
+      .eq('id', id)
+      .select(TEAM_SELECT)
       .single();
     if (error) { console.error('Update team error:', error); return null; }
     return data;
   } else {
-    // Insert new
     const { data, error } = await supabase
       .from('teams')
       .insert(row)
-      .select()
+      .select(TEAM_SELECT)
       .single();
     if (error) { console.error('Insert team error:', error); return null; }
     return data;
   }
+}
+
+// ─── INSTITUTIONS ─────────────────────────────────────
+
+export async function fetchInstitutions() {
+  const { data, error } = await supabase
+    .from('institutions')
+    .select('*')
+    .order('name');
+  if (error) { console.error('Fetch institutions error:', error); return []; }
+  return data || [];
+}
+
+export async function upsertInstitution(inst) {
+  const row = {
+    name: inst.name.trim(),
+    short_name: inst.short_name?.trim() || null,
+    other_names: inst.other_names?.trim() || null,
+    color: inst.color || '#1D4ED8',
+  };
+
+  if (inst.id) {
+    const { data, error } = await supabase
+      .from('institutions')
+      .update(row)
+      .eq('id', inst.id)
+      .select()
+      .single();
+    if (error) { console.error('Update institution error:', error); return null; }
+    await logAudit('institution_update', 'institution', data.id, { name: row.name });
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from('institutions')
+      .insert(row)
+      .select()
+      .single();
+    if (error) { console.error('Insert institution error:', error); return null; }
+    await logAudit('institution_create', 'institution', data.id, { name: row.name });
+    return data;
+  }
+}
+
+export async function deleteInstitution(id) {
+  // Check if any teams reference this institution
+  const { count } = await supabase
+    .from('teams')
+    .select('id', { count: 'exact', head: true })
+    .eq('institution_id', id);
+  if (count > 0) {
+    return { error: `Cannot delete — ${count} team(s) linked to this institution` };
+  }
+  const { error } = await supabase.from('institutions').delete().eq('id', id);
+  if (error) { console.error('Delete institution error:', error); return { error: error.message }; }
+  await logAudit('institution_delete', 'institution', id, {});
+  return { success: true };
 }
 
 export async function deleteTeamRemote(supabaseId) {

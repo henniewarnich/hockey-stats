@@ -24,6 +24,7 @@ export default function AdminDashboardPanel({ onNavigate, currentUser }) {
     ["match_setup", "⚡", "New Match", "Live match or quick score"],
     ["what_if", "🔮", "What-If Match", "Pick two teams — see prediction"],
     ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
+    ["institutions", "🏫", "Institutions", "Schools, clubs & universities"],
     ["history", "📊", "Game History", "View all recorded matches"],
     ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
       ["users", "🔑", "Users", "Manage user accounts"],

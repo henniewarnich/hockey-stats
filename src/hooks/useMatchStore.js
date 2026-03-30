@@ -36,25 +36,25 @@ export function useMatchStore() {
 
   // Team CRUD — local first, then sync
   const saveTeam = useCallback((team) => {
+    // Optimistic local update
     setTeams(prev => {
       let updated;
       if (team.id) {
-        updated = prev.map(t => t.id === team.id ? { ...team, name: team.name.trim() } : t);
+        updated = prev.map(t => t.id === team.id ? { ...t, ...team, name: (team.name || t.name).trim() } : t);
       } else {
-        updated = [...prev, { ...team, id: Date.now().toString(), name: team.name.trim() }];
+        updated = [...prev, { ...team, id: Date.now().toString(), name: (team.name || '').trim() }];
       }
       saveData(TEAMS_KEY, updated);
       return updated;
     });
 
-    // Fire-and-forget sync to Supabase
+    // Sync to Supabase — response includes institution join
     upsertTeamRemote(team).then(remote => {
       if (remote) {
-        // Update local with Supabase ID
         setTeams(prev => {
           const updated = prev.map(t =>
-            t.name.trim().toLowerCase() === remote.name.trim().toLowerCase()
-              ? { ...t, supabase_id: remote.id }
+            (t.id === remote.id || t.id === team.id || t.supabase_id === remote.id)
+              ? { ...remote, supabase_id: remote.id }
               : t
           );
           saveData(TEAMS_KEY, updated);

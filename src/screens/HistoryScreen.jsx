@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamSearchString, teamShortName } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, teamShortName } from '../utils/teams.js';
 
 export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
@@ -173,7 +173,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                 {/* Teams + Meta */}
                 <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onSelect(g)}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
-                    {teamShortName(g.teams?.home)} vs {teamShortName(g.teams?.away)}
+                    {teamDisplayName(g.teams?.home)} vs {teamDisplayName(g.teams?.away)}
                   </div>
                   <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}

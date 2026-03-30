@@ -654,14 +654,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{teamShortName(liveMatch.home_team)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{teamDisplayName(liveMatch.home_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.home_score}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: "#F59E0B" }}>{fmtClock(liveTime)}</div>
                 </div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{teamShortName(liveMatch.away_team)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{teamDisplayName(liveMatch.away_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                 </div>
               </div>
@@ -803,9 +803,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
-                        {teamShortName(homeTeam)} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {teamDisplayName(homeTeam)} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                         {' vs '}
-                        {teamShortName(awayTeam)} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {teamDisplayName(awayTeam)} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                       </div>
                       <div style={{ fontSize: 9, color: "#64748B", marginTop: 1 }}>
                         {d.toLocaleDateString("en-ZA", { weekday: "short" })}
@@ -972,12 +972,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{teamShortName(selectedMatch.home_team)} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{teamDisplayName(selectedMatch.home_team)} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
                 <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{teamShortName(selectedMatch.away_team)} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{teamDisplayName(selectedMatch.away_team)} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>

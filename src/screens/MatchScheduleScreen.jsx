@@ -152,8 +152,8 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
 
   const handleEdit = async (m) => {
     setEditMatch(m);
-    setHomeTeam(m.home_team); setHomeSearch(teamShortName(m.home_team) || "");
-    setAwayTeam(m.away_team); setAwaySearch(teamShortName(m.away_team) || "");
+    setHomeTeam(m.home_team); setHomeSearch(teamDisplayName(m.home_team) || "");
+    setAwayTeam(m.away_team); setAwaySearch(teamDisplayName(m.away_team) || "");
     setMatchDate(m.match_date);
     setScheduledTime(m.scheduled_time || "");
     setMatchLength(String(m.match_length || 60));
@@ -332,7 +332,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC", padding: 20 }}>
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
             {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.venue && ` · ${m.venue}`}
@@ -372,7 +372,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           <input style={inputStyle} value={homeSearch} onChange={e => { setHomeSearch(e.target.value); setHomeTeam(null); }} placeholder="🔍 Search..." />
           {!homeTeam && <div style={{ maxHeight: 120, overflowY: "auto", marginTop: 4 }}>
             {filteredHome.slice(0, 20).map(t => (
-              <button key={t.id} onClick={() => { setHomeTeam(t); setHomeSearch(teamShortName(t)); }} style={{
+              <button key={t.id} onClick={() => { setHomeTeam(t); setHomeSearch(teamDisplayName(t)); }} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, width: "100%",
                 border: "1px solid #33415533", background: theme.surface, cursor: "pointer", marginBottom: 2,
               }}>
@@ -389,7 +389,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           <input style={inputStyle} value={awaySearch} onChange={e => { setAwaySearch(e.target.value); setAwayTeam(null); }} placeholder="🔍 Search..." />
           {!awayTeam && <div style={{ maxHeight: 120, overflowY: "auto", marginTop: 4 }}>
             {filteredAway.slice(0, 20).map(t => (
-              <button key={t.id} onClick={() => { setAwayTeam(t); setAwaySearch(teamShortName(t)); }} style={{
+              <button key={t.id} onClick={() => { setAwayTeam(t); setAwaySearch(teamDisplayName(t)); }} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, width: "100%",
                 border: "1px solid #33415533", background: theme.surface, cursor: "pointer", marginBottom: 2,
               }}>
@@ -528,7 +528,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: m.home_team?.color }} />
                     <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, flex: 1 }}>
-                      {teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                      {teamDisplayName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamDisplayName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                     </div>
                     {isLive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
                     {countdown && !isLive && (

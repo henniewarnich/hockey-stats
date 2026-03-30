@@ -4,7 +4,7 @@ import { parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { theme } from '../utils/styles.js';
 import RankBadge from './RankBadge.jsx';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamShortName } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamShortName } from '../utils/teams.js';
 
 export default function PublicMatchesSection() {
   const [tab, setTab] = useState('live');
@@ -84,9 +84,9 @@ export default function PublicMatchesSection() {
               {isLive && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#10B981', flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {teamShortName(m.home_team)} <RankBadge rank={rankings[m.home_team?.id]?.rank} prevRank={rankings[m.home_team?.id]?.prevRank} />
+                  {teamDisplayName(m.home_team)} <RankBadge rank={rankings[m.home_team?.id]?.rank} prevRank={rankings[m.home_team?.id]?.prevRank} />
                   {' vs '}
-                  {teamShortName(m.away_team)} <RankBadge rank={rankings[m.away_team?.id]?.rank} prevRank={rankings[m.away_team?.id]?.prevRank} />
+                  {teamDisplayName(m.away_team)} <RankBadge rank={rankings[m.away_team?.id]?.rank} prevRank={rankings[m.away_team?.id]?.prevRank} />
                 </div>
                 <div style={{ fontSize: 9, color: theme.textDim, marginTop: 1 }}>
                   {d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}

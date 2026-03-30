@@ -8,6 +8,7 @@ import { APP_VERSION } from './utils/constants.js';
 import { getSession, getProfile, signOut } from './utils/auth.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
+import InstitutionScreen from './screens/InstitutionScreen.jsx';
 import MatchSetupScreen from './screens/MatchSetupScreen.jsx';
 import LiveMatchScreen from './screens/LiveMatchScreen.jsx';
 import HistoryScreen from './screens/HistoryScreen.jsx';
@@ -474,6 +475,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "teams":
       return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
+
+    case "institutions":
+      return <InstitutionScreen onBack={() => navigate("home")} />;
 
     case "match_setup":
       return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
