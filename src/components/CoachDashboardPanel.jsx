@@ -55,8 +55,6 @@ export default function CoachDashboardPanel({ currentUser }) {
     load();
   }, [currentUser.id]);
 
-  const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-
   if (loading) return <div style={{ textAlign: 'center', padding: 20, color: theme.textDim, fontSize: 11 }}>Loading teams...</div>;
 
   return (
