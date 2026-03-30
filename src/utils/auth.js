@@ -298,14 +298,13 @@ export async function removeCoachTeam(coachId, teamId) {
 
 // Check if a user is an assigned coach for a specific team (by slug)
 export async function isCoachForTeam(userId, teamSlug) {
+  const slugify = (s) => (s || '').toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
   const { data } = await supabase
     .from('coach_teams')
     .select('team_id, teams!inner(name, institution:institutions(name))')
     .eq('coach_id', userId);
   if (!data || data.length === 0) return false;
-  // slugify: use teamSlug from teams.js
   return data.some(d => {
-    // Match on institution name slug (post-migration) or team name slug (pre-migration fallback)
     const instName = d.teams.institution?.name;
     return (instName && slugify(instName) === teamSlug) || slugify(d.teams.name) === teamSlug;
   });
