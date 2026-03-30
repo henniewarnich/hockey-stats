@@ -6,7 +6,7 @@ import { logAudit } from '../utils/audit.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -81,7 +81,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
       if (teams) {
         setAllTeams(teams);
         if (teamSlug) {
-          const found = teams.find(t => teamSlug(t) === teamSlug);
+          const found = teams.find(t => makeTeamSlug(t) === teamSlug);
           if (found) {
             setTeam(found);
             setVenue("");

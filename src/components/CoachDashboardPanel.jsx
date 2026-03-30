@@ -73,7 +73,7 @@ export default function CoachDashboardPanel({ currentUser }) {
           const rk = rankings[team.id];
           const wr = r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
           return (
-            <a key={team.id} href={`#/team/${teamSlug(team.name)}`} style={{ textDecoration: 'none' }}>
+            <a key={team.id} href={`#/team/${teamSlug(team)}`} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: theme.surface, borderRadius: 10, padding: '12px 14px', marginBottom: 4,
                 border: `1px solid ${theme.border}44`, cursor: 'pointer',

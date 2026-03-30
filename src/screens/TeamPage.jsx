@@ -13,7 +13,7 @@ import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamShortName, teamSlug } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -304,7 +304,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       setLoading(true);
       try {
         const { data: teams } = await supabase.from('teams').select(TEAM_SELECT);
-        const found = teams?.find(t => teamSlug(t) === teamSlug);
+        const found = teams?.find(t => makeTeamSlug(t) === teamSlug);
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
@@ -790,7 +790,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               })();
               const homeTeam = m.home_team;
               const awayTeam = m.away_team;
-              const teamSlugNav = (name) => name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') || '';
               return (
                 <div key={m.id} style={{ background: "#1E293B", borderRadius: 10, padding: 12, marginBottom: 6, border: "1px solid #33415544" }}>
                   {/* Match header */}
@@ -895,7 +894,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                               <div style={{ fontSize: 9, color: "#475569", textAlign: "center", marginBottom: 4 }}>No matches yet</div>
                             )}
                             {!isMine && t && (
-                              <div onClick={() => { window.location.hash = `#/team/${teamSlugNav(t.name)}`; }} style={{ fontSize: 8, color: "#8B5CF6", fontWeight: 700, textAlign: "center", marginTop: 6, cursor: "pointer" }}>View stats →</div>
+                              <div onClick={() => { window.location.hash = `#/team/${makeTeamSlug(t)}`; }} style={{ fontSize: 8, color: "#8B5CF6", fontWeight: 700, textAlign: "center", marginTop: 6, cursor: "pointer" }}>View stats →</div>
                             )}
                           </div>
                         );
