@@ -849,7 +849,7 @@ export async function retrofitPredictions(onProgress) {
     const hRec = { ...getRec(hId) };
     const aRec = { ...getRec(aId) };
 
-    // Kykie prediction (needs 5+ games each)
+    // Kykie prediction — V2 model when 5+ games, ranking-based fallback otherwise
     const kykie = predictMatch(hRec, aRec, hName, aName);
     if (kykie) {
       const kPred = kykie.draw >= kykie.homeWin && kykie.draw >= kykie.awayWin ? 'draw'
@@ -858,6 +858,20 @@ export async function retrofitPredictions(onProgress) {
       allRows.push({
         user_id: null, match_id: m.id, prediction: kPred,
         home_win_pct: kykie.homeWin, draw_pct: kykie.draw, away_win_pct: kykie.awayWin,
+        points: kCorrect ? 1 : 0, correct: kCorrect, scored_at: new Date().toISOString(),
+      });
+    } else {
+      // Fallback: ranking-based (same as Suzi's logic)
+      const hRank = rankMap[hId] || m.home_rank || 199;
+      const aRank = rankMap[aId] || m.away_rank || 199;
+      let kPred;
+      if (Math.abs(hRank - aRank) <= 2) kPred = 'draw';
+      else if (hRank < aRank) kPred = 'home';
+      else kPred = 'away';
+      const kCorrect = kPred === actual;
+      allRows.push({
+        user_id: null, match_id: m.id, prediction: kPred,
+        home_win_pct: null, draw_pct: null, away_win_pct: null,
         points: kCorrect ? 1 : 0, correct: kCorrect, scored_at: new Date().toISOString(),
       });
     }
