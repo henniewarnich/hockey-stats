@@ -1002,18 +1002,25 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                     {instTeams.map(t => {
                       const r = teamRecords[t.id];
                       const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
+                      const barColor = winRate >= 50 ? '#10B981' : winRate >= 25 ? '#F59E0B' : r?.p > 0 ? '#EF4444' : '#334155';
+                      const gd = r ? r.gf - r.ga : 0;
                       return (
                         <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t)}`; }}
-                          style={{ ...styles.teamRow, marginLeft: 42, borderLeft: `2px solid ${teamColor(t)}33`, paddingLeft: 10 }}>
+                          style={{ marginLeft: 38, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#1E293B', borderRadius: '0 8px 8px 0', marginBottom: 4, borderLeft: `3px solid ${teamColor(t)}`, cursor: 'pointer' }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1' }}>{teamDerivedName(t)}</div>
-                            {r ? (
-                              <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
-                            ) : (
-                              <div style={styles.teamRecord}>No matches yet</div>
+                            {r && r.p > 0 ? (<>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                <div style={{ flex: 1, height: 3, borderRadius: 2, background: '#334155', overflow: 'hidden', maxWidth: 100 }}>
+                                  <div style={{ width: `${winRate}%`, height: '100%', background: barColor }} />
+                                </div>
+                                <span style={{ fontSize: 9, color: '#94A3B8' }}>{r.p}P {r.w}W {r.d}D {r.l}L · {winRate}%</span>
+                              </div>
+                            </>) : (
+                              <div style={{ fontSize: 9, color: '#475569', marginTop: 3 }}>No matches yet</div>
                             )}
                           </div>
-                          <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                          <span style={{ color: "#334155", fontSize: 12 }}>›</span>
                         </div>
                       );
                     })}

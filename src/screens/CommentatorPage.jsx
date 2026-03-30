@@ -542,7 +542,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
               <div key={m.id} style={{ display: "flex", alignItems: "center", padding: "12px 12px", gap: 10, background: "#1E293B", borderRadius: 10, marginBottom: 4 }}>
                 <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{isHome ? "vs" : "@"} {teamShortName(opp)} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} /></div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC" }}>{"vs"} {teamShortName(opp)} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} /></div>
                   <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                   </div>

@@ -14,7 +14,7 @@ import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -304,36 +304,39 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     const load = async () => {
       setLoading(true);
       try {
-        const { data: teams } = await supabase.from('teams').select(TEAM_SELECT);
+        // Find team by institution slug — load teams + auth in parallel
+        const [{ data: teams }, session] = await Promise.all([
+          supabase.from('teams').select(TEAM_SELECT),
+          getSession(),
+        ]);
         const found = teams?.find(t => makeTeamSlug(t) === teamSlug);
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
-        // Check if logged-in user is an assigned coach for this team
-        const session = await getSession();
-        if (session) {
-          const profile = await getProfile();
-          if (profile && !profile.blocked) {
-            // Check if user has coach role (active role from sessionStorage OR in roles array)
-            const activeRole = sessionStorage.getItem('kykie-active-role') || profile.role;
-            const hasCoachRole = activeRole === 'coach' || profile.roles?.includes('coach');
-            if (hasCoachRole) {
-              const assigned = await isCoachForTeam(profile.id, teamSlug);
-              if (assigned) {
-                setIsCoach(true);
-                setCoachProfile(profile);
-                setTab("overall");
-              }
-            }
-          }
-        }
-
-        // Load matches
-        const { data: allMatches } = await supabase
+        // Load matches + rankings + coach check in parallel
+        const matchPromise = supabase
           .from('matches')
           .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
           .or(`home_team_id.eq.${found.id},away_team_id.eq.${found.id}`)
           .order('match_date', { ascending: false });
+        const rankPromise = fetchLatestRankings();
+        
+        let coachPromise = Promise.resolve(false);
+        if (session) {
+          coachPromise = getProfile().then(async (profile) => {
+            if (!profile || profile.blocked) return false;
+            const activeRole = sessionStorage.getItem('kykie-active-role') || profile.role;
+            const hasCoachRole = activeRole === 'coach' || profile.roles?.includes('coach');
+            if (!hasCoachRole) return false;
+            const assigned = await isCoachForTeam(profile.id, teamSlug);
+            if (assigned) { setCoachProfile(profile); return true; }
+            return false;
+          }).catch(() => false);
+        }
+
+        const [{ data: allMatches }, rankings, isAssignedCoach] = await Promise.all([matchPromise, rankPromise, coachPromise]);
+        setLatestRankings(rankings);
+        if (isAssignedCoach) { setIsCoach(true); setTab("overall"); }
 
         if (allMatches) {
           const live = allMatches.find(m => m.status === 'live');
@@ -345,9 +348,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           });
           setMatches(ended);
           setUpcomingMatches(upcoming);
-
-          // Fetch latest rankings for upcoming match badges
-          fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
 
           // Auto-open a specific match if navigated from landing page
           if (initialMatchId) {
@@ -938,9 +938,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 <div onClick={() => handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer" }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 5 }}>{isHome ? "vs" : "@"} {teamShortName(opp)} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>vs</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(opp)}</span>
+                      <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                       {hasStats && <span title="Full stats + commentary" style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>}
                     </div>
+                    <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>{teamDerivedName(opp)}</div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                       {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                       {m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}

@@ -37,15 +37,22 @@ export function teamDerivedName(team) {
 // ── DISPLAY FUNCTIONS ─────────────────────────────────
 
 /**
- * Full display name: "Paarl Girls Girls Hockey U18"
- * Used in: team page headers, full listings, match cards
+ * Full display name: "PMB Girls Hockey 1st", "Bloemhof Girls Hockey 1st"
+ * Auto-detects if institution name ends with gender word and skips duplicate.
  */
 export function teamDisplayName(team) {
   if (!team) return 'Unknown';
   const inst = team.institution;
   const derived = teamDerivedName(team);
   if (inst) {
-    return `${inst.short_name || inst.name} ${derived}`;
+    const label = inst.short_name || inst.name;
+    const gender = (team.gender || 'Girls').toLowerCase();
+    // If institution name ends with the gender word, skip gender from derived
+    if (label.toLowerCase().endsWith(` ${gender}`) || label.toLowerCase() === gender) {
+      const withoutGender = derived.replace(new RegExp(`^${team.gender || 'Girls'}\\s+`), '');
+      return `${label} ${withoutGender}`;
+    }
+    return `${label} ${derived}`;
   }
   // Fallback for pre-migration data
   return team.team_description || derived;

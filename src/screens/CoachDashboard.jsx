@@ -291,7 +291,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                               {isLive && <span style={{ fontSize: 8, color: "#10B981", fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122" }}>LIVE</span>}
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                  {isHome ? 'vs' : '@'} {teamShortName(opp) || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
+                                  {'vs'} {teamShortName(opp) || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
                                 </div>
                                 <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
                                   {fmtDate(m.match_date)}{m.scheduled_time ? ` · ${fmtTime(m.scheduled_time)}` : ''}{m.venue ? ` · ${m.venue}` : ''}
@@ -363,7 +363,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                             }}>{rl.label}</div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                {isHome ? 'vs' : '@'} {teamShortName(opp) || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
+                                {'vs'} {teamShortName(opp) || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                               </div>
                               <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
                                 {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
