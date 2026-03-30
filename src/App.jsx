@@ -156,12 +156,9 @@ export default function App() {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
     const isAdmin = newRole === 'admin' || newRole === 'commentator_admin';
-    const newHash = isAdmin ? '#/admin' : '';
-    window.location.hash = newHash;
-    setRoute(getHashRoute());
-    setScreen("home");
-    setSubScreen(null);
-    setCurrentUser(prev => ({ ...prev, role: newRole }));
+    // Clean reload avoids all React state race conditions
+    window.location.hash = isAdmin ? '#/admin' : '';
+    window.location.reload();
   };
 
   // ── PASSWORD RECOVERY ──
