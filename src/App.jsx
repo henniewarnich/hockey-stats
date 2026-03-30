@@ -64,6 +64,7 @@ function getHashRoute() {
 
 export default function App() {
   const [route, setRoute] = useState(getHashRoute);
+  const [subScreen, setSubScreen] = useState(null);
   const [screen, setScreen] = useState("home");
   const [matchConfig, setMatchConfig] = useState(null);
   const [reviewGame, setReviewGame] = useState(null);
@@ -296,10 +297,9 @@ export default function App() {
     return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
   }
 
-  // Admin area (also handles deferred navigation from other roles)
+  // Admin area
   if (route.type === 'admin') {
-    const hasNavTarget = !!sessionStorage.getItem('kykie-nav-target');
-    if (!currentUser || (!['admin', 'commentator_admin'].includes(currentUser.role) && !hasNavTarget)) {
+    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     return (
@@ -317,9 +317,17 @@ export default function App() {
     window.location.hash = '#/admin';
     return null;
   }
+
+  // Non-admin sub-screens
+  if (subScreen === 'predictions') {
+    return <PredictionLeaderboard currentUser={currentUser} onBack={() => setSubScreen(null)} />;
+  }
+  if (subScreen === 'history') {
+    return <HistoryScreen games={store.games} onSelect={() => {}} onBack={() => setSubScreen(null)} onSyncAll={store.syncAllGames} syncing={store.syncing} />;
+  }
+
   const defaultNavigate = (target) => {
-    sessionStorage.setItem('kykie-nav-target', target);
-    window.location.hash = '#/admin';
+    setSubScreen(target);
   };
   return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
     onNavigate={currentUser ? defaultNavigate : null}
@@ -327,15 +335,6 @@ export default function App() {
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
-  // Check for deferred navigation from non-admin dashboard
-  useEffect(() => {
-    const target = sessionStorage.getItem('kykie-nav-target');
-    if (target) {
-      sessionStorage.removeItem('kykie-nav-target');
-      setScreen(target);
-    }
-  }, []);
-
   const navigate = (target, data) => {
     if (target === "home" && currentUser && !['admin', 'commentator_admin'].includes(currentUser.role)) {
       window.location.hash = '';
