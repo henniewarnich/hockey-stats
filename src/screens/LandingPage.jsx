@@ -978,14 +978,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                     {/* Institution header */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', marginBottom: 2 }}>
                       <div style={{
-                        width: 32, height: 32, borderRadius: 8, background: inst?.color || '#334155',
+                        width: 28, height: 28, borderRadius: 7, background: inst?.color || '#334155',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 14, fontWeight: 800, color: '#fff',
+                        fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0,
                       }}>{(inst?.short_name || inst?.name || '?').charAt(0)}</div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#F8FAFC' }}>{inst?.name || 'Unknown'}</div>
-                        {inst?.short_name && <div style={{ fontSize: 9, color: '#64748B' }}>{inst.short_name}</div>}
-                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#F8FAFC', flex: 1 }}>{inst?.name || 'Unknown'}</div>
                       {(() => { const rk = instTeams[0] ? latestRankings[instTeams[0].id] : null; return rk ? <RankBadge rank={rk.rank} /> : null; })()}
                     </div>
                     {/* Teams under this institution */}

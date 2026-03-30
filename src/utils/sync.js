@@ -20,7 +20,7 @@ export async function upsertTeam(team) {
   const sport = team.sport || 'Hockey';
   const age_group = team.age_group || '1st';
   const variant = team.variant?.trim() || null;
-  const derivedName = variant ? `${gender} ${sport} ${age_group} (${variant})` : `${gender} ${sport} ${age_group}`;
+  const derivedName = variant ? `${gender} ${sport} ${variant}` : `${gender} ${sport} ${age_group}`;
 
   const row = {
     name: derivedName,
