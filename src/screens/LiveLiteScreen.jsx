@@ -26,6 +26,8 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const [events, setEvents] = useState([]);
   const [showPause, setShowPause] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [endPenHome, setEndPenHome] = useState(null);
+  const [endPenAway, setEndPenAway] = useState(null);
   const [lastClicked, setLastClicked] = useState(null); // { team, eventId }
   const [matchId, setMatchId] = useState(match.supabaseId || null);
   const [starting, setStarting] = useState(!match.supabaseId && !match.isDemo);
@@ -136,10 +138,21 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const handleEndMatch = async () => {
     timer.end();
     setShowEndConfirm(false);
+    const penOpts = (homeScore === awayScore && endPenHome != null && endPenAway != null)
+      ? { homePenalty: endPenHome, awayPenalty: endPenAway } : {};
     if (matchId && !isDemo) {
-      await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime);
+      await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime, penOpts);
     }
     if (onEnd) onEnd({ matchId, homeScore, awayScore, duration: timer.matchTime });
+  };
+
+  const handleAbandon = async () => {
+    timer.end();
+    setShowEndConfirm(false);
+    if (matchId && !isDemo) {
+      await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime, { abandoned: true });
+    }
+    if (onEnd) onEnd({ matchId, homeScore, awayScore, duration: timer.matchTime, abandoned: true });
   };
 
   const handlePromote = () => {
@@ -327,13 +340,43 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
             <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 4 }}>
               {teamShortName(homeTeam)} {homeScore} – {awayScore} {teamShortName(awayTeam)}
             </div>
-            <div style={{ fontSize: 11, color: '#64748B', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
               Time: {fmt(timer.matchTime)}{isDemo ? ' · Data will not be saved' : ''}
             </div>
+            {/* Penalty option when tied */}
+            {!isDemo && homeScore === awayScore && (
+              <div style={{ marginBottom: 12 }}>
+                <div onClick={() => { if (endPenHome == null) { setEndPenHome(0); setEndPenAway(0); } else { setEndPenHome(null); setEndPenAway(null); } }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', padding: '4px 0' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: '1.5px solid #F59E0B44', background: endPenHome != null ? '#F59E0B' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {endPenHome != null && <span style={{ color: '#0B0F1A', fontSize: 10, fontWeight: 900 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>Decided by penalties</span>
+                </div>
+                {endPenHome != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => setEndPenHome(Math.max(0, (endPenHome || 0) - 1))} style={{ ...btnStyle('#334155'), width: 28, padding: 0 }}>–</button>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenHome}</div>
+                      <button onClick={() => setEndPenHome((endPenHome || 0) + 1)} style={{ ...btnStyle('#F59E0B'), width: 28, padding: 0 }}>+</button>
+                    </div>
+                    <span style={{ fontSize: 9, color: '#475569' }}>pen</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => setEndPenAway(Math.max(0, (endPenAway || 0) - 1))} style={{ ...btnStyle('#334155'), width: 28, padding: 0 }}>–</button>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenAway}</div>
+                      <button onClick={() => setEndPenAway((endPenAway || 0) + 1)} style={{ ...btnStyle('#F59E0B'), width: 28, padding: 0 }}>+</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ ...btnStyle('#334155'), flex: 1 }}>Cancel</button>
               <button onClick={handleEndMatch} style={{ ...btnStyle('#EF4444'), flex: 1, color: '#F8FAFC' }}>{isDemo ? 'End & Discard' : 'End Match'}</button>
             </div>
+            {!isDemo && (
+              <button onClick={handleAbandon} style={{ ...btnStyle('#64748B'), width: '100%', marginTop: 6, fontSize: 10, color: '#94A3B8' }}>Abandon Match</button>
+            )}
           </div>
         </div>
       )}

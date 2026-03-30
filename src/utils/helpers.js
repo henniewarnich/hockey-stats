@@ -107,3 +107,52 @@ export function calcPeriods(matchLength, breakFormat) {
   const perPeriod = Math.floor(matchLength / periods);
   return { periods, perPeriod, total: matchLength };
 }
+
+/**
+ * Match outcome for a team: 'W', 'D', or 'L'.
+ * Considers penalty shootout when regulation is a draw.
+ */
+export function matchOutcome(m, teamId) {
+  const isHome = (m.home_team_id || m.home_team?.id) === teamId;
+  const my = isHome ? m.home_score : m.away_score;
+  const their = isHome ? m.away_score : m.home_score;
+  if (my > their) return 'W';
+  if (my < their) return 'L';
+  // Draw in regulation — check penalties
+  if (m.home_penalty_score != null && m.away_penalty_score != null) {
+    const myPen = isHome ? m.home_penalty_score : m.away_penalty_score;
+    const theirPen = isHome ? m.away_penalty_score : m.home_penalty_score;
+    if (myPen > theirPen) return 'W';
+    if (myPen < theirPen) return 'L';
+  }
+  return 'D';
+}
+
+/**
+ * Overall match winner: 'home', 'away', or 'draw'.
+ * Considers penalty shootout when regulation is tied.
+ */
+export function matchWinner(m) {
+  if (m.home_score > m.away_score) return 'home';
+  if (m.away_score > m.home_score) return 'away';
+  if (m.home_penalty_score != null && m.away_penalty_score != null) {
+    if (m.home_penalty_score > m.away_penalty_score) return 'home';
+    if (m.away_penalty_score > m.home_penalty_score) return 'away';
+  }
+  return 'draw';
+}
+
+/**
+ * Format score string: "2–1" or "1–1 (3-2 pen)"
+ */
+export function formatScore(m, isHome = true) {
+  const hs = isHome ? m.home_score : m.away_score;
+  const as_ = isHome ? m.away_score : m.home_score;
+  let s = `${hs}–${as_}`;
+  if (m.home_penalty_score != null && m.away_penalty_score != null) {
+    const hp = isHome ? m.home_penalty_score : m.away_penalty_score;
+    const ap = isHome ? m.away_penalty_score : m.home_penalty_score;
+    s += ` (${hp}-${ap} pen)`;
+  }
+  return s;
+}

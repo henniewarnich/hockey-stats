@@ -35,6 +35,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [endPenHome, setEndPenHome] = useState(null);
+  const [endPenAway, setEndPenAway] = useState(null);
   const [pauseReason, setPauseReason] = useState(null);
   const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
   const [matchViewers, setMatchViewers] = useState(0);
@@ -314,8 +316,29 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       homeScore: score.home, awayScore: score.away,
     };
     if (liveMatchId) {
-      endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime).catch(() => {});
+      const penOpts = (score.home === score.away && endPenHome != null && endPenAway != null)
+        ? { homePenalty: endPenHome, awayPenalty: endPenAway } : {};
+      endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime, penOpts).catch(() => {});
     }
+    const saved = onSaveGame(game);
+    setLastSavedGame(saved || game);
+  };
+
+  const handleAbandon = () => {
+    setShowEndConfirm(false);
+    timer.end();
+    clearAutoSave();
+    if (liveMatchId) {
+      endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime, { abandoned: true }).catch(() => {});
+    }
+    const game = {
+      id: liveMatchId || Date.now().toString(),
+      supabase_id: liveMatchId || null,
+      date: date ? new Date(date).toISOString() : new Date().toISOString(),
+      teams, events, duration: timer.matchTime,
+      matchLength, breakFormat, matchType, venue,
+      homeScore: score.home, awayScore: score.away,
+    };
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);
   };
@@ -487,11 +510,41 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 280, textAlign: "center" }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{isDemo ? "End Demo?" : isVideoReview ? "End Video Review?" : "End Match?"}</div>
             <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teamShortName(teams.home)} {score.home} – {score.away} {teamShortName(teams.away)}</div>
-            <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 14 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events{isDemo ? " (will not be saved)" : ""}</div>
+            <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 12 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events{isDemo ? " (will not be saved)" : ""}</div>
+            {/* Penalty option when tied */}
+            {!isDemo && !isVideoReview && score.home === score.away && (
+              <div style={{ marginBottom: 12 }}>
+                <div onClick={() => { if (endPenHome == null) { setEndPenHome(0); setEndPenAway(0); } else { setEndPenHome(null); setEndPenAway(null); } }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', padding: '4px 0' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: '1.5px solid #F59E0B44', background: endPenHome != null ? '#F59E0B' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {endPenHome != null && <span style={{ color: '#0B0F1A', fontSize: 10, fontWeight: 900 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>Decided by penalties</span>
+                </div>
+                {endPenHome != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => setEndPenHome(Math.max(0, (endPenHome || 0) - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bg, color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenHome}</div>
+                      <button onClick={() => setEndPenHome((endPenHome || 0) + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                    </div>
+                    <span style={{ fontSize: 9, color: '#475569' }}>pen</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button onClick={() => setEndPenAway(Math.max(0, (endPenAway || 0) - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bg, color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenAway}</div>
+                      <button onClick={() => setEndPenAway((endPenAway || 0) + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
               <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : isVideoReview ? "End & Save Stats" : "End & Save"}</button>
             </div>
+            {!isDemo && !isVideoReview && (
+              <button onClick={handleAbandon} style={{ width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #64748B44', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Abandon Match</button>
+            )}
           </div>
         </div>
       )}

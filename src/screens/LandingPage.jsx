@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { parseSAST, parseSASTDate } from '../utils/helpers.js';
+import { parseSAST, parseSASTDate, matchOutcome, matchWinner, formatScore } from '../utils/helpers.js';
 import { fetchLatestRankings, approvePendingMatch } from '../utils/sync.js';
 import { logAudit } from '../utils/audit.js';
 import RankBadge from '../components/RankBadge.jsx';
@@ -38,6 +38,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [scoreEntryMatch, setScoreEntryMatch] = useState(null); // match to enter score for
   const [seHomeScore, setSeHomeScore] = useState(0);
   const [seAwayScore, setSeAwayScore] = useState(0);
+  const [seHomePen, setSeHomePen] = useState(null);
+  const [seAwayPen, setSeAwayPen] = useState(null);
   const [seSubmitting, setSeSubmitting] = useState(false);
   const [pendingScoreMatches, setPendingScoreMatches] = useState([]); // crowd-submitted scores awaiting approval
   const [userPredictions, setUserPredictions] = useState({}); // match_id -> { prediction, correct, points }
@@ -53,6 +55,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     setScoreEntryMatch(m);
     setSeHomeScore(m.home_score || 0);
     setSeAwayScore(m.away_score || 0);
+    setSeHomePen(m.home_penalty_score ?? null);
+    setSeAwayPen(m.away_penalty_score ?? null);
   };
 
   const handleScoreSubmit = async () => {
@@ -60,27 +64,26 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     setSeSubmitting(true);
     const m = scoreEntryMatch;
     const isAdmin = ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role);
+    const penFields = seHomeScore === seAwayScore && seHomePen != null && seAwayPen != null
+      ? { home_penalty_score: seHomePen, away_penalty_score: seAwayPen }
+      : { home_penalty_score: null, away_penalty_score: null };
 
     if (isAdmin) {
-      // Admin: approve directly — set to ended
       await supabase.from('matches').update({
-        home_score: seHomeScore, away_score: seAwayScore,
+        home_score: seHomeScore, away_score: seAwayScore, ...penFields,
         status: 'ended', approved_by: currentUser.id, approved_at: new Date().toISOString(),
       }).eq('id', m.id);
-      logAudit('quick_score_admin', 'match', m.id, { home: seHomeScore, away: seAwayScore });
-      // Move from upcoming/pending to results
+      logAudit('quick_score_admin', 'match', m.id, { home: seHomeScore, away: seAwayScore, ...penFields });
       setUpcomingMatches(prev => prev.filter(u => u.id !== m.id));
       setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
     } else {
-      // Crowd: set to pending
       await supabase.from('matches').update({
-        home_score: seHomeScore, away_score: seAwayScore,
+        home_score: seHomeScore, away_score: seAwayScore, ...penFields,
         status: 'pending', submitted_by: currentUser.id, submitted_type: 'crowd',
       }).eq('id', m.id);
-      logAudit('quick_score_crowd', 'match', m.id, { home: seHomeScore, away: seAwayScore });
-      // Move from upcoming to pending score list
+      logAudit('quick_score_crowd', 'match', m.id, { home: seHomeScore, away: seAwayScore, ...penFields });
       setUpcomingMatches(prev => prev.filter(u => u.id !== m.id));
-      setPendingScoreMatches(prev => [...prev, { ...m, home_score: seHomeScore, away_score: seAwayScore, status: 'pending', submitted_by: currentUser.id }]);
+      setPendingScoreMatches(prev => [...prev, { ...m, home_score: seHomeScore, away_score: seAwayScore, ...penFields, status: 'pending', submitted_by: currentUser.id }]);
     }
     setScoreEntryMatch(null);
     setSeSubmitting(false);
@@ -90,6 +93,15 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     if (!confirm(`Approve ${teamDisplayName(m.home_team)} ${m.home_score}–${m.away_score} ${teamDisplayName(m.away_team)}?`)) return;
     await approvePendingMatch(m.id, currentUser.id, 'ended');
     setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
+  };
+
+  const toggleAbandoned = async (m) => {
+    const newStatus = m.status === 'abandoned' ? 'ended' : 'abandoned';
+    const label = newStatus === 'abandoned' ? 'Abandon' : 'Restore';
+    if (!confirm(`${label} this match?`)) return;
+    await supabase.from('matches').update({ status: newStatus }).eq('id', m.id);
+    logAudit(newStatus === 'abandoned' ? 'match_abandoned' : 'match_restored', 'match', m.id);
+    setMatches(prev => prev.map(x => x.id === m.id ? { ...x, status: newStatus } : x));
   };
 
   const savePrediction = async (matchId, prediction) => {
@@ -145,7 +157,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
           supabase.from('matches')
             .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-            .eq('status', 'ended')
+            .in('status', ['ended', 'abandoned'])
             .order('match_date', { ascending: false })
             .limit(20),
           supabase.from('matches')
@@ -157,9 +169,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             .order('match_date', { ascending: true })
             .order('scheduled_time', { ascending: true }),
           supabase.from('matches')
-            .select('home_team_id, away_team_id, home_score, away_score, match_type')
+            .select('home_team_id, away_team_id, home_score, away_score, match_type, home_penalty_score, away_penalty_score')
             .eq('status', 'ended'),
-          supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
+          supabase.from('matches').select('id', { count: 'exact', head: true }).in('status', ['ended', 'abandoned']),
         ]);
 
         if (allTeams) setTeams(allTeams);
@@ -253,14 +265,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             const [{ data: freshResults }, { count: freshCount }] = await Promise.all([
               supabase.from('matches')
                 .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-                .eq('status', 'ended').order('match_date', { ascending: false }).limit(20),
-              supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
+                .in('status', ['ended', 'abandoned']).order('match_date', { ascending: false }).limit(20),
+              supabase.from('matches').select('id', { count: 'exact', head: true }).in('status', ['ended', 'abandoned']),
             ]);
             if (freshResults) setMatches(freshResults);
             setResultsCount(freshCount || 0);
             // Refresh allRecords for team stats
             const { data: freshRecords } = await supabase.from('matches')
-              .select('home_team_id, away_team_id, home_score, away_score, match_type')
+              .select('home_team_id, away_team_id, home_score, away_score, match_type, home_penalty_score, away_penalty_score')
               .eq('status', 'ended');
             if (freshRecords) setAllRecords(freshRecords);
           }
@@ -293,7 +305,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       const { data } = await supabase
         .from('matches')
         .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-        .eq('status', 'ended')
+        .in('status', ['ended', 'abandoned'])
         .or(ids.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
         .order('match_date', { ascending: false })
         .limit(50);
@@ -313,8 +325,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       teamRecords[tid].p++;
       teamRecords[tid].gf += my;
       teamRecords[tid].ga += their;
-      if (my > their) teamRecords[tid].w++;
-      else if (my === their) teamRecords[tid].d++;
+      const o = matchOutcome(m, tid);
+      if (o === 'W') teamRecords[tid].w++;
+      else if (o === 'D') teamRecords[tid].d++;
       else teamRecords[tid].l++;
     });
   });
@@ -355,11 +368,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   ];
 
   const resultBadge = (m, teamId) => {
-    const isHome = m.home_team?.id === teamId;
-    const my = isHome ? m.home_score : m.away_score;
-    const their = isHome ? m.away_score : m.home_score;
-    if (my > their) return { label: "W", cls: "rb-w" };
-    if (my < their) return { label: "L", cls: "rb-l" };
+    if (m.status === 'abandoned') return { label: "ABN", cls: "rb-abn" };
+    const o = matchOutcome(m, teamId);
+    const hasPen = m.home_penalty_score != null && m.away_penalty_score != null;
+    if (o === 'W') return { label: "W", cls: "rb-w", pen: hasPen };
+    if (o === 'L') return { label: "L", cls: "rb-l", pen: hasPen };
     return { label: "D", cls: "rb-d" };
   };
 
@@ -397,6 +410,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         .rb-w { background: #10B98122; color: #10B981; border: 1.5px solid #10B98144; }
         .rb-l { background: #EF444422; color: #EF4444; border: 1.5px solid #EF444444; }
         .rb-d { background: #F59E0B22; color: #F59E0B; border: 1.5px solid #F59E0B44; }
+        .rb-abn { background: #64748B22; color: #64748B; border: 1.5px solid #64748B44; font-size: 8px !important; }
       `}</style>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
@@ -901,7 +915,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   const homeSlug = teamSlug(m.home_team);
                   const myPred = userPredictions[m.id];
                   return (
-                    <div key={m.id} style={{ marginBottom: 4 }}>
+                    <div key={m.id} style={{ marginBottom: 4, opacity: m.status === 'abandoned' ? 0.5 : 1 }}>
                       <div onClick={() => { window.location.hash = `#/team/${homeSlug}?match=${m.id}`; }}
                         style={{ ...styles.scoreCard, cursor: "pointer", borderRadius: myPred ? "10px 10px 0 0" : 10 }}>
                         <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
@@ -914,10 +928,21 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                             {m.duration > 0 && <CommentaryIcon />}
                           </div>
                         </div>
-                        <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
+                          {m.home_penalty_score != null && m.away_penalty_score != null && (
+                            <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
+                          )}
+                          {currentUser && ['admin', 'commentator_admin'].includes(currentUser.role) && (
+                            <div onClick={(e) => { e.stopPropagation(); toggleAbandoned(m); }}
+                              style={{ fontSize: 7, color: '#64748B', cursor: 'pointer', marginTop: 2 }}>
+                              {m.status === 'abandoned' ? '↩ restore' : '⚡ abandon'}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       {myPred && myPred.correct !== null && (() => {
-                        const actual = m.home_score > m.away_score ? 'home' : m.away_score > m.home_score ? 'away' : 'draw';
+                        const actual = matchWinner(m);
                         // Find Kykie's prediction for this match
                         const kykiePredObj = leaderboard ? null : null; // loaded separately below
                         return (
@@ -1073,6 +1098,33 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 </div>
               </div>
             </div>
+            {/* Penalty shootout — only when tied */}
+            {seHomeScore === seAwayScore && (
+              <div style={{ marginBottom: 12 }}>
+                <div onClick={() => { if (seHomePen == null) { setSeHomePen(0); setSeAwayPen(0); } else { setSeHomePen(null); setSeAwayPen(null); } }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', padding: '6px 0' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: 3, border: '1.5px solid #F59E0B44', background: seHomePen != null ? '#F59E0B' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {seHomePen != null && <span style={{ color: '#0B0F1A', fontSize: 10, fontWeight: 900 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>Decided by penalties</span>
+                </div>
+                {seHomePen != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={() => setSeHomePen(Math.max(0, (seHomePen || 0) - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B', width: 24, textAlign: 'center' }}>{seHomePen}</div>
+                      <button onClick={() => setSeHomePen((seHomePen || 0) + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                    </div>
+                    <span style={{ fontSize: 10, color: '#475569' }}>pen</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={() => setSeAwayPen(Math.max(0, (seAwayPen || 0) - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B', width: 24, textAlign: 'center' }}>{seAwayPen}</div>
+                      <button onClick={() => setSeAwayPen((seAwayPen || 0) + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <button disabled={seSubmitting} onClick={handleScoreSubmit} style={{
               width: "100%", padding: 12, borderRadius: 8, border: "none",
               background: "#10B981", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",

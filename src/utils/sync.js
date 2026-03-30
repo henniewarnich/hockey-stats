@@ -2,6 +2,7 @@ import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
 import { computeStats, computeSCOutcomes, getQuarters } from './stats.js';
 import { predictMatch } from './predict.js';
+import { matchOutcome, matchWinner } from './helpers.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamDerivedName, teamShortName } from './teams.js';
 
 // ─── TEAMS ───────────────────────────────────────────
@@ -366,15 +367,21 @@ export async function updateLiveScore(matchId, homeScore, awayScore) {
   return !error;
 }
 
-export async function endLiveMatch(matchId, homeScore, awayScore, duration) {
-  const { error } = await supabase
-    .from('matches')
-    .update({ home_score: homeScore, away_score: awayScore, status: 'ended', duration, locked_by: null })
-    .eq('id', matchId);
+export async function endLiveMatch(matchId, homeScore, awayScore, duration, opts = {}) {
+  const { homePenalty, awayPenalty, abandoned } = opts;
+  const update = {
+    home_score: homeScore, away_score: awayScore,
+    status: abandoned ? 'abandoned' : 'ended',
+    duration, locked_by: null,
+  };
+  if (homePenalty != null && awayPenalty != null) {
+    update.home_penalty_score = homePenalty;
+    update.away_penalty_score = awayPenalty;
+  }
+  const { error } = await supabase.from('matches').update(update).eq('id', matchId);
   if (error) console.error('End live match error:', error);
-  if (!error) await logAudit('match_end', 'match', matchId, { homeScore, awayScore, duration });
-  // Archive stats in background (fire-and-forget)
-  if (!error) archiveMatchStats(matchId).catch(e => console.error('Archive stats error:', e));
+  if (!error) await logAudit(abandoned ? 'match_abandoned' : 'match_end', 'match', matchId, { homeScore, awayScore, duration, ...opts });
+  if (!error && !abandoned) archiveMatchStats(matchId).catch(e => console.error('Archive stats error:', e));
   return !error;
 }
 
@@ -874,7 +881,7 @@ export async function retrofitPredictions(onProgress) {
   // Fetch all ended matches ordered by date
   const { data: matches, error: mErr } = await supabase
     .from('matches')
-    .select('id, match_date, home_score, away_score, home_team_id, away_team_id, home_rank, away_rank')
+    .select('id, match_date, home_score, away_score, home_team_id, away_team_id, home_rank, away_rank, home_penalty_score, away_penalty_score')
     .eq('status', 'ended')
     .not('home_score', 'is', null)
     .order('match_date', { ascending: true })
@@ -916,7 +923,7 @@ export async function retrofitPredictions(onProgress) {
     const as_ = m.away_score;
     const hName = teamMap[hId] || 'Home';
     const aName = teamMap[aId] || 'Away';
-    const actual = hs > as_ ? 'home' : as_ > hs ? 'away' : 'draw';
+    const actual = matchWinner(m);
 
     const hRec = { ...getRec(hId) };
     const aRec = { ...getRec(aId) };
@@ -986,8 +993,9 @@ export async function retrofitPredictions(onProgress) {
     records[hId].p++; records[aId].p++;
     records[hId].gf += hs; records[hId].ga += as_;
     records[aId].gf += as_; records[aId].ga += hs;
-    if (hs > as_) { records[hId].w++; records[aId].l++; }
-    else if (as_ > hs) { records[aId].w++; records[hId].l++; }
+    const hOutcome = matchOutcome(m, hId);
+    if (hOutcome === 'W') { records[hId].w++; records[aId].l++; }
+    else if (hOutcome === 'L') { records[aId].w++; records[hId].l++; }
     else { records[hId].d++; records[aId].d++; }
 
     if (onProgress && i % 50 === 0) onProgress(i, matches.length);

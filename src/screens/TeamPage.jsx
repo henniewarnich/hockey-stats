@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { ensureContrastingColors, parseSAST, parseSASTDate } from '../utils/helpers.js';
+import { ensureContrastingColors, parseSAST, parseSASTDate, matchOutcome, matchWinner } from '../utils/helpers.js';
 import { computeMatchStats, statsFromArchive } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import { fetchLatestRankings } from '../utils/sync.js';
@@ -183,7 +183,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     const allIds = [...new Set([team.id, ...oppIds])];
     if (allIds.length === 0) return;
     supabase.from('matches')
-      .select('home_team_id, away_team_id, home_score, away_score, match_type')
+      .select('home_team_id, away_team_id, home_score, away_score, match_type, home_penalty_score, away_penalty_score')
       .eq('status', 'ended')
       .or(allIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
       .then(({ data }) => {
@@ -198,8 +198,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             recs[id].p++;
             recs[id].gf += my;
             recs[id].ga += their;
-            if (my > their) recs[id].w++;
-            else if (my === their) recs[id].d++;
+            const o = matchOutcome(m, id);
+            if (o === 'W') recs[id].w++;
+            else if (o === 'D') recs[id].d++;
             else recs[id].l++;
           });
         });
@@ -340,7 +341,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
         if (allMatches) {
           const live = allMatches.find(m => m.status === 'live');
-          const ended = allMatches.filter(m => m.status === 'ended');
+          const ended = allMatches.filter(m => m.status === 'ended' || m.status === 'abandoned');
           const upcoming = allMatches.filter(m => m.status === 'upcoming').sort((a, b) => {
             const da = parseSAST(a.match_date, a.scheduled_time || '00:00');
             const db = parseSAST(b.match_date, b.scheduled_time || '00:00');
@@ -503,27 +504,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     </div>
   );
 
-  // Season stats (all matches)
-  const seasonStats = matches.reduce((s, m) => {
+  // Season stats (ended matches only — exclude abandoned)
+  const seasonStats = matches.filter(m => m.status !== 'abandoned').reduce((s, m) => {
     const isHome = m.home_team?.id === team.id;
     const my = isHome ? m.home_score : m.away_score;
     const their = isHome ? m.away_score : m.home_score;
-    return { played: s.played + 1, won: s.won + (my > their ? 1 : 0), drawn: s.drawn + (my === their ? 1 : 0), lost: s.lost + (my < their ? 1 : 0), gf: s.gf + my, ga: s.ga + their };
+    const o = matchOutcome(m, team.id);
+    return { played: s.played + 1, won: s.won + (o === 'W' ? 1 : 0), drawn: s.drawn + (o === 'D' ? 1 : 0), lost: s.lost + (o === 'L' ? 1 : 0), gf: s.gf + my, ga: s.ga + their };
   }, { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0 });
   const gd = seasonStats.gf - seasonStats.ga;
   const winRate = seasonStats.played > 0 ? Math.round(seasonStats.won / seasonStats.played * 100) : 0;
 
   const resultColor = (m) => {
-    const isHome = m.home_team?.id === team.id;
-    const my = isHome ? m.home_score : m.away_score;
-    const their = isHome ? m.away_score : m.home_score;
-    return my > their ? "#10B981" : my < their ? "#EF4444" : "#F59E0B";
+    if (m.status === 'abandoned') return "#64748B";
+    const o = matchOutcome(m, team.id);
+    return o === 'W' ? "#10B981" : o === 'L' ? "#EF4444" : "#F59E0B";
   };
   const resultLabel = (m) => {
-    const isHome = m.home_team?.id === team.id;
-    const my = isHome ? m.home_score : m.away_score;
-    const their = isHome ? m.away_score : m.home_score;
-    return my > their ? "W" : my < their ? "L" : "D";
+    if (m.status === 'abandoned') return "ABN";
+    return matchOutcome(m, team.id);
   };
   const opponent = (m) => m.home_team?.id === team.id ? m.away_team : m.home_team;
 
@@ -934,9 +933,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               <div key={m.id} style={{
                 display: "flex", alignItems: "center", padding: "12px 12px", gap: 10,
                 background: "#1E293B", borderRadius: 10, marginBottom: 4,
+                opacity: m.status === 'abandoned' ? 0.5 : 1,
               }}>
                 <div onClick={() => handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
+                  <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: rl === 'ABN' ? 8 : 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>vs</span>
@@ -950,7 +950,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                       {m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                     </div>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{isHome ? m.home_score : m.away_score}–{isHome ? m.away_score : m.home_score}</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{isHome ? m.home_score : m.away_score}–{isHome ? m.away_score : m.home_score}</div>
+                    {m.home_penalty_score != null && m.away_penalty_score != null && (
+                      <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{isHome ? m.home_penalty_score : m.away_penalty_score}-{isHome ? m.away_penalty_score : m.home_penalty_score} pen</div>
+                    )}
+                  </div>
                   <span style={{ fontSize: 12, color: "#334155" }}>›</span>
                 </div>
               </div>

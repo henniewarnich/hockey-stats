@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabase.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
-import { parseSASTDate } from '../utils/helpers.js';
+import { parseSASTDate, matchOutcome } from '../utils/helpers.js';
 import { getWeekStart } from '../utils/stats.js';
 import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
@@ -93,7 +93,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
       if (oppIds.size > 0) {
         const { data: oppMatches } = await supabase
           .from('matches')
-          .select('id, home_team_id, away_team_id, home_score, away_score, match_date')
+          .select('id, home_team_id, away_team_id, home_score, away_score, match_date, home_penalty_score, away_penalty_score')
           .eq('status', 'ended')
           .or([...oppIds].map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
           .order('match_date', { ascending: false })
@@ -108,7 +108,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
             const isHome = m.home_team_id === oid;
             const gf = isHome ? m.home_score : m.away_score;
             const ga = isHome ? m.away_score : m.home_score;
-            return { result: gf > ga ? 'W' : gf < ga ? 'L' : 'D', gf, ga };
+            return { result: matchOutcome(m, oid), gf, ga };
           });
           const gf = results.reduce((s, r) => s + r.gf, 0);
           const ga = results.reduce((s, r) => s + r.ga, 0);
@@ -163,11 +163,9 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
   const goToTeam = (team) => { window.location.hash = `#/team/${teamSlug(team)}`; };
 
   const resultBadge = (m, teamId) => {
-    const isHome = m.home_team_id === teamId;
-    const gf = isHome ? m.home_score : m.away_score;
-    const ga = isHome ? m.away_score : m.home_score;
-    if (gf > ga) return { label: 'W', color: '#10B981' };
-    if (gf < ga) return { label: 'L', color: '#EF4444' };
+    const o = matchOutcome(m, teamId);
+    if (o === 'W') return { label: 'W', color: '#10B981' };
+    if (o === 'L') return { label: 'L', color: '#EF4444' };
     return { label: 'D', color: '#64748B' };
   };
 
