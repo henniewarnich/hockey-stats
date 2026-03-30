@@ -933,12 +933,6 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           {m.home_penalty_score != null && m.away_penalty_score != null && (
                             <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
                           )}
-                          {currentUser && ['admin', 'commentator_admin'].includes(currentUser.role) && (
-                            <div onClick={(e) => { e.stopPropagation(); toggleAbandoned(m); }}
-                              style={{ fontSize: 7, color: '#64748B', cursor: 'pointer', marginTop: 2 }}>
-                              {m.status === 'abandoned' ? '↩ restore' : '⚡ abandon'}
-                            </div>
-                          )}
                         </div>
                       </div>
                       {myPred && myPred.correct !== null && (() => {

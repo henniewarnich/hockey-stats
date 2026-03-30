@@ -406,7 +406,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
         if (!data) return;
         const live = data.find(m => m.status === 'live');
-        const ended = data.filter(m => m.status === 'ended');
+        const ended = data.filter(m => m.status === 'ended' || m.status === 'abandoned');
         setMatches(ended);
 
         if (live) {

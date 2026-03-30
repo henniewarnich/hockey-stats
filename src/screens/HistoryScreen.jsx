@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, teamShortName } from '../utils/teams.js';
+import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 
 export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
@@ -10,14 +11,15 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
   const [syncResult, setSyncResult] = useState(null);
   const [cloudMatches, setCloudMatches] = useState([]);
   const [loadingCloud, setLoadingCloud] = useState(true);
+  const [penEdit, setPenEdit] = useState(null); // { id, home, away }
 
-  // Fetch all ended matches from Supabase
+  // Fetch all ended + abandoned matches from Supabase
   useEffect(() => {
     const fetchCloud = async () => {
       const { data } = await supabase
         .from('matches')
         .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-        .eq('status', 'ended')
+        .in('status', ['ended', 'abandoned'])
         .order('match_date', { ascending: false });
       if (data) {
         // Convert to the local game format
@@ -38,6 +40,9 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
           matchType: m.match_type,
           quickScore: !m.duration || m.duration === 0,
           cloudOnly: true,
+          status: m.status,
+          homePenalty: m.home_penalty_score,
+          awayPenalty: m.away_penalty_score,
         }));
         setCloudMatches(mapped);
       }
@@ -75,9 +80,34 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
   }, [allGames, search, sortDir]);
 
   const resultColor = (g) => {
+    if (g.status === 'abandoned') return "#64748B";
     if (g.homeScore > g.awayScore) return "#10B981";
     if (g.homeScore < g.awayScore) return "#EF4444";
     return "#F59E0B";
+  };
+
+  const toggleAbandoned = async (g) => {
+    const matchId = g.supabase_id || g.id;
+    if (!matchId) return;
+    const newStatus = g.status === 'abandoned' ? 'ended' : 'abandoned';
+    const label = newStatus === 'abandoned' ? 'Abandon' : 'Restore';
+    if (!confirm(`${label} this match?`)) return;
+    await supabase.from('matches').update({ status: newStatus }).eq('id', matchId);
+    logAudit(newStatus === 'abandoned' ? 'match_abandoned' : 'match_restored', 'match', matchId);
+    setCloudMatches(prev => prev.map(x => x.id === matchId ? { ...x, status: newStatus } : x));
+  };
+
+  const savePenalty = async () => {
+    if (!penEdit) return;
+    const { id, home, away } = penEdit;
+    const hasValues = home != null && away != null && (home > 0 || away > 0);
+    const update = hasValues
+      ? { home_penalty_score: home, away_penalty_score: away }
+      : { home_penalty_score: null, away_penalty_score: null };
+    await supabase.from('matches').update(update).eq('id', id);
+    logAudit('penalty_score_edit', 'match', id, update);
+    setCloudMatches(prev => prev.map(x => x.id === id ? { ...x, homePenalty: update.home_penalty_score, awayPenalty: update.away_penalty_score } : x));
+    setPenEdit(null);
   };
 
   const handleSync = async () => {
@@ -160,7 +190,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
             const hasZones = hasEvents && g.events.some(e => e.zone);
             const matchType = !hasEvents ? null : hasZones ? 'LIVE PRO' : 'LIVE';
             return (
-              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+              <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", opacity: g.status === 'abandoned' ? 0.5 : 1 }}>
                 {/* Video Stats button */}
                 {onVideoReview && isSynced && (
                   <button onClick={(e) => { e.stopPropagation(); onVideoReview(g); }} style={{
@@ -182,19 +212,72 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                     {g.venue && ` · ${g.venue}`}
                     {matchType && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#10B981", background: "#10B98118", padding: "1px 5px", borderRadius: 3 }}>{matchType}</span>}
+                    {g.status === 'abandoned' && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#64748B", background: "#64748B22", padding: "1px 5px", borderRadius: 3 }}>ABANDONED</span>}
                   </div>
                 </div>
 
-                {/* Score */}
-                <div style={{ minWidth: 44, textAlign: "center", cursor: "pointer" }} onClick={() => onSelect(g)}>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: rc, letterSpacing: 1 }}>{g.homeScore}–{g.awayScore}</div>
+                {/* Score + Abandon toggle */}
+                <div style={{ minWidth: 44, textAlign: "center" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: rc, letterSpacing: 1, cursor: "pointer" }} onClick={() => onSelect(g)}>{g.homeScore}–{g.awayScore}</div>
+                  {g.homePenalty != null && g.awayPenalty != null && (
+                    <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{g.homePenalty}-{g.awayPenalty} pen</div>
+                  )}
                   <div style={{ height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 4 }}>
+                    {isSynced && g.homeScore === g.awayScore && g.status !== 'abandoned' && (
+                      <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0 }); }}
+                        style={{ fontSize: 7, color: '#F59E0B', cursor: 'pointer' }}>
+                        {g.homePenalty != null ? '✏ pen' : '+ pen'}
+                      </span>
+                    )}
+                    {isSynced && (
+                      <span onClick={(e) => { e.stopPropagation(); toggleAbandoned(g); }}
+                        style={{ fontSize: 7, color: '#64748B', cursor: 'pointer' }}>
+                        {g.status === 'abandoned' ? '↩' : '⚡'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Penalty Edit Popup */}
+      {penEdit && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)' }}
+          onClick={() => setPenEdit(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#1E293B', borderRadius: 16, padding: 20, width: 260, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#F59E0B', marginBottom: 12 }}>Penalty Shootout</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => setPenEdit(p => ({ ...p, home: Math.max(0, p.home - 1) }))}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.home}</div>
+                <button onClick={() => setPenEdit(p => ({ ...p, home: p.home + 1 }))}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+              </div>
+              <span style={{ fontSize: 11, color: '#475569' }}>–</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => setPenEdit(p => ({ ...p, away: Math.max(0, p.away - 1) }))}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>–</button>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', width: 28, textAlign: 'center' }}>{penEdit.away}</div>
+                <button onClick={() => setPenEdit(p => ({ ...p, away: p.away + 1 }))}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 16, cursor: 'pointer' }}>+</button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setPenEdit(p => ({ ...p, home: null, away: null })); savePenalty(); }}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Clear</button>
+              <button onClick={savePenalty}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', background: '#F59E0B', color: '#0B0F1A', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Save</button>
+            </div>
+            <button onClick={() => setPenEdit(null)}
+              style={{ width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 10 }}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
