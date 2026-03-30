@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { theme } from '../utils/styles.js';
 import { PUBLIC_EVENTS } from '../utils/constants.js';
+import { teamColor, teamShortName } from '../utils/teams.js';
 
 const fmt = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -70,7 +71,7 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
         <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: isEnded ? "1px solid #33415544" : "1px solid #10B98122" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center", flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: teams.home.color, marginBottom: 2 }}>{teams.home.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: teamColor(teams.home), marginBottom: 2 }}>{teamShortName(teams.home)}</div>
               {teams.home.rank && <div style={{ fontSize: 8, color: "#64748B", marginBottom: 6 }}>Ranked #{teams.home.rank}</div>}
               {!teams.home.rank && <div style={{ fontSize: 8, color: "#475569", marginBottom: 6 }}>&nbsp;</div>}
               <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{homeGoals}</div>
@@ -86,7 +87,7 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
               )}
             </div>
             <div style={{ textAlign: "center", flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: teams.away.color, marginBottom: 2 }}>{teams.away.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: teamColor(teams.away), marginBottom: 2 }}>{teamShortName(teams.away)}</div>
               {teams.away.rank && <div style={{ fontSize: 8, color: "#64748B", marginBottom: 6 }}>Ranked #{teams.away.rank}</div>}
               {!teams.away.rank && <div style={{ fontSize: 8, color: "#475569", marginBottom: 6 }}>Unranked</div>}
               <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{awayGoals}</div>
@@ -108,8 +109,8 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
             </div>
           ) : publicEvents.slice(0, 30).map((entry, i) => {
             const type = classifyEvent(entry);
-            const style = getEventStyle(type, teams[entry.team]?.color);
-            const teamColor = teams[entry.team]?.color;
+            const style = getEventStyle(type, teamColor(teams[entry.team]));
+            const teamColor = teamColor(teams[entry.team]);
             const isLatest = i === 0;
 
             return (
@@ -132,7 +133,7 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
                   <div style={{ flex: 1 }}>
                     {type === "goal" ? (
                       <>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#F59E0B", marginBottom: 2 }}>GOAL! {teams[entry.team]?.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#F59E0B", marginBottom: 2 }}>GOAL! {teamShortName(teams[entry.team])}</div>
                         <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.4 }}>{entry.detail}</div>
                       </>
                     ) : type === "card" ? (

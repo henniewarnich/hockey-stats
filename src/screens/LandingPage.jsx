@@ -12,6 +12,7 @@ import CoachDashboardPanel from '../components/CoachDashboardPanel.jsx';
 import CrowdDashboardPanel from '../components/CrowdDashboardPanel.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import { predictMatch } from '../utils/predict.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug } from '../utils/teams.js';
 
 export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
@@ -84,7 +85,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   };
 
   const handleApproveScore = async (m) => {
-    if (!confirm(`Approve ${m.home_team?.name} ${m.home_score}–${m.away_score} ${m.away_team?.name}?`)) return;
+    if (!confirm(`Approve ${teamDisplayName(m.home_team)} ${m.home_score}–${m.away_score} ${teamDisplayName(m.away_team)}?`)) return;
     await approvePendingMatch(m.id, currentUser.id, 'ended');
     setPendingScoreMatches(prev => prev.filter(p => p.id !== m.id));
   };
@@ -139,17 +140,17 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     const load = async () => {
       try {
         const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }, { data: allRecords }, { count: totalResults }] = await Promise.all([
-          supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name'),
+          supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
           supabase.from('matches')
-            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
             .eq('status', 'ended')
             .order('match_date', { ascending: false })
             .limit(20),
           supabase.from('matches')
-            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
             .eq('status', 'live'),
           supabase.from('matches')
-            .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+            .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
             .eq('status', 'upcoming')
             .order('match_date', { ascending: true })
             .order('scheduled_time', { ascending: true }),
@@ -168,7 +169,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
         // Fetch pending matches with scores (crowd-submitted, awaiting approval)
         supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
           .eq('status', 'pending')
           .not('home_score', 'is', null)
           .then(({ data }) => setPendingScoreMatches(data || []))
@@ -239,7 +240,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     const poll = setInterval(async () => {
       try {
         const { data: live } = await supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
           .eq('status', 'live');
         if (live) {
           const newIds = new Set(live.map(m => m.id));
@@ -249,7 +250,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           if (prevIds && [...prevIds].some(id => !newIds.has(id))) {
             const [{ data: freshResults }, { count: freshCount }] = await Promise.all([
               supabase.from('matches')
-                .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+                .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
                 .eq('status', 'ended').order('match_date', { ascending: false }).limit(20),
               supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
             ]);
@@ -276,16 +277,20 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       return;
     }
     const timer = setTimeout(async () => {
-      // Find teams matching search
+      // Find teams matching search (search institution name, short_name, other_names, or team description)
       const { data: matchingTeams } = await supabase
-        .from('teams').select('id').or('status.eq.active,status.is.null')
-        .ilike('name', `%${q}%`);
-      if (!matchingTeams?.length) { setSearchResults([]); return; }
-      const ids = matchingTeams.map(t => t.id);
+        .from('teams').select('id, institution:institutions(name, short_name, other_names)').or('status.eq.active,status.is.null');
+      const filtered = (matchingTeams || []).filter(t => {
+        const inst = t.institution;
+        const hay = [inst?.name, inst?.short_name, inst?.other_names].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+      if (!filtered.length) { setSearchResults([]); return; }
+      const ids = filtered.map(t => t.id);
       // Fetch results for those teams
       const { data } = await supabase
         .from('matches')
-        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
         .eq('status', 'ended')
         .or(ids.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
         .order('match_date', { ascending: false })
@@ -321,10 +326,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   });
 
   const filteredTeams = search.trim()
-    ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    ? teams.filter(t => teamMatchesSearch(t, search))
     : recentTeamIds.map(id => teams.find(t => t.id === id)).filter(Boolean);
 
-  const teamSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+  // teamSlug imported from teams.js
 
   // "In Progress" = upcoming matches whose kickoff has passed (up to 2h after estimated end for "Awaiting score")
   const now = Date.now();
@@ -540,8 +545,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           {activeTab === "live" && (() => {
             const q = search.trim().toLowerCase();
             const filtered = q ? allInProgress.filter(m =>
-              (m.home_team?.name || "").toLowerCase().includes(q) ||
-              (m.away_team?.name || "").toLowerCase().includes(q) ||
+              teamMatchesSearch(m.home_team, q) ||
+              teamMatchesSearch(m.away_team, q) ||
               (m.venue || "").toLowerCase().includes(q)
             ) : allInProgress;
 
@@ -555,7 +560,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 filtered.map(m => {
                   const isLive = m.status === 'live';
                   const isPending = m.status === 'pending';
-                  const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  const homeSlug = teamSlug(m.home_team);
                   const d = parseSASTDate(m.match_date);
                   const isAdmin = currentUser && ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role);
 
@@ -599,7 +604,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                        <div style={styles.matchTeams}>{teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                         <div style={styles.matchMeta}>
                           {isLive ? (
                             <>
@@ -654,8 +659,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             const notStarted = upcomingMatches.filter(m => !inProgressIds.has(m.id));
             const q = search.trim().toLowerCase();
             const filtered = q ? notStarted.filter(m =>
-              (m.home_team?.name || "").toLowerCase().includes(q) ||
-              (m.away_team?.name || "").toLowerCase().includes(q) ||
+              teamMatchesSearch(m.home_team, q) ||
+              teamMatchesSearch(m.away_team, q) ||
               (m.venue || "").toLowerCase().includes(q)
             ) : notStarted;
             const LeaderboardSummary = () => {
@@ -698,8 +703,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 <>
                 {filtered.slice(0, showUpcoming).map(m => {
                   const d = parseSASTDate(m.match_date);
-                  const homeSlug = m.home_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-                  const awaySlug = m.away_team?.name?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                  const homeSlug = teamSlug(m.home_team);
+                  const awaySlug = teamSlug(m.away_team);
                   const hc = m.home_team?.color || "#3B82F6";
                   const ac = m.away_team?.color || "#EF4444";
                   const isExp = expandedUpcoming === m.id;
@@ -712,7 +717,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                           <div style={{ fontSize: 7, fontWeight: 700, color: "#ffffffcc", textTransform: "uppercase" }}>{d.toLocaleDateString("en-ZA", { month: "short" })}</div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={styles.matchTeams}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                          <div style={styles.matchTeams}>{teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                           <div style={styles.matchMeta}>
                             {d.toLocaleDateString("en-ZA", { weekday: "short" })}
                             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -729,9 +734,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         const myPred = userPredictions[m.id];
                         const hRec = teamRecords[m.home_team?.id];
                         const aRec = teamRecords[m.away_team?.id];
-                        const kp = predictMatch(hRec, aRec, m.home_team?.name, m.away_team?.name);
+                        const kp = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team));
                         const kPred = kp ? (kp.draw >= kp.homeWin && kp.draw >= kp.awayWin ? 'draw' : kp.homeWin >= kp.awayWin ? 'home' : 'away') : null;
-                        const kLabel = kp ? (kPred === 'home' ? m.home_team?.name?.split(' ')[0] : kPred === 'away' ? m.away_team?.name?.split(' ')[0] : 'Draw') : null;
+                        const kLabel = kp ? (kPred === 'home' ? teamShortName(m.home_team) : kPred === 'away' ? teamShortName(m.away_team) : 'Draw') : null;
                         const kConf = kp ? Math.max(kp.homeWin, kp.draw, kp.awayWin) : null;
                         const agree = myPred && kPred && myPred.prediction === kPred;
                         const disagree = myPred && kPred && myPred.prediction !== kPred;
@@ -748,7 +753,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                               {['home', 'draw', 'away'].map(key => (
                                 <div key={key} onClick={(e) => { e.stopPropagation(); savePrediction(m.id, key); }}
                                   style={btnStyle(key)}>
-                                  {myPred?.prediction === key ? '✓ ' : ''}{key === 'home' ? (m.home_team?.name?.length > 12 ? m.home_team?.name?.split(' ')[0] : m.home_team?.name) : key === 'away' ? (m.away_team?.name?.length > 12 ? m.away_team?.name?.split(' ')[0] : m.away_team?.name) : 'Draw'}
+                                  {myPred?.prediction === key ? '✓ ' : ''}{key === 'home' ? teamShortName(m.home_team) : key === 'away' ? teamShortName(m.away_team) : 'Draw'}
                                 </div>
                               ))}
                             </div>
@@ -768,14 +773,14 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                       {isExp && (() => {
                         const hRec = teamRecords[m.home_team?.id];
                         const aRec = teamRecords[m.away_team?.id];
-                        const pred = predictMatch(hRec, aRec, m.home_team?.name, m.away_team?.name);
+                        const pred = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team));
                         return (
                         <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", borderTop: "1px solid #33415544" }}>
                           {/* Prediction */}
                           {pred && (() => {
                             const isDraw = pred.draw >= pred.homeWin && pred.draw >= pred.awayWin;
                             const homeWins = pred.homeWin >= pred.awayWin && pred.homeWin > pred.draw;
-                            const winner = homeWins ? m.home_team?.name : m.away_team?.name;
+                            const winner = homeWins ? teamShortName(m.home_team) : teamShortName(m.away_team);
                             return (
                             <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -796,9 +801,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                                 <div style={{ width: `${pred.awayWin}%`, background: "#64748B" }} />
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
-                                <span style={{ color: "#10B981" }}>{m.home_team?.name?.split(' ')[0]} {pred.homeWin}%</span>
+                                <span style={{ color: "#10B981" }}>{teamShortName(m.home_team)} {pred.homeWin}%</span>
                                 <span style={{ color: "#F59E0B" }}>Draw {pred.draw}%</span>
-                                <span style={{ color: "#64748B" }}>{m.away_team?.name?.split(' ')[0]} {pred.awayWin}%</span>
+                                <span style={{ color: "#64748B" }}>{teamShortName(m.away_team)} {pred.awayWin}%</span>
                               </div>
                               {pred.reasons.length > 0 && (
                                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
@@ -828,9 +833,9 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                                   width: 28, height: 28, borderRadius: 7, background: c + "22", border: `1.5px solid ${c}44`,
                                   display: "flex", alignItems: "center", justifyContent: "center",
                                   fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
-                                }}>{t?.name?.charAt(0)}</div>
+                                }}>{teamInitial(t)}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t?.name} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamDisplayName(t)} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
                                 </div>
                               </div>
                               {rec ? (
@@ -928,7 +933,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 filtered.slice(0, showResults).map(m => {
                   const homeR = resultBadge(m, m.home_team?.id);
                   const d = parseSASTDate(m.match_date);
-                  const homeSlug = teamSlug(m.home_team?.name || "");
+                  const homeSlug = teamSlug(m.home_team);
                   const myPred = userPredictions[m.id];
                   return (
                     <div key={m.id} style={{ marginBottom: 4 }}>
@@ -937,7 +942,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         <div className={homeR.cls} style={styles.resultBadge}>{homeR.label}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ ...styles.matchTeams, display: "flex", alignItems: "center", gap: 5 }}>
-                            {m.home_team?.name} <RankBadge rank={m.home_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} />
+                            {teamShortName(m.home_team)} <RankBadge rank={m.home_rank} /> vs {teamShortName(m.away_team)} <RankBadge rank={m.away_rank} />
                             {m.duration > 0 && <CommentaryIcon />}
                           </div>
                           <div style={styles.matchMeta}>
@@ -954,7 +959,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         return (
                           <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "3px 10px 6px", border: "1px solid #334155", borderTop: "1px solid #33415522", display: "flex", gap: 4 }}>
                             <div style={{ flex: 1, textAlign: "center", padding: 3, borderRadius: 4, background: myPred.correct ? '#10B98118' : '#EF444418', fontSize: 8, fontWeight: 700, color: myPred.correct ? '#10B981' : '#EF4444' }}>
-                              {myPred.correct ? '✓' : '✗'} You: {myPred.prediction === 'home' ? m.home_team?.name?.split(' ')[0] : myPred.prediction === 'away' ? m.away_team?.name?.split(' ')[0] : 'Draw'} ({myPred.correct ? '+1' : '0'})
+                              {myPred.correct ? '✓' : '✗'} You: {myPred.prediction === 'home' ? teamShortName(m.home_team) : myPred.prediction === 'away' ? teamShortName(m.away_team) : 'Draw'} ({myPred.correct ? '+1' : '0'})
                             </div>
                           </div>
                         );
@@ -996,10 +1001,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   const r = teamRecords[t.id];
                   const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
                   return (
-                    <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.name)}`; }} style={styles.teamRow}>
-                      <div style={{ ...styles.teamDot, background: t.color }}>{t.name.charAt(0)}</div>
+                    <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t)}`; }} style={styles.teamRow}>
+                      <div style={{ ...styles.teamDot, background: t.color }}>{teamInitial(t)}</div>
                       <div style={{ flex: 1 }}>
-                        <div style={styles.teamName}>{t.name} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} /> : null; })()}</div>
+                        <div style={styles.teamName}>{teamDisplayName(t)} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} /> : null; })()}</div>
                         {r ? (
                           <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
                         ) : (
@@ -1044,7 +1049,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           onClick={() => setScoreEntryMatch(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#1E293B", borderRadius: 16, padding: "20px 16px", width: 300, textAlign: "center" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>
-              {scoreEntryMatch.home_team?.name} vs {scoreEntryMatch.away_team?.name}
+              {teamDisplayName(scoreEntryMatch.home_team)} vs {teamDisplayName(scoreEntryMatch.away_team)}
             </div>
             <div style={{ fontSize: 10, color: "#64748B", marginBottom: 16 }}>
               {parseSASTDate(scoreEntryMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
@@ -1052,7 +1057,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>{(scoreEntryMatch.home_team?.name || "Home").slice(0, 12)}</div>
+                <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, marginBottom: 6 }}>{teamShortName(scoreEntryMatch.home_team)}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button onClick={() => setSeHomeScore(Math.max(0, seHomeScore - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, cursor: "pointer" }}>–</button>
                   <div style={{ fontSize: 32, fontWeight: 900, color: "#F8FAFC", width: 40 }}>{seHomeScore}</div>
@@ -1061,7 +1066,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               </div>
               <div style={{ fontSize: 14, color: "#475569", marginTop: 20 }}>–</div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 10, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>{(scoreEntryMatch.away_team?.name || "Away").slice(0, 12)}</div>
+                <div style={{ fontSize: 10, color: "#10B981", fontWeight: 700, marginBottom: 6 }}>{teamShortName(scoreEntryMatch.away_team)}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button onClick={() => setSeAwayScore(Math.max(0, seAwayScore - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 18, cursor: "pointer" }}>–</button>
                   <div style={{ fontSize: 32, fontWeight: 900, color: "#F8FAFC", width: 40 }}>{seAwayScore}</div>

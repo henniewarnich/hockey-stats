@@ -1,134 +1,120 @@
 # kykie.net — Next Session Planning
-**Date: 25 March 2026 | Current Version: 7.9.10**
+**Date: 30 March 2026 | Current Version: 7.10.0**
 
-## Immediate Bug Fixes (Do First)
+## Immediate TODO (Before Deploying v7.10.0)
 
-### 1. Score Flip on Team Page
-**Bug**: When viewing a team's page, match scores show in home-away order. If the viewed team is away, their score appears second — makes wins look like losses.
-**Fix**: In TeamPage.jsx, swap score display when viewed team is the away team.
-**File**: `src/screens/TeamPage.jsx`
-**Effort**: Tiny — just swap `home_score`/`away_score` based on which team matches the slug.
-
-### 2. Training Demo Mode
-**Goal**: Permanent "Demo Eagles vs Demo Lions" match on Commentator/Admin screens. Goes straight into Live or Live Pro. No DB save. Hide demo teams from public.
-**Implementation**:
-- Add two demo team objects in constants (not in DB)
-- Add "🎓 Training Demo" button on CommentatorDashboard and MatchScheduleScreen
-- Tapping it opens LiveModeChooser → then opens LiveLiteScreen or LiveMatchScreen with `isDemo: true`
-- Demo mode: all event pushes are no-ops, match not created in DB
-- Demo teams hidden from LandingPage team list
-**Effort**: Small (~1 session)
-
----
-
-## Planned Features (Priority Order)
-
-### Feature 1: Staging Environment
-**Goal**: Stop testing on production.
-**Approach**: Second Supabase project + `test.kykie.net` subdomain
-- Create `kykie-staging` Supabase project (free tier)
-- Run all migrations against it
-- Add `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars to Vite config
-- Build staging with `npm run build:staging`
-- Deploy to test.kykie.net via GitHub Pages or separate branch
-**Effort**: Small (~1 hour setup)
-
-### Feature 2: Organisation → Team Hierarchy
-**Goal**: Separate schools/clubs from teams. An Organisation (school, university, club) has many Teams (sport + age group + gender).
-**Why**: Enables multi-sport, multi-age, and org-level subscriptions.
-**Database**:
+### 1. Run Migration
 ```sql
-CREATE TABLE organisations (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  type TEXT DEFAULT 'school',  -- school | university | club
-  logo_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE teams ADD COLUMN org_id UUID REFERENCES organisations(id);
-ALTER TABLE teams ADD COLUMN sport TEXT DEFAULT 'hockey';
-ALTER TABLE teams ADD COLUMN age_group TEXT DEFAULT '1st';
-ALTER TABLE teams ADD COLUMN gender TEXT DEFAULT 'girls';
+-- Run in Supabase SQL Editor:
+-- upgrade-scripts/v7.10.0/migration-institutions.sql
+-- Then verify:
+SELECT count(*) FROM institutions;
+SELECT t.name, t.team_description, t.gender, t.age_group, t.sport, i.name AS inst_name, i.short_name
+FROM teams t LEFT JOIN institutions i ON t.institution_id = i.id LIMIT 20;
 ```
-**Effort**: Medium — migration + refactor team references throughout app
 
-### Feature 3: Multi-Age & Multi-Sport (Phase 1)
-**Goal**: U14, U16, 2nd Team Girls Hockey
-- Same events, field recorder, stats — just filtered
-- Landing page sport dropdown + age group filter
-- Rankings per age group
-**Depends on**: Organisation → Team hierarchy
-**Effort**: Small-Medium
+### 2. Verify Short Names
+After migration, check which institutions need short_name populated:
+```sql
+SELECT id, name, short_name FROM institutions WHERE short_name IS NULL ORDER BY name;
+-- Update manually, e.g.:
+-- UPDATE institutions SET short_name = 'PG' WHERE name = 'Paarl Girls High';
+```
+short_name is what shows on scoreboards, match cards, and predictions. Without it, the full institution name shows.
 
-### Feature 4: Match Stats Archival & Event Pruning
-**Goal**: Pre-compute match stats so raw events can be pruned after 90 days.
-**New table**: `match_stats` (match_id, team, quarter, goals, shots, d_entries, etc.)
-**Lifecycle**: Match ends → compute stats → write to match_stats → after 90 days prune events
-**When**: Before match_events exceeds ~50K rows
-**Effort**: Medium
-
-### Feature 5: Contributor Reward System (Takealot Vouchers)
-**Goal**: Gamified tiers (Apprentice → Graduate → Veteran) with credit system.
-- Quick score: 1 credit, Live: 5 credits, rejected: negative credits
-- 20 credits = R100 Takealot voucher
-- Veterans can approve others' submissions
-**Depends on**: Crowd submissions working well in production
-**Effort**: Large (~1-2 sessions)
-
-### Feature 6: Embeddable Widgets
-**Goal**: Iframes for school websites — team results, upcoming, live matches
-- `#/embed/team/{slug}`, `#/embed/upcoming`, `#/embed/live`
-- Stripped-down, no header, "Powered by kykie" footer
-- Click-through to kykie.net
-**Effort**: Small
-
-### Feature 7: Sponsorship & Advertising
-**Tiers**: Match Sponsor, Team Sponsor, Platform Sponsor
-- Admin CRUD for sponsors (name, logo, tier, assignment)
-- Render in designated placements
-**Effort**: Small-Medium (sponsorship), Large (advertising)
+### 3. Deploy & Test
+- Push to GitHub, verify on kykie.net
+- Check: Landing page shows institution names, not "Girls Hockey 1st"
+- Check: Team search works on institution names
+- Check: Scoreboards show short_name during live matches
+- Check: Coach dashboard shows institution names
+- Check: Predictions display correctly with short names
 
 ---
 
-## Technical Debt
+## Remaining Institution Tasks (Next Session)
 
-### High Priority
-- **localStorage phase-out**: Move remaining local-only game data to Supabase-first
-- **UTC → SAST display**: All dates use parseSAST/parseSASTDate helpers — some edge cases in sync.js still use raw `new Date()`
+### TeamsScreen Redesign (Task 6)
+Current TeamsScreen CRUD form only edits team.name. Needs:
+- Institution picker (search existing or create new)
+- Team fields: gender dropdown, age_group dropdown, sport dropdown
+- Institution fields: name, short_name, other_names, color
+- Preview showing "PG Girls Hockey 1st" format
+- Ability to create a second team under the same institution (e.g. U16)
 
-### Medium Priority
-- **Code splitting**: Bundle is ~715KB — consider dynamic imports for screens
-- **RLS audit**: Multiple overlapping policies on profiles — clean up
-- **Commentator timer resume**: Timer resets to 0 on refresh — need to query max seq + stored match_time
+### suggestTeam() Update
+Crowd team suggestion flow needs to:
+- Ask for institution name (or pick existing)
+- Create institution with status=pending alongside team
+- Admin approves both together
 
-### Low Priority
-- **Voice recorder**: Audio commentary
-- **Push notifications**: Notify when matches go live
-- **PDF export**: Match reports for coaches
+### App.jsx getTeamShareLink
+Currently receives a name string. Should receive a team object and use `teamSlug(team)`.
 
 ---
+
+## Planned Features
+
+### Prediction Scoring on Match End
+Auto-score predictions when match ends (currently only via Retrofit).
+
+### Reclassify Toast (Mockup Ready)
+After zone tap: "↑ Overhead" toast for 3 seconds. After turnover: "🏑 Free Hit" toast.
+
+### Possession Heatmap (Coach View)
+4×3 grid showing time in possession per zone. Verified with real match data.
+
+### Exit Strategy Analysis (Coach View)
+Tracks ball from defense → opposition half. 4×3 heatmap of transit zones.
+
+### D Entry Direction (Coach View)
+Which side teams approach the D from (left/centre/right).
+
+### Staging Environment
+Second Supabase project + test.kykie.net subdomain.
+
+### Embeddable Widgets
+Iframe embeds for school websites.
+
+### Organisation → Team Hierarchy
+Now partially done via institutions. Full org hierarchy enables multi-sport, multi-age, org-level subscriptions.
+
+---
+
+## Architecture Notes
+
+### Institution Display Rules
+- `teamDisplayName(team)` = institution.short_name + " " + team.name (e.g. "PG Girls Hockey 1st")
+- `teamShortName(team)` = institution.short_name || institution.name (e.g. "PG" or "Paarl Girls")
+- `teamColor(team)` = institution.color || team.color
+- `teamSlug(team)` = slug of institution.name (used for URLs)
+- `teamMatchesSearch(team, query)` = searches institution.name + short_name + other_names + team.name + team_description
+- All query constants in `src/utils/teams.js`: `TEAM_SELECT`, `MATCH_HOME_TEAM`, `MATCH_AWAY_TEAM`, etc.
+
+### Stats Engine
+- ONE button (Recompute All Stats) rebuilds everything from raw events
+- `archiveMatchStats` is idempotent: delete + insert, returns `{ ok, reason }`
+- Events fetched per match with `.limit(5000)` (never batch)
+
+### Prediction Engine
+- `predictMatch()` in predict.js: V2 model with draw boost (0.5 multiplier)
+- Fallback to ranking-based when <5 games
+- `retrofitPredictions()` in sync.js: builds progressive records chronologically
+- Kykie (user_id=null), Pete, Suzi all predict every match
+
+### RLS Rules
+- NEVER use `FOR ALL` policies alongside public SELECT
+- Always split into separate INSERT/UPDATE/DELETE policies
+- `institutions`: public SELECT + auth INSERT/UPDATE/DELETE
+
+---
+
+## Files to Provide to Next Session
+1. **`hockey-stats-v7.10.0.zip`** — Full source + built docs/
+2. **`HANDOFF.md`** (inside zip) — Complete project state
+3. **This file** (`next-session-planning.md`) — Context and plans
 
 ## Supabase Project Details
 - **URL**: belveuygzinoipiwanwb.supabase.co
 - **Domain**: kykie.net (Afrihost DNS, GitHub Pages)
 - **Repo**: github.com/henniewarnich/hockey-stats
-- **Email**: Resend (kykie.net verified, eu-west-1)
-
-## Files to Provide to Next Session
-1. **`hockey-stats-v7.9.10.zip`** — Full source + built docs/
-2. **`HANDOFF.md`** — Complete project state
-3. **This file** (`next-session-planning.md`) — Context and plans
-
-## SQL Fixes Applied Manually
-```sql
--- Dropped stale trigger and duplicate function
-DROP TRIGGER IF EXISTS audit_matches ON matches;
-DROP FUNCTION IF EXISTS log_audit() CASCADE;
-
--- Public read on match_commentators
-DROP POLICY IF EXISTS "Public read match_commentators" ON match_commentators;
-CREATE POLICY "Public read match_commentators" ON match_commentators FOR SELECT USING (true);
-```
-
-## Concurrency Note
-Tested safe by design: match isolation via UUID, per-match realtime channels, DB-level lock. One known issue: commentator refresh resets eventSeqRef to 0 → duplicate seq. Fix: query MAX(seq) on resume.

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
+import { teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
 
 export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [homeTeamId, setHomeTeamId] = useState(game.teams?.home?.id || null);
@@ -15,7 +16,7 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [saved, setSaved] = useState(false);
 
   const filteredTeams = search.trim()
-    ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    ? teams.filter(t => teamMatchesSearch(t, search))
     : teams;
 
   const homeTeam = teams.find(t => t.id === homeTeamId) || game.teams?.home;
@@ -54,7 +55,7 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
               cursor: isOth ? "not-allowed" : "pointer", opacity: isOth ? 0.3 : 1,
             }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, background: t.color, flexShrink: 0 }} />
-              <div style={{ fontWeight: 600, fontSize: 11, color: theme.text }}>{t.name}</div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: theme.text }}>{teamDisplayName(t)}</div>
               {isSel && <div style={{ marginLeft: "auto", fontSize: 11 }}>✓</div>}
             </button>
           );

@@ -10,6 +10,7 @@ import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
 import PublicMatchesSection from '../components/PublicMatchesSection.jsx';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamColor, teamDisplayName, teamShortName } from '../utils/teams.js';
 
 export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [matches, setMatches] = useState([]);
@@ -46,7 +47,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
     // Fetch all upcoming/live matches with commentator assignments joined
     const { data: allUpcoming } = await supabase
       .from('matches')
-      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), match_commentators(commentator_id, commentator:profiles!commentator_id(firstname, lastname))')
+      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}, match_commentators(commentator_id, commentator:profiles!commentator_id(firstname, lastname))`)
       .in('status', ['upcoming', 'live'])
       .order('match_date', { ascending: true })
       .order('scheduled_time', { ascending: true });
@@ -103,8 +104,8 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
 
     const matchData = {
       supabaseId: m.id,
-      home: { name: m.home_team?.name || 'Home', color: m.home_team?.color || '#3B82F6', id: m.home_team?.id, short: (m.home_team?.name || 'HOM').slice(0, 3).toUpperCase() },
-      away: { name: m.away_team?.name || 'Away', color: m.away_team?.color || '#EF4444', id: m.away_team?.id, short: (m.away_team?.name || 'AWY').slice(0, 3).toUpperCase() },
+      home: { name: teamShortName(m.home_team) || 'Home', color: teamColor(m.home_team), id: m.home_team?.id, institution: m.home_team?.institution },
+      away: { name: teamShortName(m.away_team) || 'Away', color: teamColor(m.away_team), id: m.away_team?.id, institution: m.away_team?.institution },
       matchLength: m.match_length || 60, breakFormat: m.break_format || 'quarters',
       matchType: m.match_type || 'league', venue: m.venue || '', date: m.match_date, isDemo: false,
     };
@@ -256,7 +257,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
         <button onClick={() => setQuickScoreMatch(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 16 }}>← Back</button>
 
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>{m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}</div>
           <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
             {parseSASTDate(m.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
             {m.scheduled_time && ` · ${m.scheduled_time.slice(0, 5)}`}
@@ -268,7 +269,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
           <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
             {[[m.home_team, homeScore, setHomeScore], [m.away_team, awayScore, setAwayScore]].map(([t, sc, setSc], i) => (
               <div key={i} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t?.color, marginBottom: 8 }}>{t?.name}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t?.color, marginBottom: 8 }}>{teamDisplayName(t)}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button onClick={() => setSc(Math.max(0, sc - 1))} style={{ width: 38, height: 38, borderRadius: 8, border: "1px solid #334155", background: "#0B0F1A", color: "#F8FAFC", fontSize: 20, fontWeight: 700, cursor: "pointer" }}>−</button>
                   <div style={{ fontSize: 32, fontWeight: 800, color: t?.color, minWidth: 40, textAlign: "center" }}>{sc}</div>
@@ -293,8 +294,8 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
   // ── MAIN DASHBOARD ──
   const q = search.trim().toLowerCase();
   const filtered = q ? matches.filter(m =>
-    (m.home_team?.name || "").toLowerCase().includes(q) ||
-    (m.away_team?.name || "").toLowerCase().includes(q) ||
+    (teamShortName(m.home_team) || "").toLowerCase().includes(q) ||
+    (teamShortName(m.away_team) || "").toLowerCase().includes(q) ||
     (m.venue || "").toLowerCase().includes(q)
   ) : matches;
   const upcomingMatches = filtered.filter(m => m.status === 'upcoming');
@@ -418,7 +419,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-                          {m.home_team?.name} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {m.away_team?.name} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
+                          {teamShortName(m.home_team)} <RankBadge rank={m.home_rank} prevRank={m.home_prev_rank} /> vs {teamShortName(m.away_team)} <RankBadge rank={m.away_rank} prevRank={m.away_prev_rank} />
                         </div>
                         <div style={{ fontSize: 16, fontWeight: 900, color: "#F8FAFC" }}>{m.home_score}–{m.away_score}</div>
                       </div>
@@ -483,7 +484,7 @@ function MatchCard({ match: m, currentUser, canAction = true, onStartLive, onQui
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: 2, background: m.home_team?.color }} />
         <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", flex: 1 }}>
-          {m.home_team?.name} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {m.away_team?.name} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+          {teamShortName(m.home_team)} {(() => { const r = latestRankings[m.home_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()} vs {teamShortName(m.away_team)} {(() => { const r = latestRankings[m.away_team?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
         </div>
         {m.status === 'live' && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: "#EF444422", color: "#EF4444", fontWeight: 800 }}>LIVE</span>}
         {countdown && m.status !== 'live' && <span style={{ fontSize: 9, fontWeight: 700, color: countdown.color, fontFamily: "monospace" }}>{countdown.text}</span>}

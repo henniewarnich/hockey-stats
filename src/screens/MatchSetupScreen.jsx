@@ -3,6 +3,7 @@ import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
+import { teamColor, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName } from '../utils/teams.js';
 
 function isDuplicateMatch(games, homeId, awayId, date) {
   const dateStr = new Date(date).toISOString().slice(0, 10);
@@ -27,7 +28,7 @@ const MODES = [
 // Reusable team picker with its own search
 function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
   const [search, setSearch] = useState("");
-  const filtered = search.trim() ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())) : teams;
+  const filtered = search.trim() ? teams.filter(t => teamMatchesSearch(t, search)) : teams;
   return (
     <div style={{ marginBottom: 12 }}>
       <label style={S.label}>{label}</label>
@@ -40,12 +41,12 @@ function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
           return (
             <button key={t.id} onClick={() => !isOth && onSelect(t)} style={{
               display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
-              border: isSel ? `2px solid ${t.color}` : `1px solid ${theme.border}44`,
-              background: isSel ? t.color + "22" : theme.surface,
+              border: isSel ? `2px solid ${teamColor(t)}` : `1px solid ${theme.border}44`,
+              background: isSel ? teamColor(t) + "22" : theme.surface,
               cursor: isOth ? "not-allowed" : "pointer", opacity: isOth ? 0.3 : 1,
             }}>
-              <div style={{ width: 20, height: 20, borderRadius: 4, background: t.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{t.name.charAt(0)}</div>
-              <div style={{ fontWeight: 600, fontSize: 11, color: theme.text }}>{t.name}</div>
+              <div style={{ width: 20, height: 20, borderRadius: 4, background: teamColor(t), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{teamInitial(t)}</div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: theme.text }}>{teamDisplayName(t)}</div>
               {isSel && <div style={{ marginLeft: "auto", fontSize: 11 }}>✓</div>}
             </button>
           );
@@ -252,10 +253,10 @@ function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
             <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
               {[["home", setupHome, homeScore, setHomeScore], ["away", setupAway, awayScore, setAwayScore]].map(([key, t, sc, setSc]) => (
                 <div key={key} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: t.color, marginBottom: 6 }}>{t.name}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(t), marginBottom: 6 }}>{teamDisplayName(t)}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button onClick={() => setSc(Math.max(0, sc - 1))} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>−</button>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: t.color, minWidth: 36, textAlign: "center" }}>{sc}</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: teamColor(t), minWidth: 36, textAlign: "center" }}>{sc}</div>
                     <button onClick={() => setSc(sc + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 18, fontWeight: 700, cursor: "pointer" }}>+</button>
                   </div>
                 </div>
@@ -330,8 +331,8 @@ function JsonImportSetup({ onImport, onBack }) {
       id: Date.now().toString(),
       date: imported.date || new Date().toISOString(),
       teams: {
-        home: { name: imported.teams.home.name, color: imported.teams.home.color || "#1D4ED8" },
-        away: { name: imported.teams.away.name, color: imported.teams.away.color || "#DC2626" },
+        home: { name: teamShortName(imported.teams.home), color: imported.teamColor(teams.home) || "#1D4ED8" },
+        away: { name: teamShortName(imported.teams.away), color: imported.teamColor(teams.away) || "#DC2626" },
       },
       events: imported.events || [], duration: imported.duration || 0,
       homeScore: imported.score?.home ?? 0, awayScore: imported.score?.away ?? 0,
@@ -357,9 +358,9 @@ function JsonImportSetup({ onImport, onBack }) {
           <div style={{ background: theme.surface, borderRadius: 12, padding: 14, marginBottom: 16, border: `1px solid ${theme.border}` }}>
             <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Match Preview</div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ color: imported.teams.home.color || theme.text, fontWeight: 700, fontSize: 14 }}>{imported.teams.home.name}</span>
+              <span style={{ color: imported.teamColor(teams.home) || theme.text, fontWeight: 700, fontSize: 14 }}>{teamShortName(imported.teams.home)}</span>
               <span style={{ fontSize: 20, fontWeight: 800 }}>{imported.score?.home ?? "?"} - {imported.score?.away ?? "?"}</span>
-              <span style={{ color: imported.teams.away.color || theme.text, fontWeight: 700, fontSize: 14 }}>{imported.teams.away.name}</span>
+              <span style={{ color: imported.teamColor(teams.away) || theme.text, fontWeight: 700, fontSize: 14 }}>{teamShortName(imported.teams.away)}</span>
             </div>
             <div style={{ fontSize: 10, color: theme.textDim, textAlign: "center" }}>
               {imported.date ? new Date(imported.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "Unknown date"}

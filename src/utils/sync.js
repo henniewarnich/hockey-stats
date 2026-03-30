@@ -2,13 +2,14 @@ import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
 import { computeStats, computeSCOutcomes, getQuarters } from './stats.js';
 import { predictMatch } from './predict.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamShortName } from './teams.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
 export async function fetchTeams() {
   const { data, error } = await supabase
     .from('teams')
-    .select('*')
+    .select(TEAM_SELECT)
     .order('name');
   if (error) { console.error('Fetch teams error:', error); return null; }
   return data;
@@ -149,11 +150,7 @@ export async function saveMatchToSupabase(game) {
 export async function fetchMatches() {
   const { data, error } = await supabase
     .from('matches')
-    .select(`
-      *,
-      home_team:teams!home_team_id(id, name, color, short_name),
-      away_team:teams!away_team_id(id, name, color, short_name)
-    `)
+    .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
     .order('match_date', { ascending: false });
 
   if (error) { console.error('Fetch matches error:', error); return null; }
@@ -165,7 +162,7 @@ export async function fetchMatchesForLocal() {
   // Only pull ended matches — upcoming/live don't belong in local game history
   const { data: matches, error } = await supabase
     .from('matches')
-    .select(`*, home_team:teams!home_team_id(id, name, color, short_name), away_team:teams!away_team_id(id, name, color, short_name)`)
+    .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
     .eq('status', 'ended')
     .order('match_date', { ascending: false });
   if (error || !matches) return null;
@@ -184,8 +181,8 @@ export async function fetchMatchesForLocal() {
       supabase_id: m.id,
       date: m.match_date ? new Date(m.match_date).toISOString() : new Date(m.created_at).toISOString(),
       teams: {
-        home: { name: m.home_team?.name || "Home", color: m.home_team?.color || "#1D4ED8", id: m.home_team?.id },
-        away: { name: m.away_team?.name || "Away", color: m.away_team?.color || "#DC2626", id: m.away_team?.id },
+        home: { name: teamShortName(m.home_team) || "Home", color: m.home_team?.color || "#1D4ED8", id: m.home_team?.id, institution: m.home_team?.institution || null },
+        away: { name: teamShortName(m.away_team) || "Away", color: m.away_team?.color || "#DC2626", id: m.away_team?.id, institution: m.away_team?.institution || null },
       },
       events: (events || []).map(e => ({
         id: e.id,
@@ -232,10 +229,20 @@ export async function deleteMatchRemote(matchId) {
 // ─── HELPERS ─────────────────────────────────────────
 
 async function findOrCreateTeam(team) {
-  // Try to find by name first
+  // Try to find by ID first (preferred post-institution migration)
+  if (team.id) {
+    const { data: byId } = await supabase
+      .from('teams')
+      .select(TEAM_SELECT)
+      .eq('id', team.id)
+      .single();
+    if (byId) return byId;
+  }
+
+  // Fallback: find by name
   const { data: existing } = await supabase
     .from('teams')
-    .select('*')
+    .select(TEAM_SELECT)
     .ilike('name', team.name.trim())
     .limit(1)
     .single();
@@ -517,7 +524,7 @@ export async function assignCommentators(matchId, commentatorIds) {
 export async function fetchUpcomingMatches() {
   const { data, error } = await supabase
     .from('matches')
-    .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+    .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
     .eq('status', 'upcoming')
     .order('match_date', { ascending: true });
   if (error) { console.error('Fetch upcoming error:', error); return []; }
@@ -543,7 +550,7 @@ export async function fetchCommentatorMatches(commentatorId) {
   const matchIds = assignments.map(a => a.match_id);
   const { data: matches } = await supabase
     .from('matches')
-    .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+    .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
     .in('id', matchIds)
     .order('match_date', { ascending: false });
   return matches || [];
@@ -736,11 +743,11 @@ export async function suggestTeam({ name, color, suggestedBy }) {
 export async function fetchPending() {
   const [{ data: pendingMatches }, { data: pendingTeams }] = await Promise.all([
     supabase.from('matches')
-      .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*), submitter:profiles!submitted_by(firstname, lastname, alias_nickname)')
+      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}, submitter:profiles!submitted_by(firstname, lastname, alias_nickname)`)
       .eq('status', 'pending')
       .order('created_at', { ascending: false }),
     supabase.from('teams')
-      .select('*, suggester:profiles!suggested_by(firstname, lastname, alias_nickname)')
+      .select(`${TEAM_SELECT}, suggester:profiles!suggested_by(firstname, lastname, alias_nickname)`)
       .eq('status', 'pending')
       .order('name'),
   ]);
@@ -810,9 +817,9 @@ export async function retrofitPredictions(onProgress) {
   if (mErr) return { total: 0, inserted: 0, skipped: 0, errors: [mErr.message] };
 
   // Fetch team names for predictMatch reasons
-  const { data: teams } = await supabase.from('teams').select('id, name');
+  const { data: teams } = await supabase.from('teams').select(TEAM_SELECT);
   const teamMap = {};
-  (teams || []).forEach(t => { teamMap[t.id] = t.name; });
+  (teams || []).forEach(t => { teamMap[t.id] = t.institution?.short_name || t.institution?.name || t.name; });
 
   // Fetch latest rankings for Suzi
   const { data: rankData } = await supabase

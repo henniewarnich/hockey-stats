@@ -1,5 +1,6 @@
 import { D_OPTIONS } from '../utils/constants.js';
 import { theme } from '../utils/styles.js';
+import { teamColor, teamShortName } from '../utils/teams.js';
 
 export default function DPopup({ show, teams, topTeam, onSelect, onClose }) {
   if (!show) return null;
@@ -18,11 +19,11 @@ export default function DPopup({ show, teams, topTeam, onSelect, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{
         background: theme.surface, borderRadius: 14, padding: "16px 14px",
         width: 280, boxShadow: "0 24px 48px rgba(0,0,0,0.5)",
-        border: `1px solid ${teams[def].color}44`,
+        border: `1px solid ${teamColor(teams[def])}44`,
       }}>
         <div style={{ textAlign: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: teams[def].color, textTransform: "uppercase" }}>
-            {teams[def].name}'s D
+          <div style={{ fontSize: 11, fontWeight: 800, color: teamColor(teams[def]), textTransform: "uppercase" }}>
+            {teamShortName(teams[def])}'s D
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>What happened?</div>
         </div>

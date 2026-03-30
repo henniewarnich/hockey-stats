@@ -4,6 +4,7 @@ import { supabase } from '../utils/supabase.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { S, theme } from '../utils/styles.js';
 import RankBadge from './RankBadge.jsx';
+import { teamColor, teamDisplayName, teamInitial, teamSlug } from '../utils/teams.js';
 
 export default function CoachDashboardPanel({ currentUser }) {
   const [teams, setTeams] = useState([]);
@@ -47,7 +48,7 @@ export default function CoachDashboardPanel({ currentUser }) {
       // Single team coach: skip selection on first visit only (not when returning via back button)
       if (myTeams.length === 1 && !sessionStorage.getItem('kykie-coach-visited')) {
         sessionStorage.setItem('kykie-coach-visited', '1');
-        const slug = myTeams[0].name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+        const slug = teamSlug(myTeams[0]);
         window.location.hash = `#/team/${slug}`;
       }
     };
@@ -79,13 +80,13 @@ export default function CoachDashboardPanel({ currentUser }) {
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
               <div style={{
-                width: 40, height: 40, borderRadius: 10, background: team.color,
+                width: 40, height: 40, borderRadius: 10, background: teamColor(team),
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, fontWeight: 900, color: '#fff', flexShrink: 0,
-              }}>{team.name.charAt(0)}</div>
+              }}>{teamInitial(team)}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: theme.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {team.name}
+                  {teamDisplayName(team)}
                   {rk && <RankBadge rank={rk.rank} prevRank={rk.prevRank} />}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 3, alignItems: 'center' }}>

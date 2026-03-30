@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import { teamColor, teamShortName } from '../utils/teams.js';
 
 function TrendChart({ data, label, color, suffix = "%" }) {
   const [selected, setSelected] = useState(null);
@@ -151,7 +152,7 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
       const label = d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
       // Determine opponent name
       const isHome = m.home_team_id === teamId || m.home_team?.id === teamId;
-      const opponent = isHome ? (m.away_team?.name || 'Opponent') : (m.home_team?.name || 'Opponent');
+      const opponent = isHome ? (teamShortName(m.away_team) || 'Opponent') : (teamShortName(m.home_team) || 'Opponent');
       return {
         label,
         opponent,

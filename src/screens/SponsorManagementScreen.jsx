@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { logAudit } from '../utils/audit.js';
+import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamDisplayName, teamShortName } from '../utils/teams.js';
 
 const TIERS = [
   { id: 'platform', label: 'Platform', color: '#F59E0B', desc: 'Landing page + all embeds' },
@@ -38,8 +39,8 @@ export default function SponsorManagementScreen({ onBack }) {
     setLoading(true);
     const [{ data: s }, { data: t }, { data: m }] = await Promise.all([
       supabase.from('sponsors').select('*').order('created_at', { ascending: false }),
-      supabase.from('teams').select('id, name').or('status.eq.active,status.is.null').order('name'),
-      supabase.from('matches').select('id, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name), match_date, status').in('status', ['upcoming', 'live']).order('match_date'),
+      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+      supabase.from('matches').select(`id, ${MATCH_HOME_TEAM_NAME}, ${MATCH_AWAY_TEAM_NAME}, match_date, status`).in('status', ['upcoming', 'live']).order('match_date'),
     ]);
     setSponsors(s || []);
     setTeams(t || []);
@@ -234,11 +235,11 @@ export default function SponsorManagementScreen({ onBack }) {
               <select value={targetId} onChange={e => setTargetId(e.target.value)} style={{ ...S.input, fontSize: 12 }}>
                 <option value="">— Select —</option>
                 {tier === 'team' && teams.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>
                 ))}
                 {tier === 'match' && matches.map(m => (
                   <option key={m.id} value={m.id}>
-                    {m.home_team?.name} vs {m.away_team?.name} ({new Date(m.match_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })})
+                    {teamShortName(m.home_team)} vs {teamShortName(m.away_team)} ({new Date(m.match_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })})
                   </option>
                 ))}
               </select>
@@ -316,9 +317,9 @@ export default function SponsorManagementScreen({ onBack }) {
           sponsors.map(sp => {
             const tierMeta = TIERS.find(t => t.id === sp.tier) || TIERS[0];
             const targetName = sp.tier === 'team'
-              ? teams.find(t => t.id === sp.target_id)?.name
+              ? teamDisplayName(teams.find(t => t.id === sp.target_id))
               : sp.tier === 'match'
-                ? matches.find(m => m.id === sp.target_id) ? `${matches.find(m => m.id === sp.target_id)?.home_team?.name} vs ${matches.find(m => m.id === sp.target_id)?.away_team?.name}` : null
+                ? matches.find(m => m.id === sp.target_id) ? `${teamShortName(matches.find(m => m.id === sp.target_id)?.home_team)} vs ${teamShortName(matches.find(m => m.id === sp.target_id)?.away_team)}` : null
                 : null;
 
             return (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { computeMatchStats, aggregateStats, statsFromArchive, STATS, INVERTED } from '../utils/stats.js';
+import { teamShortName, teamColor } from '../utils/teams.js';
 
 export default function CoachOverview({ team, matches }) {
   const [allEvents, setAllEvents] = useState({});
@@ -75,7 +76,7 @@ export default function CoachOverview({ team, matches }) {
         <div style={heading}>Conversion Rates</div>
         <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: team.color }}>{team.name.split(" ")[0]}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(team) }}>{teamShortName(team)}</div>
             <div style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC" }}>{shotConv}%</div>
             <div style={{ fontSize: 9, color: "#64748B" }}>Shot → Goal</div>
             <div style={{ fontSize: 22, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{dConv}%</div>
@@ -105,7 +106,7 @@ export default function CoachOverview({ team, matches }) {
               <div style={{ width: 24, textAlign: "right", fontWeight: 700, color: tBetter ? "#10B981" : "#F8FAFC", marginRight: 4 }}>{tv}</div>
               <div style={{ flex: 1, display: "flex", gap: 2 }}>
                 <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-                  <div style={{ width: `${(tv / max) * 100}%`, height: 6, borderRadius: 3, background: tBetter ? "#10B981" : team.color, minWidth: tv > 0 ? 4 : 0 }} />
+                  <div style={{ width: `${(tv / max) * 100}%`, height: 6, borderRadius: 3, background: tBetter ? "#10B981" : teamColor(team), minWidth: tv > 0 ? 4 : 0 }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ width: `${(ov / max) * 100}%`, height: 6, borderRadius: 3, background: !tBetter && tv !== ov ? "#10B981" : "#475569", minWidth: ov > 0 ? 4 : 0 }} />
@@ -121,7 +122,7 @@ export default function CoachOverview({ team, matches }) {
           <div style={{ width: 24, textAlign: "right", fontWeight: 700, color: t.territory >= 50 ? "#10B981" : "#F8FAFC", marginRight: 4 }}>{t.territory}%</div>
           <div style={{ flex: 1, display: "flex", gap: 2 }}>
             <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-              <div style={{ width: `${t.territory}%`, height: 6, borderRadius: 3, background: t.territory >= 50 ? "#10B981" : team.color }} />
+              <div style={{ width: `${t.territory}%`, height: 6, borderRadius: 3, background: t.territory >= 50 ? "#10B981" : teamColor(team) }} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ width: `${o.territory}%`, height: 6, borderRadius: 3, background: o.territory > 50 ? "#10B981" : "#475569" }} />
@@ -157,7 +158,7 @@ export default function CoachOverview({ team, matches }) {
       {/* Season summary insights */}
       <div style={card}>
         <div style={heading}>Season Insights</div>
-        {generateSeasonInsights(t, o, n, team.name, matchesWithEvents).map((ins, i) => (
+        {generateSeasonInsights(t, o, n, teamShortName(team), matchesWithEvents).map((ins, i) => (
           <div key={i} style={{
             padding: "6px 10px", borderRadius: 6, marginBottom: 3,
             background: ins.type === "strength" ? "#10B98111" : ins.type === "weakness" ? "#EF444411" : "#F59E0B11",

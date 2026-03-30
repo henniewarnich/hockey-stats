@@ -13,6 +13,7 @@ import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamShortName, teamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -209,12 +210,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   // Ensure contrasting team colors for live and selected matches
   const liveColors = useMemo(() => {
     if (!liveMatch) return { homeColor: null, awayColor: null };
-    return ensureContrastingColors(liveMatch.home_team?.color, liveMatch.away_team?.color);
+    return ensureContrastingColors(teamColor(liveMatch.home_team), teamColor(liveMatch.away_team));
   }, [liveMatch?.home_team?.color, liveMatch?.away_team?.color]);
 
   const selectedColors = useMemo(() => {
     if (!selectedMatch) return { homeColor: null, awayColor: null };
-    return ensureContrastingColors(selectedMatch.home_team?.color, selectedMatch.away_team?.color);
+    return ensureContrastingColors(teamColor(selectedMatch.home_team), teamColor(selectedMatch.away_team));
   }, [selectedMatch?.home_team?.color, selectedMatch?.away_team?.color]);
 
   // Get or create anonymous viewer ID
@@ -261,7 +262,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     try {
       const { data } = await supabase
         .from('matches')
-        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
         .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
         .order('match_date', { ascending: false });
       if (data) {
@@ -302,8 +303,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     const load = async () => {
       setLoading(true);
       try {
-        const { data: teams } = await supabase.from('teams').select('*');
-        const found = teams?.find(t => t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') === teamSlug);
+        const { data: teams } = await supabase.from('teams').select(TEAM_SELECT);
+        const found = teams?.find(t => teamSlug(t) === teamSlug);
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
@@ -329,7 +330,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         // Load matches
         const { data: allMatches } = await supabase
           .from('matches')
-          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
           .or(`home_team_id.eq.${found.id},away_team_id.eq.${found.id}`)
           .order('match_date', { ascending: false });
 
@@ -397,7 +398,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       try {
         const { data } = await supabase
           .from('matches')
-          .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+          .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
           .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
           .order('match_date', { ascending: false });
 
@@ -583,10 +584,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* Team Header */}
       <div style={{ padding: "12px 14px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: team.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{team.name.charAt(0)}</div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: teamColor(team), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{teamInitial(team)}</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 900, display: "flex", alignItems: "center", gap: 6 }}>
-              {team.name}
+              {teamDisplayName(team)}
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: 10, color: "#CBD5E1", fontWeight: 600 }}>{seasonStats.played}P {seasonStats.won}W {seasonStats.drawn}D {seasonStats.lost}L</span>
@@ -653,14 +654,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{liveMatch.home_team?.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{teamShortName(liveMatch.home_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.home_score}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: "#F59E0B" }}>{fmtClock(liveTime)}</div>
                 </div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{liveMatch.away_team?.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{teamShortName(liveMatch.away_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
                 </div>
               </div>
@@ -674,8 +675,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               embedded
               match={{
                 teams: {
-                  home: { name: liveMatch.home_team?.name, color: liveColors.homeColor, short: liveMatch.home_team?.name?.slice(0, 3).toUpperCase() },
-                  away: { name: liveMatch.away_team?.name, color: liveColors.awayColor, short: liveMatch.away_team?.name?.slice(0, 3).toUpperCase() },
+                  home: { name: teamShortName(liveMatch.home_team), color: liveColors.homeColor, institution: liveMatch.home_team?.institution },
+                  away: { name: teamShortName(liveMatch.away_team), color: liveColors.awayColor, institution: liveMatch.away_team?.institution },
                 },
                 breakFormat: liveMatch.break_format || "quarters",
                 matchLength: liveMatch.match_length || 60,
@@ -698,7 +699,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 const color = eventColor(type);
                 const icon = eventIcon(type);
                 const isGoal = type === "goal";
-                const teamName = entry.team === "home" ? liveMatch.home_team?.name : entry.team === "away" ? liveMatch.away_team?.name : null;
+                const teamName = entry.team === "home" ? teamShortName(liveMatch.home_team) : entry.team === "away" ? teamShortName(liveMatch.away_team) : null;
 
                 // Build display text
                 let text = entry.detail || entry.event;
@@ -741,8 +742,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         ) : (
           <CoachOverall
             matchStatsList={Object.values(matchStatsMap)}
-            teamName={team.name}
-            teamColor={team.color}
+            teamName={teamDisplayName(team)}
+            teamColor={teamColor(team)}
             teamId={team.id}
             allMatches={matches}
             matchCount={matches.filter(m => m.duration > 0).length}
@@ -759,7 +760,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             matches={matches}
             matchStatsMap={matchStatsMap}
             teamId={team.id}
-            teamColor={team.color}
+            teamColor={teamColor(team)}
           />
         )
       )}
@@ -803,9 +804,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 4 }}>
-                        {homeTeam?.name} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {teamShortName(homeTeam)} {(() => { const r = latestRankings[homeTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                         {' vs '}
-                        {awayTeam?.name} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {teamShortName(awayTeam)} {(() => { const r = latestRankings[awayTeam?.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                       </div>
                       <div style={{ fontSize: 9, color: "#64748B", marginTop: 1 }}>
                         {d.toLocaleDateString("en-ZA", { weekday: "short" })}
@@ -820,7 +821,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   {isCoach && (() => {
                     const hRec = oppRecords[homeTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
                     const aRec = oppRecords[awayTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-                    const pred = predictMatch(hRec, aRec, homeTeam?.name, awayTeam?.name);
+                    const pred = predictMatch(hRec, aRec, teamShortName(homeTeam), teamShortName(awayTeam));
                     return (<>
                     {pred && (
                       <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
@@ -832,9 +833,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                           {pred.draw >= pred.homeWin && pred.draw >= pred.awayWin ? (
                             <div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>Draw</div>
                           ) : pred.homeWin >= pred.awayWin ? (
-                            <div style={{ fontSize: 16, fontWeight: 900, color: homeTeam?.color || "#10B981" }}>{homeTeam?.name} to win</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: teamColor(homeTeam) || "#10B981" }}>{teamShortName(homeTeam)} to win</div>
                           ) : (
-                            <div style={{ fontSize: 16, fontWeight: 900, color: awayTeam?.color || "#3B82F6" }}>{awayTeam?.name} to win</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: teamColor(awayTeam) || "#3B82F6" }}>{teamShortName(awayTeam)} to win</div>
                           )}
                           <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>
                             Based on {hRec?.p || 0} and {aRec?.p || 0} matches played
@@ -846,9 +847,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                           <div style={{ width: `${pred.awayWin}%`, background: "#3B82F6" }} />
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
-                          <span style={{ color: "#10B981" }}>{homeTeam?.name?.split(' ')[0]} {pred.homeWin}%</span>
+                          <span style={{ color: "#10B981" }}>{teamShortName(homeTeam)} {pred.homeWin}%</span>
                           <span style={{ color: "#F59E0B" }}>Draw {pred.draw}%</span>
-                          <span style={{ color: "#3B82F6" }}>{awayTeam?.name?.split(' ')[0]} {pred.awayWin}%</span>
+                          <span style={{ color: "#3B82F6" }}>{teamShortName(awayTeam)} {pred.awayWin}%</span>
                         </div>
                         {pred.reasons.length > 0 && (
                           <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
@@ -870,15 +871,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                         return (
                           <div key={t?.id || Math.random()} style={{
                             flex: 1, background: "#0B0F1A", borderRadius: 8, padding: "8px 8px",
-                            border: isMine ? `1px solid ${team.color}44` : "1px solid #33415533",
+                            border: isMine ? `1px solid ${teamColor(team)}44` : "1px solid #33415533",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
                               <div style={{
-                                width: 14, height: 14, borderRadius: 3, background: t?.color || "#334155",
+                                width: 14, height: 14, borderRadius: 3, background: teamColor(t) || "#334155",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 fontSize: 7, fontWeight: 900, color: "#fff",
-                              }}>{(t?.name || '?').charAt(0)}</div>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{t?.name || 'TBD'}</span>
+                              }}>{teamInitial(t)}</div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{teamDisplayName(t) || 'TBD'}</span>
                               {rk && <span style={{ fontSize: 8, color: "#10B981" }}>#{rk.rank}</span>}
                             </div>
                             {r.p > 0 ? (
@@ -893,7 +894,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                             ) : (
                               <div style={{ fontSize: 9, color: "#475569", textAlign: "center", marginBottom: 4 }}>No matches yet</div>
                             )}
-                            {!isMine && t?.name && (
+                            {!isMine && t && (
                               <div onClick={() => { window.location.hash = `#/team/${teamSlugNav(t.name)}`; }} style={{ fontSize: 8, color: "#8B5CF6", fontWeight: 700, textAlign: "center", marginTop: 6, cursor: "pointer" }}>View stats →</div>
                             )}
                           </div>
@@ -941,7 +942,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 <div onClick={() => handleMatchTap(m)} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, cursor: "pointer" }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: rc + "22", border: `1.5px solid ${rc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: rc, flexShrink: 0 }}>{rl}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 5 }}>{isHome ? "vs" : "@"} {opp?.name} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", display: "flex", alignItems: "center", gap: 5 }}>{isHome ? "vs" : "@"} {teamShortName(opp)} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                       {hasStats && <span title="Full stats + commentary" style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>}
                     </div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
@@ -972,12 +973,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{selectedMatch.home_team?.name} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{teamShortName(selectedMatch.home_team)} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
                 <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{selectedMatch.away_team?.name} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{teamShortName(selectedMatch.away_team)} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
@@ -1001,8 +1002,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               embedded
               match={{
                 teams: {
-                  home: { name: selectedMatch.home_team?.name, color: selectedColors.homeColor, short: selectedMatch.home_team?.name?.slice(0, 3).toUpperCase() },
-                  away: { name: selectedMatch.away_team?.name, color: selectedColors.awayColor, short: selectedMatch.away_team?.name?.slice(0, 3).toUpperCase() },
+                  home: { name: teamShortName(selectedMatch.home_team), color: selectedColors.homeColor, institution: selectedMatch.home_team?.institution },
+                  away: { name: teamShortName(selectedMatch.away_team), color: selectedColors.awayColor, institution: selectedMatch.away_team?.institution },
                 },
                 breakFormat: selectedMatch.break_format || "quarters",
                 matchLength: selectedMatch.match_length || 60,

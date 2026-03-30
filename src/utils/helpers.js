@@ -1,3 +1,5 @@
+import { teamShortName } from './teams.js';
+
 // Time formatting
 export const fmt = (s) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -48,7 +50,7 @@ export function exportMatchJSON(game) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const dn = new Date(game.date);
-  const fn = `match-${dn.toISOString().slice(0, 10)}-${game.teams.home.name.replace(/\s+/g, "-")}-vs-${game.teams.away.name.replace(/\s+/g, "-")}.json`;
+  const fn = `match-${dn.toISOString().slice(0, 10)}-${teamShortName(game.teams.home).replace(/\s+/g, "-")}-vs-${teamShortName(game.teams.away).replace(/\s+/g, "-")}.json`;
   if (/iPhone|iPad/i.test(navigator.userAgent)) {
     window.open(url);
   } else {

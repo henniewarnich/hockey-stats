@@ -1,5 +1,6 @@
 import { fmt, fmtTs, exportMatchJSON } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
+import { teamShortName, teamColor } from '../utils/teams.js';
 import NavLogo from '../components/NavLogo.jsx';
 
 export default function GameReviewScreen({ game, onDelete, onBack, onNavigate }) {
@@ -45,7 +46,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
         <div style={{ flex: 1 }}>
-          <div style={S.navTitle}>{T.home.name} vs {T.away.name}</div>
+          <div style={S.navTitle}>{teamShortName(T.home)} vs {teamShortName(T.away)}</div>
           <div style={{ fontSize: 10, color: theme.textDim }}>
             {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
             {G.venue && ` · ${G.matchType ? (G.matchType.charAt(0).toUpperCase() + G.matchType.slice(1)) + ' @ ' : ''}${G.venue}`}
@@ -57,7 +58,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
       {/* Score header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: 16 }}>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: T.home.color }}>{T.home.name}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: teamColor(T.home) }}>{teamShortName(T.home)}</div>
           <div style={{ fontSize: 36, fontWeight: 800 }}>{G.homeScore}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -65,7 +66,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
           <div style={{ fontSize: 8, fontWeight: 700, color: theme.textDim, textTransform: "uppercase" }}>Full Time</div>
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: T.away.color }}>{T.away.name}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: teamColor(T.away) }}>{teamShortName(T.away)}</div>
           <div style={{ fontSize: 36, fontWeight: 800 }}>{G.awayScore}</div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamDisplayName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
 
 const ISSUE_TYPES = [
   { id: 'inaccuracy', label: 'Inaccuracy', color: '#F59E0B', bg: '#F59E0B22' },
@@ -64,8 +65,8 @@ export default function IssuesScreen({ currentUser, onBack }) {
 
   const loadRefData = async () => {
     const [{ data: teams }, { data: matches }] = await Promise.all([
-      supabase.from('teams').select('id, name, color').or('status.eq.active,status.is.null').order('name'),
-      supabase.from('matches').select('id, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name), match_date, status')
+      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+      supabase.from('matches').select(`id, ${MATCH_HOME_TEAM_NAME}, ${MATCH_AWAY_TEAM_NAME}, match_date, status`)
         .in('status', ['upcoming', 'live', 'ended']).order('match_date', { ascending: false }).limit(100),
     ]);
     setAllTeams(teams || []);
@@ -163,10 +164,10 @@ export default function IssuesScreen({ currentUser, onBack }) {
   // ═══ FORM VIEW ═══
   if (view === 'form') {
     const filteredTeams = teamSearch.trim()
-      ? allTeams.filter(t => t.name.toLowerCase().includes(teamSearch.toLowerCase()))
+      ? allTeams.filter(t => teamMatchesSearch(t, teamSearch))
       : allTeams.slice(0, 10);
     const filteredMatches = matchSearch.trim()
-      ? allMatches.filter(m => (m.home_team?.name || '').toLowerCase().includes(matchSearch.toLowerCase()) || (m.away_team?.name || '').toLowerCase().includes(matchSearch.toLowerCase()))
+      ? allMatches.filter(m => (teamShortName(m.home_team) || '').toLowerCase().includes(matchSearch.toLowerCase()) || (teamShortName(m.away_team) || '').toLowerCase().includes(matchSearch.toLowerCase()))
       : allMatches.slice(0, 10);
 
     return (
@@ -215,14 +216,14 @@ export default function IssuesScreen({ currentUser, onBack }) {
               />
               <div style={{ maxHeight: 140, overflowY: "auto" }}>
                 {filteredTeams.map(t => (
-                  <div key={t.id} onClick={() => { setPertainsRef(t.id); setTeamSearch(t.name); }} style={{
+                  <div key={t.id} onClick={() => { setPertainsRef(t.id); setTeamSearch(teamDisplayName(t)); }} style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6,
                     border: pertainsRef === t.id ? "1px solid #F59E0B44" : "1px solid #33415533",
                     background: pertainsRef === t.id ? "#F59E0B11" : "#1E293B",
                     cursor: "pointer", marginBottom: 2,
                   }}>
                     <div style={{ width: 14, height: 14, borderRadius: 3, background: t.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: pertainsRef === t.id ? "#F59E0B" : "#F8FAFC", fontWeight: 600 }}>{t.name}</span>
+                    <span style={{ fontSize: 11, color: pertainsRef === t.id ? "#F59E0B" : "#F8FAFC", fontWeight: 600 }}>{teamDisplayName(t)}</span>
                   </div>
                 ))}
               </div>
@@ -239,7 +240,7 @@ export default function IssuesScreen({ currentUser, onBack }) {
               />
               <div style={{ maxHeight: 140, overflowY: "auto" }}>
                 {filteredMatches.map(m => {
-                  const label = `${m.home_team?.name || '?'} vs ${m.away_team?.name || '?'}`;
+                  const label = `${teamShortName(m.home_team) || '?'} vs ${teamShortName(m.away_team) || '?'}`;
                   const d = m.match_date ? new Date(m.match_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }) : '';
                   return (
                     <div key={m.id} onClick={() => { setPertainsRef(m.id); setMatchSearch(label); }} style={{

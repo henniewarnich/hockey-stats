@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { theme } from '../utils/styles.js';
+import { teamColor, teamInitial, teamShortName } from '../utils/teams.js';
 
 const HC = "#22C55E"; // home colour — always green
 const AC = "#64748B"; // away colour — always grey
@@ -261,7 +262,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
         <div style={{ textAlign: "center", flex: 1 }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: HC, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            {teams.home.short || teams.home.name.slice(0, 3).toUpperCase()}
+            {teamShortName(teams.home)}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{homeScore}</div>
         </div>
@@ -275,7 +276,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: AC, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            {teams.away.short || teams.away.name.slice(0, 3).toUpperCase()}
+            {teamShortName(teams.away)}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{awayScore}</div>
         </div>
@@ -305,7 +306,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               {["home", "away"].map(t => (
                 <div key={t} style={{ flex: 1, textAlign: "center" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: t === "home" ? HC : AC }}>
-                    {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                    {teamShortName(teams[t])}
                   </div>
                 </div>
               ))}
@@ -382,11 +383,11 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                 <div style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Short Corner Outcomes</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                   <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: HC }}>
-                    {teams.home.short || teams.home.name.slice(0, 3).toUpperCase()} <span style={{ color: "#475569", fontWeight: 400 }}>({hTotal})</span>
+                    {teamShortName(teams.home)} <span style={{ color: "#475569", fontWeight: 400 }}>({hTotal})</span>
                   </div>
                   <div style={{ width: 80 }} />
                   <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: AC }}>
-                    {teams.away.short || teams.away.name.slice(0, 3).toUpperCase()} <span style={{ color: "#475569", fontWeight: 400 }}>({aTotal})</span>
+                    {teamShortName(teams.away)} <span style={{ color: "#475569", fontWeight: 400 }}>({aTotal})</span>
                   </div>
                 </div>
                 {rows.filter(r => (hSCO[r.key] || 0) + (aSCO[r.key] || 0) > 0).map(r => (
@@ -412,10 +413,10 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
                 <div style={{ width: 10, height: 10, borderRadius: 3, background: HC }} />
-                <span style={{ color: HC }}>{teams.home.short || teams.home.name.slice(0, 3).toUpperCase()}</span>
+                <span style={{ color: HC }}>{teamShortName(teams.home)}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <span style={{ color: AC }}>{teams.away.short || teams.away.name.slice(0, 3).toUpperCase()}</span>
+                <span style={{ color: AC }}>{teamShortName(teams.away)}</span>
                 <div style={{ width: 10, height: 10, borderRadius: 3, background: AC }} />
               </div>
             </div>
@@ -550,7 +551,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                           {["home", "away"].map(t => (
                             <div key={t} style={{ flex: 1, textAlign: "center" }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                                {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                                {teamShortName(teams[t])}
                               </div>
                               {(q.home.atkZoneEntries > 0 || q.away.atkZoneEntries > 0) && <>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC" }}>{qAtkConv(t)}%</div>
@@ -579,8 +580,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
 
                         {/* Period Insights */}
                         {(() => {
-                          const hIns = generatePeriodInsights(q.home, q.away, teams.home.name, teams.away.name);
-                          const aIns = generatePeriodInsights(q.away, q.home, teams.away.name, teams.home.name);
+                          const hIns = generatePeriodInsights(q.home, q.away, teamShortName(teams.home), teamShortName(teams.away));
+                          const aIns = generatePeriodInsights(q.away, q.home, teamShortName(teams.away), teamShortName(teams.home));
                           if (hIns.length === 0 && aIns.length === 0) return null;
                           const InsightIcon = ({ type }) => (
                             <span style={{ fontSize: 10, marginRight: 3, fontWeight: 700 }}>{type === "strength" ? "+" : type === "weakness" ? "!" : "■"}</span>
@@ -592,7 +593,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                                 {[["home", hIns], ["away", aIns]].map(([t, ins]) => ins.length > 0 && (
                                   <div key={t} style={{ flex: 1 }}>
                                     <div style={{ fontSize: 9, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                                      {teams[t].short || teams[t].name.slice(0, 3).toUpperCase()}
+                                      {teamShortName(teams[t])}
                                     </div>
                                     {ins.map((i, idx) => (
                                       <div key={idx} style={{ fontSize: 9, color: i.type === "strength" ? "#22C55E" : "#94A3B8", lineHeight: 1.4, marginBottom: 2 }}>
@@ -637,9 +638,9 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                   <div key={t} style={{ background: "#1E293B", borderRadius: 10, borderLeft: `3px solid ${teamColor}`, border: "1px solid #33415544", borderLeftWidth: 3, borderLeftColor: teamColor, overflow: "hidden" }}>
                     <div style={{ padding: "10px 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 24, height: 24, borderRadius: 6, background: teamColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#0B0F1A", flexShrink: 0 }}>
-                        {(teams[t].name || "?")[0]}
+                        {teamInitial(teams[t])}
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teams[t].name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(teams[t])}</div>
                       {strongest && <div style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>Best: {strongest}{weakest && weakest !== strongest ? ` · Weakest: ${weakest}` : ""}</div>}
                     </div>
                     <div style={{ padding: "0 12px 10px" }}>
@@ -663,8 +664,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               {/* Per-period breakdown */}
               <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginTop: 4 }}>Period Breakdown</div>
               {activeQs.map(q => {
-                const hIns = generatePeriodInsights(q.home, q.away, teams.home.name, teams.away.name);
-                const aIns = generatePeriodInsights(q.away, q.home, teams.away.name, teams.home.name);
+                const hIns = generatePeriodInsights(q.home, q.away, teamShortName(teams.home), teamShortName(teams.away));
+                const aIns = generatePeriodInsights(q.away, q.home, teamShortName(teams.away), teamShortName(teams.home));
                 if (hIns.length === 0 && aIns.length === 0) return null;
                 return (
                   <div key={q.label} style={{ background: "#1E293B", borderRadius: 10, border: "1px solid #33415544", overflow: "hidden" }}>
@@ -680,7 +681,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                       {[["home", hIns], ["away", aIns]].map(([t, ins]) => (
                         <div key={t} style={{ flex: 1, padding: "8px 10px", borderRight: t === "home" ? "1px solid #33415533" : "none" }}>
                           <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                            {teams[t].name}
+                            {teamShortName(teams[t])}
                           </div>
                           {ins.length === 0 ? (
                             <div style={{ fontSize: 9, color: "#33415588" }}>—</div>

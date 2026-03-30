@@ -3,19 +3,20 @@ import { supabase } from '../utils/supabase.js';
 import { predictMatch } from '../utils/predict.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import RankBadge from './RankBadge.jsx';
+import { TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName } from '../utils/teams.js';
 
 function TeamPicker({ label, value, search, onSearch, onSelect, exclude, teams, records, rankings }) {
-  const filtered = teams.filter(t => t.id !== exclude && t.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = teams.filter(t => t.id !== exclude && teamMatchesSearch(t, search));
   const selected = teams.find(t => t.id === value);
   return (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 9, color: "#94A3B8", fontWeight: 700, marginBottom: 4 }}>{label}</div>
       {selected ? (
         <div onClick={() => { onSelect(''); onSearch(''); }} style={{
-          background: "#0B0F1A", border: `1px solid ${selected.color || '#334155'}44`, borderRadius: 8,
+          background: "#0B0F1A", border: `1px solid ${teamColor(selected) || '#334155'}44`, borderRadius: 8,
           padding: "8px 10px", cursor: "pointer", textAlign: "center",
         }}>
-          <div style={{ fontSize: 13, fontWeight: 900, color: selected.color || "#F8FAFC" }}>{selected.name}</div>
+          <div style={{ fontSize: 13, fontWeight: 900, color: teamColor(selected) || "#F8FAFC" }}>{teamDisplayName(selected)}</div>
           {records[selected.id] && <div style={{ fontSize: 8, color: "#64748B", marginTop: 2 }}>
             {records[selected.id].p}P {records[selected.id].w}W {records[selected.id].d}D {records[selected.id].l}L
             {rankings[selected.id] && <> · <RankBadge rank={rankings[selected.id].rank} /></>}
@@ -30,7 +31,7 @@ function TeamPicker({ label, value, search, onSearch, onSelect, exclude, teams, 
               {filtered.slice(0, 8).map(t => (
                 <div key={t.id} onClick={() => { onSelect(t.id); onSearch(''); }}
                   style={{ padding: "6px 10px", fontSize: 11, color: "#F8FAFC", cursor: "pointer", borderBottom: "1px solid #1E293B" }}>
-                  <span style={{ color: t.color || "#F8FAFC", fontWeight: 700 }}>{t.name}</span>
+                  <span style={{ color: t.color || "#F8FAFC", fontWeight: 700 }}>{teamDisplayName(t)}</span>
                   {records[t.id] && <span style={{ color: "#64748B", fontSize: 9, marginLeft: 6 }}>{records[t.id].p}P</span>}
                 </div>
               ))}
@@ -49,8 +50,8 @@ function ScoutCard({ team, rec, rank, color }) {
   return (
     <div style={{ flex: 1, padding: "8px 10px", background: "#0B0F1A", borderRadius: 8, border: `1px solid ${color}33` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <div style={{ width: 24, height: 24, borderRadius: 6, background: color + "22", border: `1.5px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color }}>{team.name[0]}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{team.name} {rank && <RankBadge rank={rank.rank} />}</div>
+        <div style={{ width: 24, height: 24, borderRadius: 6, background: color + "22", border: `1.5px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color }}>{teamInitial(team)}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC" }}>{teamDisplayName(team)} {rank && <RankBadge rank={rank.rank} />}</div>
       </div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", fontSize: 10 }}>
         {[
@@ -81,7 +82,7 @@ export default function WhatIfScreen({ onBack }) {
   useEffect(() => {
     (async () => {
       const [{ data: allTeams }, { data: allMatches }] = await Promise.all([
-        supabase.from('teams').select('id, name, color').or('status.eq.active,status.is.null').order('name'),
+        supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
         supabase.from('matches').select('home_team_id, away_team_id, home_score, away_score, match_type').eq('status', 'ended'),
       ]);
       setTeams(allTeams || []);
@@ -116,7 +117,7 @@ export default function WhatIfScreen({ onBack }) {
     const hTeam = teams.find(t => t.id === homeTeamId);
     const aTeam = teams.find(t => t.id === awayTeamId);
     if (!hRec || !aRec || !hTeam || !aTeam) { setPrediction(null); return; }
-    const p = predictMatch(hRec, aRec, hTeam.name, aTeam.name);
+    const p = predictMatch(hRec, aRec, teamShortName(hTeam), teamShortName(aTeam));
     setPrediction(p);
   };
 
@@ -175,7 +176,7 @@ export default function WhatIfScreen({ onBack }) {
                   {(() => {
                     const isDraw = prediction.draw >= prediction.homeWin && prediction.draw >= prediction.awayWin;
                     const homeWins = prediction.homeWin >= prediction.awayWin && prediction.homeWin > prediction.draw;
-                    const winner = homeWins ? hTeam?.name : aTeam?.name;
+                    const winner = homeWins ? teamShortName(hTeam) : teamShortName(aTeam);
                     return (
                       <>
                         <div style={{ fontSize: 18, fontWeight: 900, color: isDraw ? "#F59E0B" : "#F8FAFC" }}>
@@ -194,9 +195,9 @@ export default function WhatIfScreen({ onBack }) {
                   <div style={{ width: `${prediction.awayWin}%`, background: "#64748B" }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, fontWeight: 700 }}>
-                  <span style={{ color: "#10B981" }}>{hTeam?.name?.split(' ')[0]} {prediction.homeWin}%</span>
+                  <span style={{ color: "#10B981" }}>{teamShortName(hTeam)} {prediction.homeWin}%</span>
                   <span style={{ color: "#F59E0B" }}>Draw {prediction.draw}%</span>
-                  <span style={{ color: "#64748B" }}>{aTeam?.name?.split(' ')[0]} {prediction.awayWin}%</span>
+                  <span style={{ color: "#64748B" }}>{teamShortName(aTeam)} {prediction.awayWin}%</span>
                 </div>
                 {prediction.reasons?.length > 0 && (
                   <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #33415544" }}>
@@ -211,7 +212,7 @@ export default function WhatIfScreen({ onBack }) {
 
               {/* Scouting cards */}
               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                <ScoutCard team={hTeam} rec={hRec} rank={hRank} color={hTeam?.color || "#10B981"} />
+                <ScoutCard team={hTeam} rec={hRec} rank={hRank} color={teamColor(hTeam) || "#10B981"} />
                 <ScoutCard team={aTeam} rec={aRec} rank={aRank} color="#94A3B8" />
               </div>
 
@@ -227,8 +228,8 @@ export default function WhatIfScreen({ onBack }) {
             <div style={{ background: "#1E293B", borderRadius: 10, padding: 16, textAlign: "center" }}>
               <div style={{ fontSize: 12, color: "#F59E0B", fontWeight: 700, marginBottom: 4 }}>Not enough data</div>
               <div style={{ fontSize: 10, color: "#64748B" }}>Both teams need at least 5 matches for a prediction.
-                {hRec.p < 5 && ` ${hTeam?.name} has ${hRec.p}.`}
-                {aRec.p < 5 && ` ${aTeam?.name} has ${aRec.p}.`}
+                {hRec.p < 5 && ` ${teamShortName(hTeam)} has ${hRec.p}.`}
+                {aRec.p < 5 && ` ${teamShortName(aTeam)} has ${aRec.p}.`}
               </div>
             </div>
           )}

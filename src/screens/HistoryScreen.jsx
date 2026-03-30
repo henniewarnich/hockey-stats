@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamSearchString, teamShortName } from '../utils/teams.js';
 
 export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
@@ -14,7 +15,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
     const fetchCloud = async () => {
       const { data } = await supabase
         .from('matches')
-        .select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)')
+        .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
         .eq('status', 'ended')
         .order('match_date', { ascending: false });
       if (data) {
@@ -24,8 +25,8 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
           supabase_id: m.id,
           date: m.match_date,
           teams: {
-            home: { name: m.home_team?.name, color: m.home_team?.color, id: m.home_team?.id, short: m.home_team?.name?.slice(0, 3).toUpperCase() },
-            away: { name: m.away_team?.name, color: m.away_team?.color, id: m.away_team?.id, short: m.away_team?.name?.slice(0, 3).toUpperCase() },
+            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
+            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
           },
           homeScore: m.home_score,
           awayScore: m.away_score,
@@ -58,8 +59,8 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(g => {
-        const home = g.teams?.home?.name?.toLowerCase() || "";
-        const away = g.teams?.away?.name?.toLowerCase() || "";
+        const home = teamSearchString(g.teams?.home) || "";
+        const away = teamSearchString(g.teams?.away) || "";
         const venue = (g.venue || "").toLowerCase();
         return home.includes(q) || away.includes(q) || venue.includes(q);
       });
@@ -172,7 +173,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
                 {/* Teams + Meta */}
                 <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onSelect(g)}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>
-                    {g.teams?.home?.name} vs {g.teams?.away?.name}
+                    {teamShortName(g.teams?.home)} vs {teamShortName(g.teams?.away)}
                   </div>
                   <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}

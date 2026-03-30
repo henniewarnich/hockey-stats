@@ -1,14 +1,15 @@
 import { fmt } from '../utils/helpers.js';
 import { theme } from '../utils/styles.js';
 import SponsorBanner from './SponsorBanner.jsx';
+import { teamColor, teamShortName } from '../utils/teams.js';
 
 export default function Scoreboard({ teams, homeGoals, awayGoals, matchTime, matchState, running, matchId }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 14px 4px" }}>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: teams.home.color, textTransform: "uppercase" }}>
-            {teams.home.name}
+          <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(teams.home), textTransform: "uppercase" }}>
+            {teamShortName(teams.home)}
           </div>
           <div style={{ fontSize: 28, fontWeight: 800 }}>{homeGoals}</div>
         </div>
@@ -32,8 +33,8 @@ export default function Scoreboard({ teams, homeGoals, awayGoals, matchTime, mat
           </div>
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: teams.away.color, textTransform: "uppercase" }}>
-            {teams.away.name}
+          <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(teams.away), textTransform: "uppercase" }}>
+            {teamShortName(teams.away)}
           </div>
           <div style={{ fontSize: 28, fontWeight: 800 }}>{awayGoals}</div>
         </div>

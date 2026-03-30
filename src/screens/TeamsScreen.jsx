@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
+import { teamColor, teamDisplayName, teamInitial, teamMatchesSearch } from '../utils/teams.js';
 
 export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareLink }) {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
 
   const filtered = search.trim()
-    ? teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    ? teams.filter(t => teamMatchesSearch(t, search))
     : teams;
 
   // ── LIST VIEW ──
@@ -35,17 +36,17 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
                 <div key={t.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12 }}
                   onClick={() => setEditing({ ...t })}>
                   <div style={{
-                    width: 36, height: 36, borderRadius: 8, background: t.color,
+                    width: 36, height: 36, borderRadius: 8, background: teamColor(t),
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 16, fontWeight: 800, color: "#fff",
                   }}>
-                    {t.name.charAt(0).toUpperCase()}
+                    {teamInitial(t).toUpperCase()}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{teamDisplayName(t)}</div>
                   </div>
                   {getShareLink && (
-                    <button onClick={e => { e.stopPropagation(); const link = getShareLink(t.name); navigator.clipboard?.writeText(link).then(() => alert("Link copied!\n" + link)).catch(() => prompt("Copy this link:", link)); }}
+                    <button onClick={e => { e.stopPropagation(); const link = getShareLink(teamDisplayName(t)); navigator.clipboard?.writeText(link).then(() => alert("Link copied!\n" + link)).catch(() => prompt("Copy this link:", link)); }}
                       style={{ ...S.btnSm("transparent", "#10B981"), border: "1px solid #10B98144", fontSize: 10 }}>
                       🔗
                     </button>

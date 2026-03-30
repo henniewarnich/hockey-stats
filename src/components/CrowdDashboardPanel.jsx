@@ -4,6 +4,7 @@ import { getContributorStats, getCreditLedger, onQuickScoreApproved, onQuickScor
 import { approvePendingMatch, rejectPendingMatch } from '../utils/sync.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamShortName } from '../utils/teams.js';
 
 const TIER_META = {
   apprentice: { label: 'Apprentice', color: '#64748B', icon: '🌱', next: 'Graduate' },
@@ -35,7 +36,7 @@ export default function CrowdDashboardPanel({ currentUser }) {
   const loadPendingForApproval = async () => {
     const { data } = await supabase
       .from('matches')
-      .select('*, home_team:teams!home_team_id(name, color), away_team:teams!away_team_id(name, color)')
+      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
       .eq('status', 'pending')
       .eq('submitted_type', 'crowd')
       .neq('submitted_by', currentUser.id)
@@ -193,7 +194,7 @@ export default function CrowdDashboardPanel({ currentUser }) {
             return (
               <div key={m.id} style={{ ...S.card, padding: '8px 10px', marginBottom: 3 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: theme.text, marginBottom: 2 }}>
-                  {m.home_team?.name || '?'} {m.home_score}–{m.away_score} {m.away_team?.name || '?'}
+                  {teamShortName(m.home_team) || '?'} {m.home_score}–{m.away_score} {teamShortName(m.away_team) || '?'}
                 </div>
                 <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 6 }}>
                   {d && d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}

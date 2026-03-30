@@ -4,6 +4,7 @@ import { parseSASTDate } from '../utils/helpers.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { theme } from '../utils/styles.js';
 import RankBadge from './RankBadge.jsx';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamShortName } from '../utils/teams.js';
 
 export default function PublicMatchesSection() {
   const [tab, setTab] = useState('live');
@@ -16,9 +17,9 @@ export default function PublicMatchesSection() {
   useEffect(() => {
     const load = async () => {
       const [{ data: l }, { data: u }, { data: r }] = await Promise.all([
-        supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').eq('status', 'live'),
-        supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(10),
-        supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').eq('status', 'ended').order('match_date', { ascending: false }).limit(10),
+        supabase.from('matches').select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`).eq('status', 'live'),
+        supabase.from('matches').select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`).eq('status', 'upcoming').order('match_date', { ascending: true }).limit(10),
+        supabase.from('matches').select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`).eq('status', 'ended').order('match_date', { ascending: false }).limit(10),
       ]);
       setLive(l || []);
       setUpcoming(u || []);
@@ -31,7 +32,7 @@ export default function PublicMatchesSection() {
     };
     load();
     const poll = setInterval(async () => {
-      const { data } = await supabase.from('matches').select('*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*)').eq('status', 'live');
+      const { data } = await supabase.from('matches').select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`).eq('status', 'live');
       if (data) setLive(data);
     }, 10000);
     return () => clearInterval(poll);
@@ -75,7 +76,7 @@ export default function PublicMatchesSection() {
           const isLive = m.status === 'live';
           const isEnded = m.status === 'ended';
           return (
-            <div key={m.id} onClick={() => goToTeam(m.home_team?.name)} style={{
+            <div key={m.id} onClick={() => goToTeam(teamShortName(m.home_team))} style={{
               display: 'flex', alignItems: 'center', padding: '8px 10px', gap: 8,
               background: theme.surface, borderRadius: 8, marginBottom: 3, cursor: 'pointer',
               border: isLive ? '1px solid #10B98144' : `1px solid ${theme.border}44`,
@@ -83,9 +84,9 @@ export default function PublicMatchesSection() {
               {isLive && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#10B981', flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {m.home_team?.name} <RankBadge rank={rankings[m.home_team?.id]?.rank} prevRank={rankings[m.home_team?.id]?.prevRank} />
+                  {teamShortName(m.home_team)} <RankBadge rank={rankings[m.home_team?.id]?.rank} prevRank={rankings[m.home_team?.id]?.prevRank} />
                   {' vs '}
-                  {m.away_team?.name} <RankBadge rank={rankings[m.away_team?.id]?.rank} prevRank={rankings[m.away_team?.id]?.prevRank} />
+                  {teamShortName(m.away_team)} <RankBadge rank={rankings[m.away_team?.id]?.rank} prevRank={rankings[m.away_team?.id]?.prevRank} />
                 </div>
                 <div style={{ fontSize: 9, color: theme.textDim, marginTop: 1 }}>
                   {d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}

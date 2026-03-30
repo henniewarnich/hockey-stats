@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { submitCrowdResult, submitCrowdUpcoming, suggestTeam } from '../utils/sync.js';
 import { MATCH_TYPES } from '../utils/constants.js';
+import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch, teamSearchString, teamShortName } from '../utils/teams.js';
 
 const TEAM_COLORS = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#64748B'];
 
@@ -31,7 +32,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   const [similarTeams, setSimilarTeams] = useState([]);
 
   useEffect(() => {
-    supabase.from('teams').select('*').or('status.eq.active,status.is.null').order('name')
+    supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name')
       .then(({ data }) => { if (data) setTeams(data); });
   }, []);
 
@@ -40,7 +41,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     if (!name || name.trim().length < 3) { setSimilarTeams([]); return; }
     const words = name.toLowerCase().trim().split(/\s+/).filter(w => w.length >= 3);
     const matches = teams.filter(t => {
-      const tName = t.name.toLowerCase();
+      const tName = teamSearchString(t);
       // Exact substring match
       if (tName.includes(name.toLowerCase().trim())) return true;
       // Any significant word matches
@@ -53,11 +54,11 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   const checkDuplicate = async (homeId, awayId, date) => {
     const { data } = await supabase
       .from('matches')
-      .select('id, status, home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)')
+      .select(`id, status, ${MATCH_HOME_TEAM_NAME}, ${MATCH_AWAY_TEAM_NAME}`)
       .eq('match_date', date)
       .or(`and(home_team_id.eq.${homeId},away_team_id.eq.${awayId}),and(home_team_id.eq.${awayId},away_team_id.eq.${homeId})`);
     if (data && data.length > 0) {
-      setDuplicateWarning(`${data[0].home_team?.name} vs ${data[0].away_team?.name} already exists on this date (${data[0].status})`);
+      setDuplicateWarning(`${teamShortName(data[0].home_team)} vs ${teamShortName(data[0].away_team)} already exists on this date (${data[0].status})`);
       return true;
     }
     setDuplicateWarning(null);
@@ -108,7 +109,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
   const handleSuggestTeam = async () => {
     if (!teamName.trim()) { setError('Team name is required'); return; }
-    if (similarTeams.length > 0 && !confirm(`Similar teams exist: ${similarTeams.map(t => t.name).join(', ')}. Submit anyway?`)) return;
+    if (similarTeams.length > 0 && !confirm(`Similar teams exist: ${similarTeams.map(t => teamDisplayName(t)).join(', ')}. Submit anyway?`)) return;
     setLoading(true); setError('');
     const result = await suggestTeam({ name: teamName, color: teamColor, suggestedBy: currentUser.id });
     setLoading(false);
@@ -116,7 +117,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     else setError('Failed to submit');
   };
 
-  const filteredTeams = (search) => teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+  const filteredTeams = (search) => teams.filter(t => teamMatchesSearch(t, search)).slice(0, 8);
 
   const labelStyle = { fontSize: 11, color: '#94A3B8', marginBottom: 4 };
   const inputStyle = { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
@@ -127,8 +128,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
       <div style={labelStyle}>{label}</div>
       {value ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, background: '#1E293B', border: '1px solid #334155' }}>
-          <div style={{ width: 10, height: 10, borderRadius: 5, background: value.color || '#64748B' }} />
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#F8FAFC', flex: 1 }}>{value.name}</div>
+          <div style={{ width: 10, height: 10, borderRadius: 5, background: teamColor(value) }} />
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#F8FAFC', flex: 1 }}>{teamDisplayName(value)}</div>
           <button onClick={() => { onSelect(null); setSearch(''); }} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12, cursor: 'pointer' }}>✕</button>
         </div>
       ) : (
@@ -140,8 +141,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
               {filteredTeams(search).map(t => (
                 <div key={t.id} onClick={() => { onSelect(t); setSearch(''); }}
                   style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#CBD5E1' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: t.color || '#64748B' }} />
-                  {t.name}
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(t) }} />
+                  {teamDisplayName(t)}
                 </div>
               ))}
               {filteredTeams(search).length === 0 && (
@@ -233,8 +234,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>Similar teams already exist:</div>
                 {similarTeams.map(t => (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', fontSize: 11, color: '#94A3B8' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 4, background: t.color || '#64748B' }} />
-                    {t.name}
+                    <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(t) }} />
+                    {teamDisplayName(t)}
                   </div>
                 ))}
                 <div style={{ fontSize: 9, color: '#64748B', marginTop: 4 }}>You can still submit — admin will review</div>
@@ -277,7 +278,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
           {mode === 'result' && (
             <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 4 }}>{homeTeam?.name || 'Home'}</div>
+                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 4 }}>{teamShortName(homeTeam) || 'Home'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button onClick={() => setHomeScore(Math.max(0, homeScore - 1))} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>−</button>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#F8FAFC', minWidth: 30, textAlign: 'center' }}>{homeScore}</div>
@@ -286,7 +287,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
               </div>
               <div style={{ fontSize: 14, color: '#475569', fontWeight: 700, marginTop: 14 }}>vs</div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 4 }}>{awayTeam?.name || 'Away'}</div>
+                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 4 }}>{teamShortName(awayTeam) || 'Away'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button onClick={() => setAwayScore(Math.max(0, awayScore - 1))} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 16, cursor: 'pointer' }}>−</button>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#F8FAFC', minWidth: 30, textAlign: 'center' }}>{awayScore}</div>

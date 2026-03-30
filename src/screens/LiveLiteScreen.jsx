@@ -4,6 +4,7 @@ import { updateLiveScore, pushLiveEvent, endLiveMatch, lockMatch, updateSchedule
 import { logAudit } from '../utils/audit.js';
 import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
+import { teamShortName, teamColor } from '../utils/teams.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import PausePopup from '../components/PausePopup.jsx';
@@ -100,7 +101,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
 
   const handleEvent = (team, event) => {
     const seq = ++seqRef.current;
-    const teamName = team === 'home' ? homeTeam.name : awayTeam.name;
+    const teamName = team === 'home' ? teamShortName(homeTeam) : teamShortName(awayTeam);
     let eventText = `${teamName} ${event.label.toLowerCase()}`;
 
     if (event.isGoal) {
@@ -201,8 +202,8 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
         <div style={{ padding: '8px 12px' }}>
           {/* Column headers */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: homeTeam.color, textAlign: 'center', textTransform: 'uppercase' }}>{homeTeam.name}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: awayTeam.color, textAlign: 'center', textTransform: 'uppercase' }}>{awayTeam.name}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: teamColor(homeTeam), textAlign: 'center', textTransform: 'uppercase' }}>{teamShortName(homeTeam)}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: teamColor(awayTeam), textAlign: 'center', textTransform: 'uppercase' }}>{teamShortName(awayTeam)}</div>
           </div>
 
           {/* Event rows */}
@@ -298,7 +299,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
               </div>
               <div style={{
                 width: 6, height: 6, borderRadius: 3, flexShrink: 0,
-                background: evt.team === 'home' ? homeTeam.color : evt.team === 'away' ? awayTeam.color : '#475569',
+                background: evt.team === 'home' ? teamColor(homeTeam) : evt.team === 'away' ? teamColor(awayTeam) : '#475569',
               }} />
               <div style={{
                 fontSize: 12, flex: 1,
@@ -324,7 +325,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
           }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{isDemo ? '🎮 End Demo?' : '🏁 End Match?'}</div>
             <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 4 }}>
-              {homeTeam.name} {homeScore} – {awayScore} {awayTeam.name}
+              {teamShortName(homeTeam)} {homeScore} – {awayScore} {teamShortName(awayTeam)}
             </div>
             <div style={{ fontSize: 11, color: '#64748B', marginBottom: 16 }}>
               Time: {fmt(timer.matchTime)}{isDemo ? ' · Data will not be saved' : ''}

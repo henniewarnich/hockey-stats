@@ -3,6 +3,7 @@ import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword, g
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
+import { TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
 
 const timeAgo = (ts) => {
   if (!ts) return null;
@@ -57,7 +58,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   useEffect(() => { loadUsers(); loadTeams(); }, []);
 
   const loadTeams = async () => {
-    const { data } = await supabase.from('teams').select('id, name, color, short_name').order('name');
+    const { data } = await supabase.from('teams').select(TEAM_SELECT).order('name');
     setAllTeams(data || []);
   };
 
@@ -298,8 +299,8 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                     <span key={tid} style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
                       padding: "4px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
-                      background: (t.color || "#8B5CF6") + "22", color: t.color || "#8B5CF6",
-                      border: `1px solid ${(t.color || "#8B5CF6")}44`,
+                      background: (teamColor(t)) + "22", color: teamColor(t),
+                      border: `1px solid ${teamColor(t)}44`,
                     }}>
                       {t.short_name || t.name}
                       <span onClick={() => setEditCoachTeams(prev => prev.filter(x => x !== tid))}
@@ -313,14 +314,14 @@ export default function UserManagementScreen({ currentUser, onBack }) {
             <input style={{ ...S.input, fontSize: 11 }} value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="🔍 Search teams to add..." />
             {teamSearch.trim() && (
               <div style={{ maxHeight: 140, overflowY: "auto", marginTop: 4, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg }}>
-                {allTeams.filter(t => !editCoachTeams.includes(t.id) && t.name.toLowerCase().includes(teamSearch.toLowerCase())).map(t => (
+                {allTeams.filter(t => !editCoachTeams.includes(t.id) && teamMatchesSearch(t, teamSearch)).map(t => (
                   <div key={t.id} onClick={() => { setEditCoachTeams(prev => [...prev, t.id]); setTeamSearch(""); }}
                     style={{ padding: "8px 12px", fontSize: 12, color: theme.text, cursor: "pointer", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 99, background: t.color || "#8B5CF6", flexShrink: 0 }} />
-                    {t.name}
+                    <span style={{ width: 8, height: 8, borderRadius: 99, background: teamColor(t), flexShrink: 0 }} />
+                    {teamDisplayName(t)}
                   </div>
                 ))}
-                {allTeams.filter(t => !editCoachTeams.includes(t.id) && t.name.toLowerCase().includes(teamSearch.toLowerCase())).length === 0 && (
+                {allTeams.filter(t => !editCoachTeams.includes(t.id) && teamMatchesSearch(t, teamSearch)).length === 0 && (
                   <div style={{ padding: "8px 12px", fontSize: 11, color: theme.textDim }}>No matching teams</div>
                 )}
               </div>
@@ -444,7 +445,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                       {coachTeamsMap[u.id].map(t => (
                         <span key={t.id} style={{
                           fontSize: 8, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
-                          background: (t.color || "#8B5CF6") + "22", color: t.color || "#8B5CF6",
+                          background: (teamColor(t)) + "22", color: teamColor(t),
                         }}>{t.short_name || t.name}</span>
                       ))}
                     </div>

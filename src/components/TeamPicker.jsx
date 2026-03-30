@@ -1,4 +1,5 @@
 import { theme } from '../utils/styles.js';
+import { teamColor, teamShortName } from '../utils/teams.js';
 
 export default function TeamPicker({ show, teams, topTeam, bottomTeam, onSelect, onClose }) {
   if (!show) return null;
@@ -21,14 +22,14 @@ export default function TeamPicker({ show, teams, topTeam, bottomTeam, onSelect,
         </div>
         <button onClick={() => onSelect(topTeam)} style={{
           width: "100%", padding: 14, borderRadius: "10px 10px 2px 2px",
-          border: `2px solid ${teams[topTeam].color}`,
-          background: teams[topTeam].color + "22",
+          border: `2px solid ${teamColor(teams[topTeam])}`,
+          background: teamColor(teams[topTeam]) + "22",
           color: theme.text, fontSize: 14, fontWeight: 700, cursor: "pointer",
           display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
           marginBottom: 3,
         }}>
-          <div style={{ width: 16, height: 16, borderRadius: 3, background: teams[topTeam].color }} />
-          {teams[topTeam].name}
+          <div style={{ width: 16, height: 16, borderRadius: 3, background: teamColor(teams[topTeam]) }} />
+          {teamShortName(teams[topTeam])}
           <span style={{ fontSize: 9, color: theme.textMuted, marginLeft: "auto" }}>🧤 top</span>
         </button>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
@@ -38,13 +39,13 @@ export default function TeamPicker({ show, teams, topTeam, bottomTeam, onSelect,
         </div>
         <button onClick={() => onSelect(bottomTeam)} style={{
           width: "100%", padding: 14, borderRadius: "2px 2px 10px 10px",
-          border: `2px solid ${teams[bottomTeam].color}`,
-          background: teams[bottomTeam].color + "22",
+          border: `2px solid ${teamColor(teams[bottomTeam])}`,
+          background: teamColor(teams[bottomTeam]) + "22",
           color: theme.text, fontSize: 14, fontWeight: 700, cursor: "pointer",
           display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
         }}>
-          <div style={{ width: 16, height: 16, borderRadius: 3, background: teams[bottomTeam].color }} />
-          {teams[bottomTeam].name}
+          <div style={{ width: 16, height: 16, borderRadius: 3, background: teamColor(teams[bottomTeam]) }} />
+          {teamShortName(teams[bottomTeam])}
           <span style={{ fontSize: 9, color: theme.textMuted, marginLeft: "auto" }}>🧤 bottom</span>
         </button>
       </div>

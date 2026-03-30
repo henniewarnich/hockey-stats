@@ -9,6 +9,7 @@ import { getWeekStart } from '../utils/stats.js';
 import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import MiniChart from '../components/MiniChart.jsx';
+import { teamDisplayName, teamInitial, teamShortName, teamSlug } from '../utils/teams.js';
 
 const fmtDate = (d) => {
   if (!d) return '';
@@ -158,8 +159,8 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
     setLoading(false);
   };
 
-  const slugify = (n) => n.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-  const goToTeam = (team) => { window.location.hash = `#/team/${slugify(team.name)}`; };
+  // slugify: use teamSlug from teams.js
+  const goToTeam = (team) => { window.location.hash = `#/team/${teamSlug(team)}`; };
 
   const resultBadge = (m, teamId) => {
     const isHome = m.home_team_id === teamId;
@@ -247,10 +248,10 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                       background: (team.color || "#8B5CF6") + "22", border: `2px solid ${(team.color || "#8B5CF6")}44`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 16, fontWeight: 800, color: team.color || "#8B5CF6",
-                    }}>{team.short_name || team.name.charAt(0)}</div>
+                    }}>{team.short_name || teamInitial(team)}</div>
                     <div style={{ flex: 1 }} onClick={() => goToTeam(team)}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: theme.text, cursor: "pointer" }}>
-                        {team.name} {(() => { const r = latestRankings[team.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
+                        {teamDisplayName(team)} {(() => { const r = latestRankings[team.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                       </div>
                       <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2 }}>
                         {upcoming.length > 0 ? `${upcoming.length} upcoming` : 'No upcoming'}
@@ -290,7 +291,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                               {isLive && <span style={{ fontSize: 8, color: "#10B981", fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122" }}>LIVE</span>}
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                  {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
+                                  {isHome ? 'vs' : '@'} {teamShortName(opp) || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
                                 </div>
                                 <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
                                   {fmtDate(m.match_date)}{m.scheduled_time ? ` · ${fmtTime(m.scheduled_time)}` : ''}{m.venue ? ` · ${m.venue}` : ''}
@@ -353,7 +354,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                         const d = parseSASTDate(m.match_date);
 
                         return (
-                          <div key={m.id} onClick={() => { window.location.hash = `#/team/${slugify(team.name)}?match=${m.id}`; }}
+                          <div key={m.id} onClick={() => { window.location.hash = `#/team/${teamSlug(team)}?match=${m.id}`; }}
                             style={{ padding: "8px 4px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${theme.border}22`, cursor: "pointer" }}>
                             <div style={{
                               width: 22, height: 22, borderRadius: 5, fontSize: 9, fontWeight: 900,
@@ -362,7 +363,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                             }}>{rl.label}</div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                {isHome ? 'vs' : '@'} {opp?.name || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
+                                {isHome ? 'vs' : '@'} {teamShortName(opp) || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                               </div>
                               <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
                                 {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}

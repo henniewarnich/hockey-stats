@@ -1,4 +1,5 @@
 import { otherTeam } from './helpers.js';
+import { teamShortName } from './teams.js';
 
 export function generateInsight(team, event, allEvents, teams) {
   const real = allEvents.filter(e => e.team !== "commentary" && e.team !== "meta");
@@ -36,17 +37,17 @@ export function generateInsight(team, event, allEvents, teams) {
   // ── D ENTRY ──
   if (event === "D Entry") {
     const my = dEn(team), oq = oqE(team), oppD = dEn(otherTeam(team));
-    if (my === 1) pool.push(`${T.name} penetrate the D for the first time.`);
-    if (my >= 2) pool.push(`${T.name} enter the D again ${side}. That's ${my} entries now.`);
-    if (my >= 3) pool.push(`${T.name} piling on pressure — ${my} D entries.`);
-    if (my >= 4 && goals(team) === 0) pool.push(`${T.name} knocking on the door with ${my} D entries but can't find the breakthrough.`);
-    if (oq > 0) pool.push(`${T.name} converting ${Math.round(my / oq * 100)}% of Opp Quarter entries into D penetrations.`);
-    if (shots(team) > 0 && goals(team) === 0) pool.push(`${T.name} have ${shots(team)} shots but nothing to show for it yet.`);
-    if (my > oppD + 2) pool.push(`${T.name} dominating the attacking play — ${my} D entries to ${opp.name}'s ${oppD}.`);
+    if (my === 1) pool.push(`${teamShortName(T)} penetrate the D for the first time.`);
+    if (my >= 2) pool.push(`${teamShortName(T)} enter the D again ${side}. That's ${my} entries now.`);
+    if (my >= 3) pool.push(`${teamShortName(T)} piling on pressure — ${my} D entries.`);
+    if (my >= 4 && goals(team) === 0) pool.push(`${teamShortName(T)} knocking on the door with ${my} D entries but can't find the breakthrough.`);
+    if (oq > 0) pool.push(`${teamShortName(T)} converting ${Math.round(my / oq * 100)}% of Opp Quarter entries into D penetrations.`);
+    if (shots(team) > 0 && goals(team) === 0) pool.push(`${teamShortName(T)} have ${shots(team)} shots but nothing to show for it yet.`);
+    if (my > oppD + 2) pool.push(`${teamShortName(T)} dominating the attacking play — ${my} D entries to ${teamShortName(opp)}'s ${oppD}.`);
 
     // Momentum narratives
-    if (recTeam >= 7) pool.push(`${T.name} are on the front foot — dominating recent play.`);
-    if (oppD === 0 && my >= 2) pool.push(`All one-way traffic. ${opp.name} yet to threaten the D.`);
+    if (recTeam >= 7) pool.push(`${teamShortName(T)} are on the front foot — dominating recent play.`);
+    if (oppD === 0 && my >= 2) pool.push(`All one-way traffic. ${teamShortName(opp)} yet to threaten the D.`);
   }
 
   // ── GOAL ──
@@ -55,44 +56,44 @@ export function generateInsight(team, event, allEvents, teams) {
     const sc = real.filter(e => e.team === team && e.event === "Short Corner").length;
     const scg = real.filter(e => e.team === team && e.event === "Goal! (SC)").length;
 
-    if (event === "Goal! (SC)") pool.push(`${T.name} convert from short corner! ${scg} from ${sc} (${sc > 0 ? Math.round(scg / sc * 100) : 0}%).`);
-    if (g === 1 && og === 0) pool.push(`${T.name} break the deadlock!`);
-    else if (g === og) pool.push(`${T.name} level it up! Game on.`);
-    else if (g === og + 1) pool.push(`${T.name} edge ahead ${g}-${og}!`);
-    else if (g > og + 1) pool.push(`${T.name} pulling away now — ${g}-${og}.`);
-    if (dEn(team) > 0) pool.push(`Clinical from ${T.name} — converting ${Math.round(g / dEn(team) * 100)}% of D entries into goals.`);
+    if (event === "Goal! (SC)") pool.push(`${teamShortName(T)} convert from short corner! ${scg} from ${sc} (${sc > 0 ? Math.round(scg / sc * 100) : 0}%).`);
+    if (g === 1 && og === 0) pool.push(`${teamShortName(T)} break the deadlock!`);
+    else if (g === og) pool.push(`${teamShortName(T)} level it up! Game on.`);
+    else if (g === og + 1) pool.push(`${teamShortName(T)} edge ahead ${g}-${og}!`);
+    else if (g > og + 1) pool.push(`${teamShortName(T)} pulling away now — ${g}-${og}.`);
+    if (dEn(team) > 0) pool.push(`Clinical from ${teamShortName(T)} — converting ${Math.round(g / dEn(team) * 100)}% of D entries into goals.`);
 
     // Match state narratives
-    if (g >= 3 && og === 0) pool.push(`Dominant display from ${T.name}. ${opp.name} have no answer.`);
+    if (g >= 3 && og === 0) pool.push(`Dominant display from ${teamShortName(T)}. ${teamShortName(opp)} have no answer.`);
     if (g === og && g >= 2) pool.push(`What a contest! ${g}-${og} — everything to play for.`);
   }
 
   // ── TURNOVER WON ──
   if (event === "Turnover Won") {
     const myTO = to(team), oppTO = to(otherTeam(team));
-    if (myTO === 1) pool.push(`${T.name} win it back — good pressing.`);
-    if (myTO >= 2) pool.push(`${T.name} win possession again — ${myTO} turnovers won. The press is working.`);
-    if (myTO >= 3) pool.push(`Relentless from ${T.name} — ${myTO} turnovers. ${opp.name} can't hold on to the ball.`);
-    if (myTO > oppTO + 2) pool.push(`${T.name} winning the battle for possession — ${myTO} turnovers to ${opp.name}'s ${oppTO}.`);
+    if (myTO === 1) pool.push(`${teamShortName(T)} win it back — good pressing.`);
+    if (myTO >= 2) pool.push(`${teamShortName(T)} win possession again — ${myTO} turnovers won. The press is working.`);
+    if (myTO >= 3) pool.push(`Relentless from ${teamShortName(T)} — ${myTO} turnovers. ${teamShortName(opp)} can't hold on to the ball.`);
+    if (myTO > oppTO + 2) pool.push(`${teamShortName(T)} winning the battle for possession — ${myTO} turnovers to ${teamShortName(opp)}'s ${oppTO}.`);
 
     // Defensive narratives
     const oppDentries = dEn(otherTeam(team));
-    if (oppDentries <= 1 && real.length > 15) pool.push(`${T.name}'s defence is rock solid — ${opp.name} barely getting into the D.`);
+    if (oppDentries <= 1 && real.length > 15) pool.push(`${teamShortName(T)}'s defence is rock solid — ${teamShortName(opp)} barely getting into the D.`);
   }
 
   // ── SHORT CORNER ──
   if (event === "Short Corner") {
     const sc = real.filter(e => e.team === team && e.event === "Short Corner").length;
     const de = dEn(team);
-    if (sc === 1) pool.push(`${T.name} earn their first short corner.`);
-    else pool.push(`Short corner #${sc} for ${T.name}. The pressure builds.`);
-    if (de > 0) pool.push(`${T.name} earning SCs from ${Math.round(sc / de * 100)}% of D entries.`);
-    if (sc >= 3 && goals(team) === 0) pool.push(`${T.name} with ${sc} short corners but haven't converted yet — set piece conversion needs work.`);
+    if (sc === 1) pool.push(`${teamShortName(T)} earn their first short corner.`);
+    else pool.push(`Short corner #${sc} for ${teamShortName(T)}. The pressure builds.`);
+    if (de > 0) pool.push(`${teamShortName(T)} earning SCs from ${Math.round(sc / de * 100)}% of D entries.`);
+    if (sc >= 3 && goals(team) === 0) pool.push(`${teamShortName(T)} with ${sc} short corners but haven't converted yet — set piece conversion needs work.`);
   }
 
   // ── PENALTY ──
   if (event === "Penalty") {
-    pool.push(`Penalty! ${T.name} have a golden opportunity.`);
+    pool.push(`Penalty! ${teamShortName(T)} have a golden opportunity.`);
   }
 
   // ── POSSESSION CONCEDED — add flow narratives ──
@@ -100,9 +101,9 @@ export function generateInsight(team, event, allEvents, teams) {
     const myPL = pl(team);
     const recentLosses = rec.filter(e => e.team === team && (e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out"))).length;
 
-    if (recentLosses >= 3) pool.push(`${T.name} losing the ball too often — ${recentLosses} turnovers in the last few minutes.`);
-    if (teamPoss < 40 && real.length > 15) pool.push(`${opp.name} controlling possession — ${T.name} under pressure.`);
-    if (teamPoss > 55 && real.length > 15 && goals(team) === 0) pool.push(`${T.name} have the ball but can't turn possession into goals.`);
+    if (recentLosses >= 3) pool.push(`${teamShortName(T)} losing the ball too often — ${recentLosses} turnovers in the last few minutes.`);
+    if (teamPoss < 40 && real.length > 15) pool.push(`${teamShortName(opp)} controlling possession — ${teamShortName(T)} under pressure.`);
+    if (teamPoss > 55 && real.length > 15 && goals(team) === 0) pool.push(`${teamShortName(T)} have the ball but can't turn possession into goals.`);
 
     // Evenly matched narrative
     const possDiff = Math.abs(hPct - 50);
@@ -114,13 +115,13 @@ export function generateInsight(team, event, allEvents, teams) {
     const oppDefEvents = defE(otherTeam(team));
     const myAttackEvents = oqE(team);
     if (myAttackEvents > oppDefEvents + 3 && real.length > 15) {
-      pool.push(`${T.name} spending most of their time in ${opp.name}'s half. The attacking intent is clear.`);
+      pool.push(`${teamShortName(T)} spending most of their time in ${teamShortName(opp)}'s half. The attacking intent is clear.`);
     }
     if (recOpp >= 7 && recTeam <= 3) {
-      pool.push(`${opp.name} building momentum — ${T.name} need to weather this spell.`);
+      pool.push(`${teamShortName(opp)} building momentum — ${teamShortName(T)} need to weather this spell.`);
     }
     if (recTeam >= 7 && recOpp <= 3) {
-      pool.push(`${T.name} in the ascendancy — controlling the recent play.`);
+      pool.push(`${teamShortName(T)} in the ascendancy — controlling the recent play.`);
     }
   }
 

@@ -1,5 +1,6 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js';
 import { logAudit, logAuditAs } from './audit.js';
+import { teamSlug } from './teams.js';
 
 // Sign in with username or email
 export async function signIn(usernameOrEmail, password) {
@@ -258,7 +259,7 @@ export async function listUsersByRole(role) {
 export async function getCoachTeams(coachId) {
   const { data, error } = await supabase
     .from('coach_teams')
-    .select('team_id, teams(id, name, color, short_name)')
+    .select('team_id, teams(id, name, color, short_name, institution:institutions(*))')
     .eq('coach_id', coachId);
   if (error) return [];
   return data.map(d => d.teams);
@@ -268,7 +269,7 @@ export async function getCoachTeams(coachId) {
 export async function getAllCoachTeams() {
   const { data, error } = await supabase
     .from('coach_teams')
-    .select('coach_id, team_id, teams(id, name, color, short_name)');
+    .select('coach_id, team_id, teams(id, name, color, short_name, institution:institutions(*))');
   if (error) return [];
   return data;
 }
@@ -299,9 +300,13 @@ export async function removeCoachTeam(coachId, teamId) {
 export async function isCoachForTeam(userId, teamSlug) {
   const { data } = await supabase
     .from('coach_teams')
-    .select('team_id, teams!inner(name)')
+    .select('team_id, teams!inner(name, institution:institutions(name))')
     .eq('coach_id', userId);
   if (!data || data.length === 0) return false;
-  const slugify = (n) => n.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-  return data.some(d => slugify(d.teams.name) === teamSlug);
+  // slugify: use teamSlug from teams.js
+  return data.some(d => {
+    // Match on institution name slug (post-migration) or team name slug (pre-migration fallback)
+    const instName = d.teams.institution?.name;
+    return (instName && slugify(instName) === teamSlug) || slugify(d.teams.name) === teamSlug;
+  });
 }

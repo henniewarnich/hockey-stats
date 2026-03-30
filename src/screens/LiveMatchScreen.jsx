@@ -13,6 +13,7 @@ import CoachLiveScreen from './CoachLiveScreen.jsx';
 import DPopup from '../components/DPopup.jsx';
 import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
+import { teamColor, teamDisplayName, teamShortName, teamSlug } from '../utils/teams.js';
 
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
@@ -167,7 +168,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     if (!running || showRestart || !possession) return;
     if (ballPos?.type === "d") { setShowDPopup({ end: ballPos.end }); return; }
     const other = otherTeam(possession);
-    addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teams[other].name} won possession`);
+    addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teamShortName(teams[other])} won possession`);
     setPossession(other);
     showToast({ type: 'turnover', buttons: [
       { label: '🏑 Free Hit', event: 'Free Hit', color: '#10B981' },
@@ -183,11 +184,11 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     const { end, lastShot } = showDPopup;
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
     const defendingTeam = otherTeam(attackingTeam);
-    const dLabel = `${teams[defendingTeam].name} D`;
+    const dLabel = `${teamShortName(teams[defendingTeam])} D`;
 
     // Shot on/off: log event but keep popup open for follow-up
     if (opt.id === "shot_on" || opt.id === "shot_off") {
-      addLog(attackingTeam, opt.label, dLabel, `${teams[attackingTeam].name}: ${opt.label} in ${dLabel}`);
+      addLog(attackingTeam, opt.label, dLabel, `${teamShortName(teams[attackingTeam])}: ${opt.label} in ${dLabel}`);
       setShowDPopup({ end, lastShot: opt });
       return;
     }
@@ -199,9 +200,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       const fromSC = lastSC && !btw.some(e => e.event === "Start" || e.event.startsWith("Goal!") || (e.event === "Turnover Won" && e.team === defendingTeam));
       // Only auto-log shot if no shot was already recorded in this D sequence
       if (!lastShot) {
-        addLog(attackingTeam, "Shot on Goal", dLabel, `${teams[attackingTeam].name} shot on goal`);
+        addLog(attackingTeam, "Shot on Goal", dLabel, `${teamShortName(teams[attackingTeam])} shot on goal`);
       }
-      addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teams[attackingTeam].name} scored from short corner!` : `${teams[attackingTeam].name} scored!`);
+      addLog(attackingTeam, fromSC ? "Goal! (SC)" : "Goal!", dLabel, fromSC ? `${teamShortName(teams[attackingTeam])} scored from short corner!` : `${teamShortName(teams[attackingTeam])} scored!`);
       setScore(prev => {
         const newScore = { ...prev, [attackingTeam]: prev[attackingTeam] + 1 };
         if (liveMatchId && !isDemo && !isVideoReview) updateLiveScore(liveMatchId, newScore.home, newScore.away).catch(() => {});
@@ -209,31 +210,31 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       });
       setPossession(null); setBallPos(null); setPrevBallPos(null); setShowRestart(true);
     } else if (opt.id === "lost_poss") {
-      addLog(attackingTeam, "Poss Conceded", dLabel, `${teams[attackingTeam].name} lost possession in ${dLabel}`);
+      addLog(attackingTeam, "Poss Conceded", dLabel, `${teamShortName(teams[attackingTeam])} lost possession in ${dLabel}`);
       setPossession(defendingTeam);
     } else if (opt.id === "short_corner") {
-      addLog(attackingTeam, "Short Corner", dLabel, `${teams[attackingTeam].name}: Short Corner in ${dLabel}`);
+      addLog(attackingTeam, "Short Corner", dLabel, `${teamShortName(teams[attackingTeam])}: Short Corner in ${dLabel}`);
       setPrevBallPos(ballPos); setBallPos({ type: "sc", end });
     } else if (opt.id === "dead_ball") {
-      addLog(defendingTeam, "Dead Ball", dLabel, `Dead ball in ${dLabel} — ${teams[defendingTeam].name} ball`);
+      addLog(defendingTeam, "Dead Ball", dLabel, `Dead ball in ${dLabel} — ${teamShortName(teams[defendingTeam])} ball`);
       setPossession(defendingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
       setBallPos({ zoneId: outsideZone, pos: "centre" });
     } else if (opt.id === "penalty") {
-      addLog(attackingTeam, "Penalty", dLabel, `${teams[attackingTeam].name}: Penalty in ${dLabel}`);
+      addLog(attackingTeam, "Penalty", dLabel, `${teamShortName(teams[attackingTeam])}: Penalty in ${dLabel}`);
       setPossession(attackingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
       setBallPos({ zoneId: outsideZone, pos: "centre" });
     } else if (opt.id === "long_corner") {
-      addLog(attackingTeam, "Long Corner", dLabel, `${teams[attackingTeam].name}: Long Corner at ${dLabel}`);
+      addLog(attackingTeam, "Long Corner", dLabel, `${teamShortName(teams[attackingTeam])}: Long Corner at ${dLabel}`);
       setPossession(attackingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
       setBallPos({ zoneId: outsideZone, pos: "centre" });
     } else {
-      addLog(attackingTeam, opt.label, dLabel, `${teams[attackingTeam].name}: ${opt.label} in ${dLabel}`);
+      addLog(attackingTeam, opt.label, dLabel, `${teamShortName(teams[attackingTeam])}: ${opt.label} in ${dLabel}`);
     }
     setShowDPopup(null);
   };
@@ -241,7 +242,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   // Restart from centre
   const handleRestart = (team) => {
     setSidelineOut(null);
-    addLog(team, "Start", "Centre", `${teams[team].name} takes centre pass`);
+    addLog(team, "Start", "Centre", `${teamShortName(teams[team])} takes centre pass`);
     setPossession(team); setPrevBallPos(null);
     setBallPos({ type: "centre", team }); setShowRestart(false); setShowTeamPicker(false);
     if (!running) timer.start();
@@ -382,9 +383,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             ⏸ {pauseReason}
           </div>
         ) : possession ? (
-          <div style={{ fontSize: 9, fontWeight: 700, color: teams[possession].color, background: teams[possession].color + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: teams[possession].color }} />
-            {teams[possession].name}
+          <div style={{ fontSize: 9, fontWeight: 700, color: teamColor(teams[possession]), background: teamColor(teams[possession]) + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: teamColor(teams[possession]) }} />
+            {teamShortName(teams[possession])}
           </div>
         ) : (
           <div style={{ fontSize: 9, fontWeight: 700, color: theme.textDimmer, padding: "2px 10px" }}>
@@ -485,7 +486,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }} onClick={() => setShowEndConfirm(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 16, padding: "20px 16px", width: 280, textAlign: "center" }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{isDemo ? "End Demo?" : isVideoReview ? "End Video Review?" : "End Match?"}</div>
-            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teams.home.name} {score.home} – {score.away} {teams.away.name}</div>
+            <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teamShortName(teams.home)} {score.home} – {score.away} {teamShortName(teams.away)}</div>
             <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 14 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events{isDemo ? " (will not be saved)" : ""}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
@@ -591,11 +592,11 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             </div>
 
             {[teams.home, teams.away].map(t => {
-              const slug = t.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+              const slug = teamSlug(t);
               const url = `${window.location.origin}${window.location.pathname}#/team/${slug}`;
               return (
-                <div key={t.name} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: t.color, marginBottom: 4 }}>📺 {t.name}</div>
+                <div key={teamDisplayName(t)} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: teamColor(t), marginBottom: 4 }}>📺 {teamDisplayName(t)}</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <div style={{
                       flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
@@ -606,7 +607,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                       navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
                     }} style={{
                       padding: "8px 14px", borderRadius: 8, background: t.color + "22",
-                      border: `1px solid ${t.color}44`, color: t.color,
+                      border: `1px solid ${t.color}44`, color: teamColor(t),
                       fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                     }}>📋 Copy</button>
                     <button onClick={() => window.open(url, '_blank')} style={{
@@ -623,7 +624,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             <div style={{ marginTop: 6, marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", marginBottom: 4 }}>🎙 Commentator Link</div>
               {(() => {
-                const slug = teams.home.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                const slug = teamSlug(teams.home);
                 const url = `${window.location.origin}${window.location.pathname}#/record/${slug}`;
                 return (
                   <div style={{ display: "flex", gap: 6 }}>
@@ -684,9 +685,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
       {/* Fixed possession indicator */}
       {possession && (
-        <div style={{ position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, background: "#0F172Aee", padding: "6px 16px", borderRadius: 99, border: `1px solid ${teams[possession].color}44` }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: teams[possession].color }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: theme.text }}>{teams[possession].name}</span>
+        <div style={{ position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, background: "#0F172Aee", padding: "6px 16px", borderRadius: 99, border: `1px solid ${teamColor(teams[possession])}44` }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: teamColor(teams[possession]) }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: theme.text }}>{teamShortName(teams[possession])}</span>
         </div>
       )}
     </div>

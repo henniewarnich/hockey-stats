@@ -4,6 +4,7 @@ import { fetchPending, approvePendingMatch, rejectPendingMatch, approvePendingTe
 import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLiveMatchRejected } from '../utils/credits.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import NavLogo from '../components/NavLogo.jsx';
+import { teamColor, teamDisplayName, teamShortName } from '../utils/teams.js';
 
 const ISSUE_TYPES = { inaccuracy: { label: 'Inaccuracy', color: '#F59E0B', bg: '#F59E0B22' }, bug: { label: 'Bug', color: '#EF4444', bg: '#EF444422' }, other: { label: 'Other', color: '#8B5CF6', bg: '#8B5CF622' } };
 const STATUS_MAP = { open: { label: 'Open', color: '#F59E0B', bg: '#F59E0B22' }, in_progress: { label: 'In progress', color: '#3B82F6', bg: '#3B82F622' }, resolved: { label: 'Resolved', color: '#10B981', bg: '#10B98122' } };
@@ -229,13 +230,13 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
                   }}>
                     {/* Teams + score */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 4, background: m.home_team?.color || '#64748B' }} />
-                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{m.home_team?.name || '?'}</div>
+                      <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(m.home_team) }} />
+                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamShortName(m.home_team) || '?'}</div>
                       {isResult && <div style={{ fontSize: 18, fontWeight: 900 }}>{m.home_score}</div>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 4, background: m.away_team?.color || '#64748B' }} />
-                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{m.away_team?.name || '?'}</div>
+                      <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(m.away_team) }} />
+                      <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{teamShortName(m.away_team) || '?'}</div>
                       {isResult && <div style={{ fontSize: 18, fontWeight: 900 }}>{m.away_score}</div>}
                     </div>
 
@@ -278,9 +279,9 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
                   background: '#1E293B', borderRadius: 10, padding: 12, marginBottom: 10,
                   border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 10,
                 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: t.color || '#64748B' }} />
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: teamColor(t) }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{t.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{teamDisplayName(t)}</div>
                     <div style={{ fontSize: 10, color: '#475569' }}>
                       Suggested by {submitterName(t.suggester)}
                     </div>

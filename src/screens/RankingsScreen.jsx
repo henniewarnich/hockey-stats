@@ -4,6 +4,7 @@ import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import { logAudit } from '../utils/audit.js';
 import NavLogo from '../components/NavLogo.jsx';
+import { TEAM_SELECT, teamColor, teamDisplayName } from '../utils/teams.js';
 
 export default function RankingsScreen({ onBack, currentUser }) {
   const [sets, setSets] = useState([]);
@@ -22,7 +23,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
     setLoading(true);
     const [{ data: allSets }, { data: allTeams }] = await Promise.all([
       supabase.from('ranking_sets').select('*, rankings(count)').order('ranking_date', { ascending: false }),
-      supabase.from('teams').select('*').order('name'),
+      supabase.from('teams').select(TEAM_SELECT).order('name'),
     ]);
     setSets(allSets || []);
     setTeams(allTeams || []);
@@ -158,9 +159,9 @@ export default function RankingsScreen({ onBack, currentUser }) {
                 borderRadius: 8,
                 border: isNew ? "1px solid #10B98133" : isChanged ? "1px solid #F59E0B33" : "1px solid #334155",
               }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: t.color || "#64748B", flexShrink: 0 }} />
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: teamColor(t), flexShrink: 0 }} />
                 <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>
-                  {t.name}
+                  {teamDisplayName(t)}
                   {isNew && <span style={{ fontSize: 8, marginLeft: 6, color: "#10B981", fontWeight: 700 }}>NEW</span>}
                   {isChanged && <span style={{ fontSize: 8, marginLeft: 6, color: "#F59E0B", fontWeight: 700 }}>CHANGED</span>}
                 </div>

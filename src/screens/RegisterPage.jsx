@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { registerCrowdUser } from '../utils/auth.js';
 import { fetchTeams } from '../utils/sync.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
 
 const SPORTS = [
   { id: 'hockey', label: 'Hockey', emoji: '🏑' },
@@ -89,7 +90,7 @@ export default function RegisterPage() {
   };
 
   const filteredTeams = teams.filter(t =>
-    t.name.toLowerCase().includes(teamSearch.toLowerCase())
+    teamMatchesSearch(t, teamSearch)
   );
 
   const inputStyle = (hasError) => ({
@@ -303,7 +304,7 @@ export default function RegisterPage() {
                           border: active ? '2px solid #F8FAFC' : '2px solid transparent',
                         }} />
                         <div style={{ fontSize: 12, color: active ? '#F8FAFC' : '#94A3B8', fontWeight: active ? 700 : 400, flex: 1 }}>
-                          {t.name}
+                          {teamDisplayName(t)}
                         </div>
                         {active && <span style={{ fontSize: 12, color: '#10B981' }}>✓</span>}
                       </div>
@@ -320,7 +321,7 @@ export default function RegisterPage() {
                           background: (t.color || '#64748B') + '33', color: t.color || '#94A3B8',
                           fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3,
                         }}>
-                          {t.name} ✕
+                          {teamDisplayName(t)} ✕
                         </span>
                       ) : null;
                     })}
