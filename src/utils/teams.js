@@ -45,7 +45,8 @@ export function teamDisplayName(team) {
   const inst = team.institution;
   const derived = teamDerivedName(team);
   if (inst) {
-    const label = inst.short_name || inst.name;
+    const label = inst.short_name || inst.name || '';
+    if (!label) return derived;
     const gender = (team.gender || 'Girls').toLowerCase();
     // If institution name ends with the gender word, skip gender from derived
     if (label.toLowerCase().endsWith(` ${gender}`) || label.toLowerCase() === gender) {
@@ -67,7 +68,7 @@ export function teamShortName(team) {
   const inst = team.institution;
   if (inst?.short_name) return inst.short_name;
   if (inst?.name) return inst.name;
-  return team.short_name || team.name;
+  return team.short_name || team.name || '?';
 }
 
 /**
