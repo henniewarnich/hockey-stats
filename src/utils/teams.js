@@ -17,28 +17,43 @@ export const MATCH_HOME_TEAM = 'home_team:teams!home_team_id(*, institution:inst
 export const MATCH_AWAY_TEAM = 'away_team:teams!away_team_id(*, institution:institutions(*))';
 
 // Short match joins (for issues, sponsors, etc):
-export const MATCH_HOME_TEAM_NAME = 'home_team:teams!home_team_id(id, name, institution:institutions(id, name, short_name))';
-export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, name, institution:institutions(id, name, short_name))';
+export const MATCH_HOME_TEAM_NAME = 'home_team:teams!home_team_id(id, name, gender, age_group, sport, institution:institutions(id, name, short_name))';
+export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, name, gender, age_group, sport, institution:institutions(id, name, short_name))';
+
+// ── DERIVED NAME ──────────────────────────────────────
+
+/**
+ * Derive team name from gender + sport + age_group
+ * e.g. "Girls Hockey U18", "Boys Rugby U16"
+ */
+export function teamDerivedName(team) {
+  if (!team) return 'Unknown';
+  const g = team.gender || 'Girls';
+  const s = team.sport || 'Hockey';
+  const a = team.age_group || '1st';
+  return `${g} ${s} ${a}`;
+}
 
 // ── DISPLAY FUNCTIONS ─────────────────────────────────
 
 /**
- * Full display name: "Paarl Girls High Girls Hockey 1st"
- * Used in: team page headers, full listings
+ * Full display name: "Paarl Girls Girls Hockey U18"
+ * Used in: team page headers, full listings, match cards
  */
 export function teamDisplayName(team) {
   if (!team) return 'Unknown';
   const inst = team.institution;
+  const derived = teamDerivedName(team);
   if (inst) {
-    return `${inst.short_name || inst.name} ${team.name}`;
+    return `${inst.short_name || inst.name} ${derived}`;
   }
   // Fallback for pre-migration data
-  return team.team_description || team.name;
+  return team.team_description || derived;
 }
 
 /**
  * Short display name: "PG" or "Paarl Girls"
- * Used in: scoreboards, match cards, compact views
+ * Used in: scoreboards, prediction buttons, compact views
  */
 export function teamShortName(team) {
   if (!team) return '?';
@@ -50,7 +65,6 @@ export function teamShortName(team) {
 
 /**
  * Initial letter(s) for avatar badges
- * Uses institution short_name first char, then institution name first char
  */
 export function teamInitial(team) {
   if (!team) return '?';
@@ -61,7 +75,7 @@ export function teamInitial(team) {
 }
 
 /**
- * Team color — prefers institution color, falls back to team.color
+ * Team color — always from institution
  */
 export function teamColor(team) {
   if (!team) return '#1D4ED8';
@@ -70,7 +84,6 @@ export function teamColor(team) {
 
 /**
  * Generate URL slug from institution name
- * e.g. "Paarl Girls High" → "paarl-girls-high"
  */
 export function teamSlug(team) {
   if (!team) return '';
@@ -80,8 +93,7 @@ export function teamSlug(team) {
 }
 
 /**
- * Search-friendly string — matches against institution name, short_name,
- * other_names, and team name. Returns lowercase for comparison.
+ * Search-friendly string — matches against institution + team fields
  */
 export function teamSearchString(team) {
   if (!team) return '';
@@ -89,8 +101,8 @@ export function teamSearchString(team) {
   const parts = [
     inst?.name,
     inst?.short_name,
-    inst?.other_names,  // comma-separated aliases
-    team.name,
+    inst?.other_names,
+    teamDerivedName(team),
     team.team_description,
   ].filter(Boolean);
   return parts.join(' ').toLowerCase();
@@ -108,7 +120,6 @@ export function teamMatchesSearch(team, query) {
 
 /**
  * Full team object for display — convenience wrapper
- * Returns { displayName, shortName, initial, color, slug }
  */
 export function getTeamDisplay(team) {
   return {
@@ -122,7 +133,6 @@ export function getTeamDisplay(team) {
 
 /**
  * Format a match's team names for display
- * e.g. "PG vs Bloemhof" (short) or "Paarl Girls High vs Bloemhof" (full)
  */
 export function matchDisplayNames(match, short = false) {
   const home = short ? teamShortName(match.home_team) : teamDisplayName(match.home_team);

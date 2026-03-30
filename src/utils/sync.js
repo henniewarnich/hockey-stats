@@ -2,7 +2,7 @@ import { supabase } from './supabase.js';
 import { logAudit } from './audit.js';
 import { computeStats, computeSCOutcomes, getQuarters } from './stats.js';
 import { predictMatch } from './predict.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamShortName } from './teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamDerivedName, teamShortName } from './teams.js';
 
 // ─── TEAMS ───────────────────────────────────────────
 
@@ -16,18 +16,22 @@ export async function fetchTeams() {
 }
 
 export async function upsertTeam(team) {
-  // Map local team format to Supabase format
+  const gender = team.gender || 'Girls';
+  const sport = team.sport || 'Hockey';
+  const age_group = team.age_group || '1st';
+  const derivedName = `${gender} ${sport} ${age_group}`;
+
   const row = {
-    name: team.name?.trim() || 'Girls Hockey 1st',
-    color: team.color,
+    name: derivedName,
+    color: team.institution?.color || team.color || '#1D4ED8',
     short_name: team.short_name || null,
     school: team.school || false,
     coach_pin: team.coach_pin || null,
     commentator_pin: team.commentator_pin || null,
     institution_id: team.institution_id || null,
-    gender: team.gender || 'Girls',
-    age_group: team.age_group || 'U18',
-    sport: team.sport || 'Hockey',
+    gender,
+    age_group,
+    sport,
   };
 
   if (team.supabase_id || team.id) {

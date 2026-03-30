@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
-import { teamColor, teamDisplayName, teamInitial, teamMatchesSearch } from '../utils/teams.js';
+import { teamColor, teamDisplayName, teamDerivedName, teamInitial, teamMatchesSearch } from '../utils/teams.js';
 import { fetchInstitutions } from '../utils/sync.js';
 
 const GENDERS = ['Girls', 'Boys'];
-const AGE_GROUPS = ['U14', 'U16', 'U18'];
+const AGE_GROUPS = ['U14', 'U16', '1st'];
 const SPORTS = ['Hockey', 'Rugby', 'Netball'];
 
 export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareLink }) {
@@ -15,9 +14,7 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
   const [institutions, setInstitutions] = useState([]);
   const [instSearch, setInstSearch] = useState("");
 
-  useEffect(() => {
-    fetchInstitutions().then(setInstitutions);
-  }, []);
+  useEffect(() => { fetchInstitutions().then(setInstitutions); }, []);
 
   const sorted = [...teams].sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)));
   const filtered = search.trim() ? sorted.filter(t => teamMatchesSearch(t, search)) : sorted;
@@ -33,8 +30,7 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
         </div>
         <div style={S.page}>
           <button style={S.btn(theme.accent, theme.bg)} onClick={() => setEditing({
-            name: 'Girls Hockey 1st', color: TEAM_COLORS[0].hex,
-            gender: 'Girls', age_group: 'U18', sport: 'Hockey',
+            gender: 'Girls', age_group: '1st', sport: 'Hockey',
             institution_id: null, institution: null,
           })}>
             + Add Team
@@ -54,12 +50,12 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 16, fontWeight: 800, color: "#fff",
                   }}>
-                    {teamInitial(t).toUpperCase()}
+                    {teamInitial(t)}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{teamDisplayName(t)}</div>
                     <div style={{ fontSize: 9, color: theme.textDim, marginTop: 1 }}>
-                      {t.gender || 'Girls'} · {t.age_group || 'U18'} · {t.sport || 'Hockey'}
+                      {t.institution?.name || 'No institution'}
                     </div>
                   </div>
                   {getShareLink && (
@@ -83,8 +79,9 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
 
   // ── EDIT VIEW ──
   const selectedInst = editing?.institution || institutions.find(i => i.id === editing?.institution_id);
-  const instColor = selectedInst?.color || editing?.color || TEAM_COLORS[0].hex;
-  const previewName = (selectedInst?.short_name || selectedInst?.name || '?') + ' ' + (editing?.name || 'Team Name');
+  const instColor = selectedInst?.color || '#1D4ED8';
+  const derivedName = teamDerivedName(editing);
+  const previewName = (selectedInst?.short_name || selectedInst?.name || '?') + ' ' + derivedName;
   const filteredInst = instSearch.trim()
     ? institutions.filter(i => {
         const q = instSearch.toLowerCase();
@@ -94,14 +91,13 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
 
   const save = () => {
     if (!editing?.institution_id) return alert('Please select an institution');
-    if (!editing?.name?.trim()) return;
-    onSave(editing);
+    onSave({ ...editing, name: derivedName, color: instColor });
     setEditing(null);
     setInstSearch("");
   };
 
   const selectInst = (inst) => {
-    setEditing(p => ({ ...p, institution_id: inst.id, institution: inst, color: inst.color }));
+    setEditing(p => ({ ...p, institution_id: inst.id, institution: inst }));
     setInstSearch(inst.name);
   };
 
@@ -109,6 +105,22 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
     setEditing(p => ({ ...p, institution_id: null, institution: null }));
     setInstSearch("");
   };
+
+  const Pill = ({ label, options, value, onChange }) => (
+    <div style={{ flex: 1 }}>
+      <label style={{ ...S.label, fontSize: 9 }}>{label}</label>
+      <div style={{ display: 'flex', gap: 3 }}>
+        {options.map(o => (
+          <button key={o} onClick={() => onChange(o)} style={{
+            flex: 1, padding: '8px 2px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+            border: value === o ? `2px solid ${instColor}` : '1px solid #334155',
+            background: value === o ? instColor + '22' : '#0B0F1A',
+            color: value === o ? '#F8FAFC' : '#64748B', cursor: 'pointer',
+          }}>{o}</button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div style={S.app}>
@@ -120,7 +132,7 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
       <div style={S.page}>
         {/* Institution picker */}
         <div style={{ marginBottom: 16 }}>
-          <label style={S.label}>Institution (School / Club)</label>
+          <label style={S.label}>Institution</label>
           {selectedInst ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, background: '#1E293B', border: `1px solid ${instColor}44` }}>
               <div style={{ width: 28, height: 28, borderRadius: 6, background: instColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>
@@ -134,8 +146,7 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
             </div>
           ) : (
             <>
-              <input style={S.input} value={instSearch} onChange={e => setInstSearch(e.target.value)}
-                placeholder="Search institutions..." />
+              <input style={S.input} value={instSearch} onChange={e => setInstSearch(e.target.value)} placeholder="Search institutions..." />
               {instSearch.trim().length >= 1 && (
                 <div style={{ maxHeight: 160, overflowY: 'auto', borderRadius: 6, border: '1px solid #1E293B', marginTop: 4 }}>
                   {filteredInst.map(i => (
@@ -144,8 +155,8 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
                       <div style={{ width: 20, height: 20, borderRadius: 4, background: i.color || '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff' }}>
                         {(i.short_name || i.name || '?').charAt(0)}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600 }}>{i.name}</div>
+                      <div>
+                        <span style={{ fontWeight: 600 }}>{i.name}</span>
                         {i.short_name && <span style={{ fontSize: 9, color: '#64748B', marginLeft: 4 }}>({i.short_name})</span>}
                       </div>
                     </div>
@@ -159,55 +170,14 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
           )}
         </div>
 
-        {/* Team Name */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={S.label}>Team Name</label>
-          <input style={S.input} value={editing?.name || ""}
-            onChange={e => setEditing(p => ({ ...p, name: e.target.value }))}
-            placeholder="e.g. Girls Hockey 1st" />
-        </div>
-
-        {/* Gender / Age Group / Sport — row of dropdowns */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <div style={{ flex: 1 }}>
-            <label style={S.label}>Gender</label>
-            <select style={{ ...S.input, cursor: 'pointer' }} value={editing?.gender || 'Girls'}
-              onChange={e => setEditing(p => ({ ...p, gender: e.target.value }))}>
-              {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={S.label}>Age Group</label>
-            <select style={{ ...S.input, cursor: 'pointer' }} value={editing?.age_group || 'U18'}
-              onChange={e => setEditing(p => ({ ...p, age_group: e.target.value }))}>
-              {AGE_GROUPS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={S.label}>Sport</label>
-            <select style={{ ...S.input, cursor: 'pointer' }} value={editing?.sport || 'Hockey'}
-              onChange={e => setEditing(p => ({ ...p, sport: e.target.value }))}>
-              {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Colour override (optional — defaults to institution color) */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={S.label}>Colour (from institution)</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-            {TEAM_COLORS.map(c => (
-              <button key={c.id} onClick={() => setEditing(p => ({ ...p, color: c.hex }))} style={{
-                width: "100%", aspectRatio: "1", borderRadius: 10, background: c.hex,
-                border: (editing?.color || instColor) === c.hex ? "3px solid #F8FAFC" : "3px solid transparent",
-                cursor: "pointer", position: "relative",
-              }}>
-                {(editing?.color || instColor) === c.hex && (
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 800 }}>✓</div>
-                )}
-              </button>
-            ))}
-          </div>
+        {/* Gender / Age Group / Sport — pill selectors */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <Pill label="Gender" options={GENDERS} value={editing?.gender || 'Girls'}
+            onChange={v => setEditing(p => ({ ...p, gender: v }))} />
+          <Pill label="Age group" options={AGE_GROUPS} value={editing?.age_group || '1st'}
+            onChange={v => setEditing(p => ({ ...p, age_group: v }))} />
+          <Pill label="Sport" options={SPORTS} value={editing?.sport || 'Hockey'}
+            onChange={v => setEditing(p => ({ ...p, sport: v }))} />
         </div>
 
         {/* Preview */}
@@ -220,17 +190,17 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
             margin: "0 auto 8px", display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 22, fontWeight: 800, color: "#fff",
           }}>
-            {(selectedInst?.short_name || selectedInst?.name || editing?.name || "T").charAt(0).toUpperCase()}
+            {(selectedInst?.short_name || selectedInst?.name || '?').charAt(0).toUpperCase()}
           </div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: instColor }}>
-            {previewName}
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#F8FAFC' }}>
+            {selectedInst?.short_name || selectedInst?.name || '?'}
           </div>
-          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 4 }}>
-            {editing?.gender || 'Girls'} · {editing?.age_group || 'U18'} · {editing?.sport || 'Hockey'}
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+            {derivedName}
           </div>
         </div>
 
-        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: editing?.institution_id && editing?.name?.trim() ? 1 : 0.4 }} onClick={save}>
+        <button style={{ ...S.btn(theme.accent, theme.bg), opacity: editing?.institution_id ? 1 : 0.4 }} onClick={save}>
           {editing?.id ? "Save Changes" : "Create Team"}
         </button>
       </div>
