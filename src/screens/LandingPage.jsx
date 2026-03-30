@@ -13,7 +13,8 @@ import CoachDashboardPanel from '../components/CoachDashboardPanel.jsx';
 import CrowdDashboardPanel from '../components/CrowdDashboardPanel.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import { predictMatch } from '../utils/predict.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug } from '../utils/teams.js';
+import { teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug, teamColor, teamDerivedName, TEAM_SELECT, MATCH_HOME_TEAM, MATCH_AWAY_TEAM } from '../utils/teams.js';
+import FilterBar, { matchPassesFilter, teamPassesFilter } from '../components/FilterBar.jsx';
 
 export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
@@ -25,7 +26,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
   const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
-  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
+  const [filters, setFilters] = useState({ sport: 'Hockey', gender: 'Girls', age: '1st' });
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
   const [showResults, setShowResults] = useState(20);
@@ -326,9 +327,13 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     });
   });
 
-  const filteredTeams = search.trim()
-    ? teams.filter(t => teamMatchesSearch(t, search)).sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
-    : recentTeamIds.map(id => teams.find(t => t.id === id)).filter(Boolean);
+  const filteredTeams = (() => {
+    let list = teams.filter(t => teamPassesFilter(t, filters));
+    if (search.trim()) {
+      list = list.filter(t => teamMatchesSearch(t, search));
+    }
+    return list.sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)));
+  })();
 
   // teamSlug imported from teams.js
 
@@ -465,10 +470,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           </div>
         </div>
 
-        {/* Search + sport picker (hidden on dashboard tab) */}
+        {/* Search + filters (hidden on dashboard tab) */}
         {activeTab !== "dashboard" && (
         <div style={{ padding: "0 16px 8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
             <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
             <input
               style={styles.searchInput}
@@ -479,39 +484,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             {search && (
               <button onClick={() => { setSearch(""); setShowUpcoming(20); setShowResults(20); }} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
             )}
-            <div onClick={(e) => { e.stopPropagation(); setSportDropdownOpen(p => !p); }} style={{
-              display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 6,
-              border: "1px solid #334155", background: "#0B0F1A", cursor: "pointer", flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 12 }}>🏑</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B" }}>Hockey</span>
-              <span style={{ fontSize: 9, color: "#64748B" }}>▼</span>
-            </div>
-            {sportDropdownOpen && (
-              <div style={{
-                position: "absolute", top: 48, right: 0, width: 200, borderRadius: 8,
-                border: "1px solid #334155", background: "#1E293B", overflow: "hidden", zIndex: 10,
-              }}>
-                <div onClick={() => setSportDropdownOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", background: "#F59E0B11", cursor: "pointer" }}>
-                  <span style={{ fontSize: 13 }}>🏑</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Girls Hockey</span>
-                  <span style={{ fontSize: 10, color: "#10B981", marginLeft: "auto" }}>✓</span>
-                </div>
-                {[
-                  { icon: "🏑", label: "Boys Hockey" },
-                  { icon: "🏉", label: "Rugby" },
-                  { icon: "🏐", label: "Netball" },
-                  { icon: "🏏", label: "Cricket" },
-                ].map(s => (
-                  <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #334155", opacity: 0.45 }}>
-                    <span style={{ fontSize: 13 }}>{s.icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8" }}>{s.label}</span>
-                    <span style={{ fontSize: 9, color: "#64748B", marginLeft: "auto", fontWeight: 600, background: "#334155", padding: "2px 7px", borderRadius: 99 }}>Soon</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+          <FilterBar sport={filters.sport} gender={filters.gender} age={filters.age} onChange={setFilters} />
         </div>
         )}
       </div>
@@ -545,11 +519,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           {/* ═══ IN PROGRESS TAB ═══ */}
           {activeTab === "live" && (() => {
             const q = search.trim().toLowerCase();
-            const filtered = q ? allInProgress.filter(m =>
-              teamMatchesSearch(m.home_team, q) ||
-              teamMatchesSearch(m.away_team, q) ||
-              (m.venue || "").toLowerCase().includes(q)
-            ) : allInProgress;
+            const filtered = allInProgress.filter(m =>
+              matchPassesFilter(m, filters) &&
+              (!q || teamMatchesSearch(m.home_team, q) || teamMatchesSearch(m.away_team, q) || (m.venue || "").toLowerCase().includes(q))
+            );
 
             return (
             <div style={styles.section}>
@@ -659,11 +632,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             const inProgressIds = new Set(inProgressUpcoming.map(m => m.id));
             const notStarted = upcomingMatches.filter(m => !inProgressIds.has(m.id));
             const q = search.trim().toLowerCase();
-            const filtered = q ? notStarted.filter(m =>
-              teamMatchesSearch(m.home_team, q) ||
-              teamMatchesSearch(m.away_team, q) ||
-              (m.venue || "").toLowerCase().includes(q)
-            ) : notStarted;
+            const filtered = notStarted.filter(m =>
+              matchPassesFilter(m, filters) &&
+              (!q || teamMatchesSearch(m.home_team, q) || teamMatchesSearch(m.away_team, q) || (m.venue || "").toLowerCase().includes(q))
+            );
             const LeaderboardSummary = () => {
               if (!currentUser || !leaderboard || leaderboard.length === 0) return null;
               const myEntry = leaderboard.find(l => l.user_id === currentUser.id);
@@ -893,7 +865,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           {/* ═══ RESULTS TAB ═══ */}
           {activeTab === "results" && (() => {
             const q = search.trim().toLowerCase();
-            const filtered = q ? (searchResults || []) : matches;
+            const base = q ? (searchResults || []) : matches;
+            const filtered = base.filter(m => matchPassesFilter(m, filters));
             const LeaderboardSummary = () => {
               if (!currentUser || !leaderboard || leaderboard.length === 0) return null;
               const myEntry = leaderboard.find(l => l.user_id === currentUser.id);
@@ -990,7 +963,19 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           })()}
 
           {/* ═══ TEAMS TAB ═══ */}
-          {activeTab === "teams" && (
+          {activeTab === "teams" && (() => {
+            // Group filtered teams by institution
+            const byInst = {};
+            filteredTeams.forEach(t => {
+              const instId = t.institution?.id || 'unknown';
+              if (!byInst[instId]) byInst[instId] = { institution: t.institution, teams: [] };
+              byInst[instId].teams.push(t);
+            });
+            const instGroups = Object.values(byInst).sort((a, b) =>
+              (a.institution?.name || '').localeCompare(b.institution?.name || '')
+            );
+
+            return (
             <div style={styles.section}>
               {filteredTeams.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 16, color: "#475569", fontSize: 12 }}>
@@ -998,24 +983,42 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   {!currentUser && !search.trim() && <div style={{ marginTop: 12 }}><button onClick={() => { window.location.hash = "#/register"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 600 }}>Register to add your team</button></div>}
                 </div>
               ) : (
-                filteredTeams.map(t => {
-                  const r = teamRecords[t.id];
-                  const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
-                  return (
-                    <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t)}`; }} style={styles.teamRow}>
-                      <div style={{ ...styles.teamDot, background: t.color }}>{teamInitial(t)}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={styles.teamName}>{teamDisplayName(t)} {(() => { const lr = latestRankings[t.id]; return lr ? <RankBadge rank={lr.rank} /> : null; })()}</div>
-                        {r ? (
-                          <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
-                        ) : (
-                          <div style={styles.teamRecord}>No matches yet</div>
-                        )}
+                instGroups.map(({ institution: inst, teams: instTeams }) => (
+                  <div key={inst?.id || 'unknown'} style={{ marginBottom: 12 }}>
+                    {/* Institution header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', marginBottom: 2 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 8, background: inst?.color || '#334155',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 14, fontWeight: 800, color: '#fff',
+                      }}>{(inst?.short_name || inst?.name || '?').charAt(0)}</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#F8FAFC' }}>{inst?.name || 'Unknown'}</div>
+                        {inst?.short_name && <div style={{ fontSize: 9, color: '#64748B' }}>{inst.short_name}</div>}
                       </div>
-                      <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                      {(() => { const rk = instTeams[0] ? latestRankings[instTeams[0].id] : null; return rk ? <RankBadge rank={rk.rank} /> : null; })()}
                     </div>
-                  );
-                })
+                    {/* Teams under this institution */}
+                    {instTeams.map(t => {
+                      const r = teamRecords[t.id];
+                      const winRate = r && r.p > 0 ? Math.round(r.w / r.p * 100) : 0;
+                      return (
+                        <div key={t.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t)}`; }}
+                          style={{ ...styles.teamRow, marginLeft: 42, borderLeft: `2px solid ${teamColor(t)}33`, paddingLeft: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1' }}>{teamDerivedName(t)}</div>
+                            {r ? (
+                              <div style={styles.teamRecord}>{r.p}P {r.w}W {r.d}D {r.l}L{winRate > 0 ? ` · ${winRate}%` : ""}</div>
+                            ) : (
+                              <div style={styles.teamRecord}>No matches yet</div>
+                            )}
+                          </div>
+                          <span style={{ color: "#334155", fontSize: 14 }}>›</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
               )}
               {currentUser && (
                 <div style={{ textAlign: "center", padding: "12px 0 4px", display: "flex", justifyContent: "center", gap: 8 }}>
@@ -1029,7 +1032,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
         </>
       )}
 
