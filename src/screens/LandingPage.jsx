@@ -326,7 +326,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   });
 
   const filteredTeams = search.trim()
-    ? teams.filter(t => teamMatchesSearch(t, search))
+    ? teams.filter(t => teamMatchesSearch(t, search)).sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)))
     : recentTeamIds.map(id => teams.find(t => t.id === id)).filter(Boolean);
 
   // teamSlug imported from teams.js

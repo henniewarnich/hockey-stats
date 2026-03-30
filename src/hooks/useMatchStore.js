@@ -174,30 +174,23 @@ export function useMatchStore() {
 
 // Merge local and remote teams (remote wins for name conflicts)
 function mergeTeams(local, remote) {
-  const merged = [...local];
-  for (const rt of remote) {
-    const existing = merged.find(t =>
-      t.supabase_id === rt.id ||
-      t.name.trim().toLowerCase() === rt.name.trim().toLowerCase()
+  // Remote is source of truth — start with full remote data (includes institution joins)
+  const merged = remote.map(rt => ({
+    ...rt,
+    supabase_id: rt.id,
+  }));
+
+  // Add any local-only teams (not yet in Supabase)
+  for (const lt of local) {
+    if (lt.supabase_id) continue; // already in remote
+    const inRemote = merged.find(t =>
+      t.id === lt.id || t.name.trim().toLowerCase() === lt.name.trim().toLowerCase()
     );
-    if (existing) {
-      existing.supabase_id = rt.id;
-      existing.color = rt.color;
-      existing.name = rt.name;
-      existing.coach_pin = rt.coach_pin || existing.coach_pin;
-      existing.commentator_pin = rt.commentator_pin || existing.commentator_pin;
-    } else {
-      merged.push({
-        id: rt.id,
-        supabase_id: rt.id,
-        name: rt.name,
-        color: rt.color,
-        school: rt.school,
-        coach_pin: rt.coach_pin,
-        commentator_pin: rt.commentator_pin,
-      });
+    if (!inRemote) {
+      merged.push(lt);
     }
   }
+
   return merged;
 }
 

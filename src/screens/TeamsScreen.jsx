@@ -8,9 +8,11 @@ export default function TeamsScreen({ teams, onSave, onDelete, onBack, getShareL
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
 
+  const sorted = [...teams].sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)));
+
   const filtered = search.trim()
-    ? teams.filter(t => teamMatchesSearch(t, search))
-    : teams;
+    ? sorted.filter(t => teamMatchesSearch(t, search))
+    : sorted;
 
   // ── LIST VIEW ──
   if (!editing) {
