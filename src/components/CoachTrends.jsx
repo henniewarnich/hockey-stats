@@ -93,6 +93,7 @@ function TrendChart({ data, label, color, suffix = "%" }) {
         <div style={{ background: "#0F172A", border: `1px solid ${color}44`, borderRadius: 6, padding: "4px 8px", marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 10, color: "#F8FAFC", fontWeight: 700 }}>
             {sel.value}{suffix}
+            {sel.detail && <span style={{ color: "#94A3B8", fontWeight: 400, marginLeft: 4, fontSize: 9 }}>({sel.detail})</span>}
             <span style={{ color: "#64748B", fontWeight: 400, marginLeft: 6, fontSize: 9 }}>
               vs {sel.opponent}
             </span>
@@ -155,9 +156,12 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
         label,
         opponent,
         atkToD: t.atkZoneEntries > 0 ? Math.round(t.dEntries / t.atkZoneEntries * 100) : 0,
+        atkToDDetail: t.atkZoneEntries > 0 ? `${t.dEntries}/${t.atkZoneEntries}` : null,
         hasAtkData: t.atkZoneEntries > 0,
         dToSC: t.dEntries > 0 ? Math.round(t.shortCorners / t.dEntries * 100) : 0,
+        dToSCDetail: t.dEntries > 0 ? `${t.shortCorners}/${t.dEntries}` : null,
         scToGoal: t.shortCorners > 0 ? Math.round((t.scGoals || 0) / t.shortCorners * 100) : 0,
+        scToGoalDetail: t.shortCorners > 0 ? `${t.scGoals || 0}/${t.shortCorners}` : null,
         possession: t.possessionTimePct != null ? t.possessionTimePct : t.territory || 0,
         territory: t.territoryTimePct != null ? t.territoryTimePct : t.territory || 0,
       };
@@ -177,16 +181,16 @@ export default function CoachTrends({ matches, matchStatsMap, teamId, teamColor 
 
       {hasAtkData && (
         <TrendChart
-          data={matchData.map(m => ({ label: m.label, value: m.atkToD, opponent: m.opponent }))}
+          data={matchData.map(m => ({ label: m.label, value: m.atkToD, opponent: m.opponent, detail: m.atkToDDetail }))}
           label="Attack → D Entry" color="#10B981" />
       )}
 
       <TrendChart
-        data={matchData.map(m => ({ label: m.label, value: m.dToSC, opponent: m.opponent }))}
+        data={matchData.map(m => ({ label: m.label, value: m.dToSC, opponent: m.opponent, detail: m.dToSCDetail }))}
         label="D Entry → Short Corner" color="#8B5CF6" />
 
       <TrendChart
-        data={matchData.map(m => ({ label: m.label, value: m.scToGoal, opponent: m.opponent }))}
+        data={matchData.map(m => ({ label: m.label, value: m.scToGoal, opponent: m.opponent, detail: m.scToGoalDetail }))}
         label="Short Corner → Goal" color="#F59E0B" />
 
       <TrendChart

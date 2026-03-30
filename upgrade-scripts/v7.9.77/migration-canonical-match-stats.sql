@@ -37,10 +37,14 @@ ALTER TABLE match_stats ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read match_stats" ON match_stats;
 CREATE POLICY "Public read match_stats" ON match_stats FOR SELECT USING (true);
 
--- Allow authenticated users to insert/update/delete (for archival)
+-- Separate insert/update/delete policies (FOR ALL conflicts with public SELECT in Supabase)
 DROP POLICY IF EXISTS "Auth write match_stats" ON match_stats;
-CREATE POLICY "Auth write match_stats" ON match_stats 
-  FOR ALL USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Auth insert match_stats" ON match_stats;
+DROP POLICY IF EXISTS "Auth update match_stats" ON match_stats;
+DROP POLICY IF EXISTS "Auth delete match_stats" ON match_stats;
+CREATE POLICY "Auth insert match_stats" ON match_stats FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Auth update match_stats" ON match_stats FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Auth delete match_stats" ON match_stats FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Clean slate: clear all pre-computed stats so Recompute rebuilds everything
 DELETE FROM match_stats;
