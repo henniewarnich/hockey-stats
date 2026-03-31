@@ -1061,7 +1061,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"} online
           </div>
         )}
-        <div style={{ fontSize: 10, color: "#334155" }}>kykie · v{APP_VERSION}</div>
+        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>kykie · v{APP_VERSION}</div>
       </div>
 
       {/* Score Entry Popup */}

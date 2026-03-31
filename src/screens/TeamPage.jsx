@@ -321,12 +321,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     // Fetch season records for both teams — separate try so it always runs
     try {
-      const bothIds = [m.home_team_id, m.away_team_id].filter(Boolean);
+      const bothIds = [m.home_team?.id || m.home_team_id, m.away_team?.id || m.away_team_id].filter(Boolean);
+      console.log('[matchDetail] bothIds:', bothIds, 'from match:', m.id);
       if (bothIds.length > 0) {
-        const { data: recData } = await supabase.from('matches')
+        const { data: recData, error: recErr } = await supabase.from('matches')
           .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
           .eq('status', 'ended')
           .or(bothIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
+        console.log('[matchDetail] recData rows:', recData?.length, 'error:', recErr);
         const detailRecs = {};
         (recData || []).forEach(rm => {
           bothIds.forEach(id => {
@@ -340,7 +342,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             if (o === 'W') detailRecs[id].w++; else if (o === 'D') detailRecs[id].d++; else detailRecs[id].l++;
           });
         });
+        console.log('[matchDetail] detailRecs:', JSON.stringify(detailRecs));
         setMatchDetailRecords(detailRecs);
+      } else {
+        console.warn('[matchDetail] No team IDs found on match:', m);
       }
     } catch (err) { console.error('matchDetailRecords fetch error:', err); }
     setLoadingEvents(false);
@@ -912,8 +917,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                         const rk = latestRankings[t?.id];
                         return (
                           <div key={t?.id || Math.random()} style={{
-                            flex: 1, background: "#0B0F1A", borderRadius: 8, padding: "8px 8px",
-                            border: isMine ? `1px solid ${teamColor(team)}44` : "1px solid #33415533",
+                            flex: 1, minWidth: 0, background: "#0B0F1A", borderRadius: 8, padding: "8px 8px",
+                            border: isMine ? `1px solid ${teamColor(team)}44` : "1px solid #33415533", overflow: "hidden",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, minWidth: 0 }}>
                               <div style={{
@@ -921,7 +926,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 fontSize: 7, fontWeight: 900, color: "#fff", flexShrink: 0,
                               }}>{teamInitial(t)}</div>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{teamDisplayName(t) || 'TBD'}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{teamDisplayName(t) || 'TBD'}</span>
                               {rk && <span style={{ fontSize: 8, color: "#10B981", flexShrink: 0 }}>#{rk.rank}</span>}
                             </div>
                             {r.p > 0 ? (
