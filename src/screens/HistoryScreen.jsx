@@ -14,48 +14,56 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
   const [penEdit, setPenEdit] = useState(null); // { id, home, away }
 
   // Fetch all ended + abandoned matches from Supabase
+  const fetchCloud = async () => {
+    const { data } = await supabase
+      .from('matches')
+      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+      .in('status', ['ended', 'abandoned'])
+      .order('match_date', { ascending: false });
+    if (data) {
+      const mapped = data.map(m => ({
+        id: m.id,
+        supabase_id: m.id,
+        date: m.match_date,
+        teams: {
+          home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
+          away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
+        },
+        homeScore: m.home_score,
+        awayScore: m.away_score,
+        duration: m.duration || 0,
+        matchLength: m.match_length || 60,
+        breakFormat: m.break_format || "quarters",
+        venue: m.venue,
+        matchType: m.match_type,
+        quickScore: !m.duration || m.duration === 0,
+        cloudOnly: true,
+        status: m.status,
+        homePenalty: m.home_penalty_score,
+        awayPenalty: m.away_penalty_score,
+      }));
+      setCloudMatches(mapped);
+    }
+    setLoadingCloud(false);
+  };
+
   useEffect(() => {
-    const fetchCloud = async () => {
-      const { data } = await supabase
-        .from('matches')
-        .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-        .in('status', ['ended', 'abandoned'])
-        .order('match_date', { ascending: false });
-      if (data) {
-        // Convert to the local game format
-        const mapped = data.map(m => ({
-          id: m.id,
-          supabase_id: m.id,
-          date: m.match_date,
-          teams: {
-            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
-            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
-          },
-          homeScore: m.home_score,
-          awayScore: m.away_score,
-          duration: m.duration || 0,
-          matchLength: m.match_length || 60,
-          breakFormat: m.break_format || "quarters",
-          venue: m.venue,
-          matchType: m.match_type,
-          quickScore: !m.duration || m.duration === 0,
-          cloudOnly: true,
-          status: m.status,
-          homePenalty: m.home_penalty_score,
-          awayPenalty: m.away_penalty_score,
-        }));
-        setCloudMatches(mapped);
-      }
-      setLoadingCloud(false);
-    };
     fetchCloud();
   }, []);
 
   // Merge local + cloud, deduplicate by supabase_id
   const allGames = useMemo(() => {
+    const cloudById = {};
+    cloudMatches.forEach(cm => { cloudById[cm.id] = cm; });
+    // Local games enhanced with cloud penalty/status data
+    const localEnhanced = games.map(g => {
+      const cloud = g.supabase_id ? cloudById[g.supabase_id] : null;
+      if (!cloud) return g;
+      return { ...g, homePenalty: cloud.homePenalty, awayPenalty: cloud.awayPenalty, status: cloud.status };
+    });
     const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
     const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
-    return [...games, ...cloudOnly];
+    return [...localEnhanced, ...cloudOnly];
   }, [games, cloudMatches]);
 
   const unsyncedCount = games.filter(g => !g.supabase_id).length;
@@ -94,7 +102,7 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
     if (!confirm(`${label} this match?`)) return;
     await supabase.from('matches').update({ status: newStatus }).eq('id', matchId);
     logAudit(newStatus === 'abandoned' ? 'match_abandoned' : 'match_restored', 'match', matchId);
-    setCloudMatches(prev => prev.map(x => x.id === matchId ? { ...x, status: newStatus } : x));
+    fetchCloud();
   };
 
   const savePenalty = async () => {
@@ -106,8 +114,8 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
       : { home_penalty_score: null, away_penalty_score: null };
     await supabase.from('matches').update(update).eq('id', id);
     logAudit('penalty_score_edit', 'match', id, update);
-    setCloudMatches(prev => prev.map(x => x.id === id ? { ...x, homePenalty: update.home_penalty_score, awayPenalty: update.away_penalty_score } : x));
     setPenEdit(null);
+    fetchCloud();
   };
 
   const handleSync = async () => {

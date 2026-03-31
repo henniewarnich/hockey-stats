@@ -172,6 +172,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [loadingStats, setLoadingStats] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
+  const [matchPredictions, setMatchPredictions] = useState(null); // { kykie, publicPreds } for selected match
 
   // Fetch opposition records for upcoming matches (coach scouting)
   useEffect(() => {
@@ -288,13 +289,23 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     setSelectedMatch(m);
     setLoadingEvents(true);
     setTotalViewers(null);
+    setMatchPredictions(null);
     try {
-      const [{ data: events }, { count }] = await Promise.all([
+      const [{ data: events }, { count }, { data: preds }] = await Promise.all([
         supabase.from('match_events').select('*').eq('match_id', m.id).order('seq', { ascending: false }),
         supabase.from('match_viewers').select('*', { count: 'exact', head: true }).eq('match_id', m.id),
+        supabase.from('predictions').select('user_id, prediction, correct, home_win_pct, draw_pct, away_win_pct').eq('match_id', m.id),
       ]);
       setSelectedEvents(events || []);
       setTotalViewers(count || 0);
+      // Parse predictions: Kykie = null user_id, public = all non-null
+      const kykie = (preds || []).find(p => !p.user_id);
+      const userPreds = (preds || []).filter(p => p.user_id);
+      const publicVotes = { home: 0, away: 0, draw: 0 };
+      userPreds.forEach(p => { if (publicVotes[p.prediction] != null) publicVotes[p.prediction]++; });
+      const totalVotes = userPreds.length;
+      const topVote = totalVotes > 0 ? Object.entries(publicVotes).sort((a, b) => b[1] - a[1])[0] : null;
+      setMatchPredictions({ kykie, publicVotes, totalVotes, topVote });
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
   };
@@ -950,10 +961,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                       {m.venue && ` · ${m.match_type ? (m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1)) + ' @ ' : ''}${m.venue}`}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
+                  <div style={{ textAlign: 'center', minWidth: 50 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "#F8FAFC" }}>{isHome ? m.home_score : m.away_score}–{isHome ? m.away_score : m.home_score}</div>
                     {m.home_penalty_score != null && m.away_penalty_score != null && (
-                      <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{isHome ? m.home_penalty_score : m.away_penalty_score}-{isHome ? m.away_penalty_score : m.home_penalty_score} pen</div>
+                      <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 800, background: '#F59E0B15', borderRadius: 4, padding: '1px 6px', marginTop: 2 }}>{isHome ? m.home_penalty_score : m.away_penalty_score}-{isHome ? m.away_penalty_score : m.home_penalty_score} pen</div>
+                    )}
+                    {m.status === 'abandoned' && (
+                      <div style={{ fontSize: 9, color: '#64748B', fontWeight: 700, marginTop: 2 }}>Abandoned</div>
                     )}
                   </div>
                   <span style={{ fontSize: 12, color: "#334155" }}>›</span>
@@ -968,13 +982,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {selectedMatch && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
           <div style={{ padding: "6px 14px 0" }}>
-            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
           </div>
           {/* Match scoreboard */}
           <div style={{ padding: "8px 14px 10px" }}>
             <div style={{ background: "#1E293B", borderRadius: 12, padding: "14px 12px", border: "1px solid #334155" }}>
               <div style={{ textAlign: "center", marginBottom: 4 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8" }}>FULL TIME</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: selectedMatch.status === 'abandoned' ? '#64748B' : '#94A3B8' }}>
+                  {selectedMatch.status === 'abandoned' ? 'MATCH ABANDONED' : 'FULL TIME'}
+                </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
@@ -987,6 +1003,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
+              {selectedMatch.home_penalty_score != null && selectedMatch.away_penalty_score != null && (
+                <div style={{ textAlign: "center", marginTop: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#F59E0B', background: '#F59E0B15', borderRadius: 6, padding: '3px 12px' }}>
+                    Penalties: {selectedMatch.home_penalty_score} – {selectedMatch.away_penalty_score}
+                  </span>
+                </div>
+              )}
               <div style={{ textAlign: "center", marginTop: 6, fontSize: 11, color: "#94A3B8" }}>
                 {parseSASTDate(selectedMatch.match_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                 {selectedMatch.venue && ` · ${selectedMatch.match_type ? (selectedMatch.match_type.charAt(0).toUpperCase() + selectedMatch.match_type.slice(1)) + ' @ ' : ''}${selectedMatch.venue}`}
@@ -1000,8 +1023,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           </div>
           {loadingEvents ? (
             <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading...</div>
-          ) : selectedEvents.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No event data for this match</div>
           ) : isCoach ? (
             <CoachLiveScreen
               embedded
@@ -1022,46 +1043,152 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             />
           ) : (
             <div style={{ padding: "0 14px 20px" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
-              {selectedEvents
-                .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
-                .sort((a, b) => (b.match_time || 0) - (a.match_time || 0) || (b.seq || 0) - (a.seq || 0))
-                .map((entry, i) => {
-                  const isMeta = entry.team === "meta";
-                  const isComm = entry.team === "commentary";
-                  const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedColors.homeColor || "#3B82F6") : (selectedColors.awayColor || "#EF4444");
-                  const mins = Math.floor((entry.match_time || 0) / 60);
-                  const isGoal = entry.event?.startsWith("Goal");
-                  const showReactions = isComm || isGoal || ["Short Corner", "Long Corner", "Penalty"].includes(entry.event);
+              {/* ── PUBLIC MATCH STATS ── */}
+              {(() => {
+                const stats = matchStatsMap[selectedMatch.id];
+                const hc = selectedColors.homeColor || '#3B82F6';
+                const ac = selectedColors.awayColor || '#10B981';
+                const isHome = selectedMatch.home_team?.id === team.id;
+                if (stats) {
+                  const home = isHome ? stats.team : stats.opp;
+                  const away = isHome ? stats.opp : stats.team;
+                  const rows = [
+                    { label: 'Territory', h: `${home.territoryTimePct ?? home.territory}%`, a: `${away.territoryTimePct ?? away.territory}%`, hv: home.territoryTimePct ?? home.territory, av: away.territoryTimePct ?? away.territory },
+                    { label: 'Possession', h: `${home.possessionTimePct ?? home.territory}%`, a: `${away.possessionTimePct ?? away.territory}%`, hv: home.possessionTimePct ?? home.territory, av: away.possessionTimePct ?? away.territory },
+                    { label: 'D Entries', h: home.dEntries, a: away.dEntries, hv: home.dEntries, av: away.dEntries },
+                    { label: 'Short Corners', h: home.shortCorners, a: away.shortCorners, hv: home.shortCorners, av: away.shortCorners },
+                    { label: 'Shots on Goal', h: home.shotsOn, a: away.shotsOn, hv: home.shotsOn, av: away.shotsOn },
+                    { label: 'Shots off Target', h: home.shotsOff, a: away.shotsOff, hv: home.shotsOff, av: away.shotsOff },
+                  ];
+                  return (<>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match stats</div>
+                    <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+                      {rows.map((r, i) => {
+                        const total = (r.hv || 0) + (r.av || 0) || 1;
+                        const hPct = Math.round(r.hv / total * 100);
+                        return (
+                          <div key={r.label} style={{ marginBottom: i < rows.length - 1 ? 12 : 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: hc, minWidth: 40 }}>{r.h}</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8' }}>{r.label}</span>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: ac, minWidth: 40, textAlign: 'right' }}>{r.a}</span>
+                            </div>
+                            <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', gap: 2 }}>
+                              <div style={{ width: `${hPct}%`, background: hc, borderRadius: 2 }} />
+                              <div style={{ width: `${100 - hPct}%`, background: ac, borderRadius: 2 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>);
+                } else {
+                  const homeId = selectedMatch.home_team?.id;
+                  const awayId = selectedMatch.away_team?.id;
+                  const hr = oppRecords[homeId] || { p: 0, w: 0, d: 0, l: 0 };
+                  const ar = oppRecords[awayId] || { p: 0, w: 0, d: 0, l: 0 };
+                  const hWin = hr.p > 0 ? Math.round(hr.w / hr.p * 100) : 0;
+                  const aWin = ar.p > 0 ? Math.round(ar.w / ar.p * 100) : 0;
+                  const FormCard = ({ label, color, r, winPct }) => (
+                    <div style={{ flex: 1, background: '#1E293B', borderRadius: 10, padding: 10, borderLeft: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color, marginBottom: 6 }}>{label}</div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+                        {[['P', r.p, '#F8FAFC'], ['W', r.w, '#10B981'], ['D', r.d, '#F8FAFC'], ['L', r.l, '#EF4444']].map(([k, v, c]) => (
+                          <div key={k} style={{ textAlign: 'center' }}><div style={{ fontSize: 16, fontWeight: 900, color: c }}>{v}</div><div style={{ fontSize: 8, color: '#64748B' }}>{k}</div></div>
+                        ))}
+                      </div>
+                      <div style={{ height: 3, borderRadius: 2, background: '#334155', marginTop: 6, overflow: 'hidden' }}>
+                        <div style={{ width: `${winPct}%`, height: '100%', background: winPct >= 50 ? '#10B981' : winPct >= 25 ? '#F59E0B' : '#EF4444' }} />
+                      </div>
+                      <div style={{ fontSize: 8, color: '#64748B', textAlign: 'right', marginTop: 2 }}>{winPct}% win</div>
+                    </div>
+                  );
+                  return (<>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Season form</div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                      <FormCard label={teamShortName(selectedMatch.home_team)} color={hc} r={hr} winPct={hWin} />
+                      <FormCard label={teamShortName(selectedMatch.away_team)} color={ac} r={ar} winPct={aWin} />
+                    </div>
+                  </>);
+                }
+              })()}
+              {/* ── PREDICTIONS ── */}
+              {matchPredictions && (matchPredictions.kykie || matchPredictions.totalVotes > 0) && (<>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Predictions</div>
+                {matchPredictions.kykie && (() => {
+                  const k = matchPredictions.kykie;
+                  const predLabel = k.prediction === 'home' ? teamShortName(selectedMatch.home_team) : k.prediction === 'away' ? teamShortName(selectedMatch.away_team) : 'Draw';
+                  const conf = k.home_win_pct != null ? Math.round(Math.max(k.home_win_pct, k.draw_pct || 0, k.away_win_pct || 0)) : null;
                   return (
-                    <div key={entry.id || i} style={{
-                      padding: "7px 10px", borderRadius: 8, marginBottom: 3,
-                      background: isComm ? "linear-gradient(135deg, #F59E0B12, #F59E0B08)" : tc + "08",
-                      borderLeft: isComm ? "3px solid #F59E0B55" : `3px solid ${tc}`,
-                    }}>
-                      {isComm ? (
-                        <>
+                    <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#F59E0B22', border: '1.5px solid #F59E0B44', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>🤖</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Kykie: {predLabel}</div>
+                        {conf != null && <div style={{ fontSize: 9, color: '#64748B' }}>{conf}% confidence</div>}
+                      </div>
+                      {k.correct != null && <span style={{ fontSize: 11, fontWeight: 800, color: k.correct ? '#10B981' : '#EF4444' }}>{k.correct ? '✓' : '✗'}</span>}
+                    </div>
+                  );
+                })()}
+                {matchPredictions.totalVotes > 0 && (() => {
+                  const { topVote, totalVotes } = matchPredictions;
+                  const predLabel = topVote[0] === 'home' ? teamShortName(selectedMatch.home_team) : topVote[0] === 'away' ? teamShortName(selectedMatch.away_team) : 'Draw';
+                  const pct = Math.round(topVote[1] / totalVotes * 100);
+                  const winner = matchWinner(selectedMatch);
+                  const correct = topVote[0] === winner;
+                  return (
+                    <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#8B5CF622', border: '1.5px solid #8B5CF644', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>👥</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Public: {predLabel}</div>
+                        <div style={{ fontSize: 9, color: '#64748B' }}>{pct}% voted · {totalVotes} prediction{totalVotes !== 1 ? 's' : ''}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: correct ? '#10B981' : '#EF4444' }}>{correct ? '✓' : '✗'}</span>
+                    </div>
+                  );
+                })()}
+              </>)}
+              {/* ── COMMENTARY ── */}
+              {selectedEvents.length > 0 && (<>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
+                {selectedEvents
+                  .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
+                  .sort((a, b) => (b.match_time || 0) - (a.match_time || 0) || (b.seq || 0) - (a.seq || 0))
+                  .map((entry, i) => {
+                    const isMeta = entry.team === "meta";
+                    const isComm = entry.team === "commentary";
+                    const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedColors.homeColor || "#3B82F6") : (selectedColors.awayColor || "#EF4444");
+                    const mins = Math.floor((entry.match_time || 0) / 60);
+                    const isGoal = entry.event?.startsWith("Goal");
+                    const showReactions = isComm || isGoal || ["Short Corner", "Long Corner", "Penalty"].includes(entry.event);
+                    return (
+                      <div key={entry.id || i} style={{
+                        padding: "7px 10px", borderRadius: 8, marginBottom: 3,
+                        background: isComm ? "linear-gradient(135deg, #F59E0B12, #F59E0B08)" : tc + "08",
+                        borderLeft: isComm ? "3px solid #F59E0B55" : `3px solid ${tc}`,
+                      }}>
+                        {isComm ? (<>
                           <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
                             <span style={{ fontSize: 12 }}>💬</span>
                             <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>Insight</span>
                             <span style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", marginLeft: "auto" }}>{mins}'</span>
                           </div>
                           <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.4, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail || entry.event}</div>
-                        </>
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 22 }}>{mins}'</div>
-                          <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
-                          <div style={{ fontSize: 12, fontWeight: 700, color: isGoal ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
-                          {entry.detail && !isMeta && <div style={{ fontSize: 10, color: "#94A3B8", marginLeft: "auto", textAlign: "right", maxWidth: "50%" }}>{entry.detail}</div>}
-                        </div>
-                      )}
-                      {showReactions && entry.id && (
-                        <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} readOnly />
-                      )}
-                    </div>
-                  );
-                })}
+                        </>) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 22 }}>{mins}'</div>
+                            <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
+                            <div style={{ fontSize: 12, fontWeight: 700, color: isGoal ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
+                            {entry.detail && !isMeta && <div style={{ fontSize: 10, color: "#94A3B8", marginLeft: "auto", textAlign: "right", maxWidth: "50%" }}>{entry.detail}</div>}
+                          </div>
+                        )}
+                        {showReactions && entry.id && (
+                          <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} readOnly />
+                        )}
+                      </div>
+                    );
+                  })}
+              </>)}
             </div>
           )}
         </div>

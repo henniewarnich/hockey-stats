@@ -928,10 +928,13 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                             {m.duration > 0 && <CommentaryIcon />}
                           </div>
                         </div>
-                        <div style={{ textAlign: 'center' }}>
+                        <div style={{ textAlign: 'center', minWidth: 50 }}>
                           <div style={styles.matchScore}>{m.home_score}–{m.away_score}</div>
                           {m.home_penalty_score != null && m.away_penalty_score != null && (
-                            <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
+                            <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 800, background: '#F59E0B15', borderRadius: 4, padding: '1px 6px', marginTop: 2 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
+                          )}
+                          {m.status === 'abandoned' && (
+                            <div style={{ fontSize: 9, color: '#64748B', fontWeight: 700, marginTop: 2 }}>Abandoned</div>
                           )}
                         </div>
                       </div>

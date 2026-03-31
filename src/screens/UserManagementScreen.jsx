@@ -302,7 +302,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                       background: (teamColor(t)) + "22", color: teamColor(t),
                       border: `1px solid ${teamColor(t)}44`,
                     }}>
-                      {t.short_name || t.name}
+                      {teamDisplayName(t)}
                       <span onClick={() => setEditCoachTeams(prev => prev.filter(x => x !== tid))}
                         style={{ cursor: "pointer", marginLeft: 2, fontSize: 13, lineHeight: 1 }}>×</span>
                     </span>
@@ -446,7 +446,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                         <span key={t.id} style={{
                           fontSize: 8, fontWeight: 700, padding: "1px 6px", borderRadius: 99,
                           background: (teamColor(t)) + "22", color: teamColor(t),
-                        }}>{t.short_name || t.name}</span>
+                        }}>{teamDisplayName(t)}</span>
                       ))}
                     </div>
                   )}

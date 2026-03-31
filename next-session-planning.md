@@ -1,5 +1,5 @@
 # kykie.net — Next Session Planning
-**Date: 30 March 2026 | Current Version: 7.10.14**
+**Date: 31 March 2026 | Current Version: 7.10.35**
 
 ## Immediate TODO
 
@@ -9,64 +9,71 @@
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS variant TEXT;
 ```
 
-### 2. Remaining Institution Tasks
-- `suggestTeam()` — crowd team suggestion needs institution creation flow
-- `App.jsx getTeamShareLink` — receives name string, should receive team object
+### 2. Known Bugs
+- ~~**Admin → Users → Add Coach → Team selection pills show wrong team name**~~ — FIXED v7.10.35
+- **suggestTeam()** — crowd team suggestion needs institution creation flow
+- **App.jsx getTeamShareLink** — receives name string, should receive team object
 
 ---
 
-## Planned Features
+## Planned Features (Prioritised)
 
-### Public View
-- Screen viewer (similar to commentary feed — CT-style)
-- Add outcome predictor (fake users Pistol Pete + Suzi Snow + Kykie AI already exist, wire up to public view)
+### HIGH PRIORITY
+**Bugs / Cleanup:**
+- `suggestTeam()` — institution creation flow for crowd suggestions
+- `getTeamShareLink` — receives string, should receive team object
 
-### Match Setup
-- Add **Season** field (derive from match date year, e.g. "2026")
-- Add **Tournament** selection (create/pick tournament, link matches)
+**Public View:**
+- Wire outcome predictor to public view (Pete, Suzi, Kykie already exist)
 
-### Coach
-- Stats screen: filter by **Season** and **Tournament**
-- **Compare to team** — side-by-side stats vs selected opponent
-- **Compare to benchmark** — compare stats vs top 10 ranked teams' averages
-- **Replay match** — graphical play-by-play replay from events (animated field)
-- **Analyse team** — Exit strategy, Attack strategy, Midfield play (heatmaps + flow analysis)
+**Coach:**
+- Compare to team (side-by-side stats)
+- Compare to benchmark (top 10 average)
+- Analyse team (Exit/Attack/Midfield strategies)
 
-### Commentator
-- Add **cards** (Green card + Yellow card events)
-- Revisit D-Zone stats collector (improve flow/UX)
-- Add **penalties** (penalty stroke events)
-- Clarify **goalie saves** — must be clear which shots the goalie saved vs missed
-- **Overheads** — how to record (hard press on zone? reclassify toast?)
-- **Match abandoned** (lightning/weather stoppage)
-- **Penalty shootout** score recording
+**Commentator:**
+- Green + Yellow cards
+- Revisit D-Zone stats collector
+- Penalty strokes
+- Overheads recording
 
-### Admin
-- **Stats interpretation skill (MD)** — export match data for further analysis by Claude AI
+**Video Review:**
+- Playback speed control (1x / 1.5x / 2x)
 
-### Prediction Scoring on Match End
-Auto-score predictions when match ends (currently only via Retrofit).
+**Infrastructure:**
+- Prediction auto-scoring on match end
+- Reclassify toast (Overhead / Free Hit)
+- Organisation → Team hierarchy (multi-sport)
 
-### Reclassify Toast (Mockup Ready)
-After zone tap: "↑ Overhead" toast for 3 seconds. After turnover: "🏑 Free Hit" toast.
+### MEDIUM PRIORITY
+**Admin:**
+- Stats interpretation skill (MD) for Claude analysis
 
-### Possession Heatmap (Coach View)
-4×3 grid showing time in possession per zone. Verified with real match data.
+**Coach:**
+- Possession heatmap (Coach View)
+- Exit strategy analysis (Coach View)
+- D entry direction analysis (Coach View)
 
-### Exit Strategy Analysis (Coach View)
-Tracks ball from defense → opposition half. 4×3 heatmap of transit zones.
+**Infrastructure:**
+- Staging environment (test.kykie.net)
 
-### D Entry Direction (Coach View)
-Which side teams approach the D from (left/centre/right).
+### LOW PRIORITY
+**Public View:**
+- Screen viewer (CT-style commentary feed)
 
-### Staging Environment
-Second Supabase project + test.kykie.net subdomain.
+**Match Setup:**
+- Season field (derive from match date year)
+- Tournament selection (create/pick, link matches)
 
-### Embeddable Widgets
-Iframe embeds for school websites.
+**Coach:**
+- Filter stats by Season and Tournament
+- Replay match (animated field play-by-play)
 
-### Organisation → Team Hierarchy
-Now partially done via institutions. Full org hierarchy enables multi-sport, multi-age, org-level subscriptions.
+**Commentator:**
+- Goalie saves — clarify saved vs missed
+
+**Infrastructure:**
+- Embeddable widgets for school websites
 
 ---
 
@@ -77,7 +84,7 @@ Now partially done via institutions. Full org hierarchy enables multi-sport, mul
 - `teamDisplayName(team)` = institution short_name/name + derived (auto-dedupes gender)
 - `teamShortName(team)` = institution.short_name || institution.name
 - `teamColor(team)` = institution.color || team.color
-- `teamSlug(team)` = slug of institution.name (used for URLs)
+- `teamSlug(team)` = slug of institution.name + age_group/variant (e.g. "paarl-gim-1st", "paarl-gim-2nd")
 - `teamMatchesSearch(team, query)` = searches institution.name + short_name + other_names + derived name + team_description
 - All query constants in `src/utils/teams.js`: `TEAM_SELECT`, `MATCH_HOME_TEAM`, `MATCH_AWAY_TEAM`, etc.
 - `MatchCardTeams` component: two-line display (institution names + rank on line 1, derived + meta on line 2)
@@ -102,7 +109,7 @@ Now partially done via institutions. Full org hierarchy enables multi-sport, mul
 ---
 
 ## Files to Provide to Next Session
-1. **`hockey-stats-v7.10.14.zip`** — Full source + built docs/
+1. **`hockey-stats-v7.10.35.zip`** — Full source + built docs/
 2. **`HANDOFF.md`** (inside zip) — Complete project state
 3. **This file** (`next-session-planning.md`) — Context and plans
 

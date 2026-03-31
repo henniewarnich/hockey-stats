@@ -91,12 +91,15 @@ export function teamColor(team) {
 }
 
 /**
- * Generate URL slug from institution name
+ * Generate URL slug from institution name + team differentiator
+ * e.g. "paarl-gim-1st", "paarl-gim-2nd", "paarl-girls-festival"
  */
 export function teamSlug(team) {
   if (!team) return '';
   const inst = team.institution;
-  const base = inst?.name || team.team_description || team.name || '';
+  const instName = inst?.name || team.team_description || team.name || '';
+  const suffix = team.variant || team.age_group || '';
+  const base = suffix ? `${instName} ${suffix}` : instName;
   return base.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
 }
 
