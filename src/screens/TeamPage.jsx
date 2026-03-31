@@ -291,14 +291,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     setTotalViewers(null);
     setMatchPredictions(null);
     try {
-      const [{ data: events }, { count }, { data: preds }] = await Promise.all([
+      const [{ data: events }, { count }, { data: preds }, { data: archived }] = await Promise.all([
         supabase.from('match_events').select('*').eq('match_id', m.id).order('seq', { ascending: false }),
         supabase.from('match_viewers').select('*', { count: 'exact', head: true }).eq('match_id', m.id),
         supabase.from('predictions').select('user_id, prediction, correct, home_win_pct, draw_pct, away_win_pct').eq('match_id', m.id),
+        supabase.from('match_stats').select('*').eq('match_id', m.id),
       ]);
       setSelectedEvents(events || []);
       setTotalViewers(count || 0);
-      // Parse predictions: Kykie = null user_id, public = all non-null
+      // Compute stats for this match if not already in map (public users)
+      if (!matchStatsMap[m.id] && team) {
+        const evts = (events || []).filter(e => e.zone); // only zone events = Live Pro
+        if (evts.length > 0) {
+          const mapped = events.map(e => ({ team: e.team, event: e.event, time: e.match_time, zone: e.zone }));
+          setMatchStatsMap(prev => ({ ...prev, [m.id]: computeMatchStats(mapped, team.id, m.home_team_id) }));
+        } else if (archived && archived.length > 0) {
+          setMatchStatsMap(prev => ({ ...prev, [m.id]: statsFromArchive(archived, team.id, m.home_team_id) }));
+        }
+      }
+      // Parse predictions
       const kykie = (preds || []).find(p => !p.user_id);
       const userPreds = (preds || []).filter(p => p.user_id);
       const publicVotes = { home: 0, away: 0, draw: 0 };
@@ -306,6 +317,30 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       const totalVotes = userPreds.length;
       const topVote = totalVotes > 0 ? Object.entries(publicVotes).sort((a, b) => b[1] - a[1])[0] : null;
       setMatchPredictions({ kykie, publicVotes, totalVotes, topVote });
+      // Ensure oppRecords has both teams for season form display
+      const neededIds = [m.home_team_id, m.away_team_id].filter(id => id && !oppRecords[id]);
+      if (neededIds.length > 0) {
+        supabase.from('matches')
+          .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
+          .eq('status', 'ended')
+          .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
+          .then(({ data: recData }) => {
+            const recs = { ...oppRecords };
+            (recData || []).forEach(rm => {
+              neededIds.forEach(id => {
+                if (rm.home_team_id !== id && rm.away_team_id !== id) return;
+                if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                const ih = rm.home_team_id === id;
+                recs[id].p++;
+                recs[id].gf += ih ? rm.home_score : rm.away_score;
+                recs[id].ga += ih ? rm.away_score : rm.home_score;
+                const o = matchOutcome(rm, id);
+                if (o === 'W') recs[id].w++; else if (o === 'D') recs[id].d++; else recs[id].l++;
+              });
+            });
+            setOppRecords(recs);
+          });
+      }
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
   };
@@ -1085,29 +1120,45 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 } else {
                   const homeId = selectedMatch.home_team?.id;
                   const awayId = selectedMatch.away_team?.id;
-                  const hr = oppRecords[homeId] || { p: 0, w: 0, d: 0, l: 0 };
-                  const ar = oppRecords[awayId] || { p: 0, w: 0, d: 0, l: 0 };
-                  const hWin = hr.p > 0 ? Math.round(hr.w / hr.p * 100) : 0;
-                  const aWin = ar.p > 0 ? Math.round(ar.w / ar.p * 100) : 0;
-                  const FormCard = ({ label, color, r, winPct }) => (
-                    <div style={{ flex: 1, background: '#1E293B', borderRadius: 10, padding: 10, borderLeft: `3px solid ${color}` }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, color, marginBottom: 6 }}>{label}</div>
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-                        {[['P', r.p, '#F8FAFC'], ['W', r.w, '#10B981'], ['D', r.d, '#F8FAFC'], ['L', r.l, '#EF4444']].map(([k, v, c]) => (
-                          <div key={k} style={{ textAlign: 'center' }}><div style={{ fontSize: 16, fontWeight: 900, color: c }}>{v}</div><div style={{ fontSize: 8, color: '#64748B' }}>{k}</div></div>
-                        ))}
+                  const hr = oppRecords[homeId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                  const ar = oppRecords[awayId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                  const ScoutCard = ({ t, r, color }) => {
+                    const gd = (r.gf || 0) - (r.ga || 0);
+                    const rk = latestRankings[t?.id];
+                    return (
+                      <div style={{
+                        flex: 1, background: '#0B0F1A', borderRadius: 8, padding: '8px 8px',
+                        border: `1px solid ${color}33`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                          <div style={{
+                            width: 14, height: 14, borderRadius: 3, background: color,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 7, fontWeight: 900, color: '#fff',
+                          }}>{teamInitial(t)}</div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#F8FAFC' }}>{teamShortName(t)}</span>
+                          {rk && <span style={{ fontSize: 8, color: '#10B981' }}>#{rk.rank}</span>}
+                        </div>
+                        {r.p > 0 ? (
+                          <div style={{ display: 'flex', gap: 3, textAlign: 'center' }}>
+                            {[[r.p, 'P', '#F8FAFC'], [r.w, 'W', '#10B981'], [r.d, 'D', '#F8FAFC'], [r.l, 'L', '#EF4444'], [r.gf, 'GF', '#F8FAFC'], [r.ga, 'GA', '#F8FAFC'], [gd > 0 ? `+${gd}` : gd, 'GD', gd > 0 ? '#10B981' : gd < 0 ? '#EF4444' : '#F8FAFC']].map(([val, label, c]) => (
+                              <div key={label} style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 900, color: c }}>{val}</div>
+                                <div style={{ fontSize: 7, color: '#64748B' }}>{label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 9, color: '#475569', textAlign: 'center' }}>No matches yet</div>
+                        )}
                       </div>
-                      <div style={{ height: 3, borderRadius: 2, background: '#334155', marginTop: 6, overflow: 'hidden' }}>
-                        <div style={{ width: `${winPct}%`, height: '100%', background: winPct >= 50 ? '#10B981' : winPct >= 25 ? '#F59E0B' : '#EF4444' }} />
-                      </div>
-                      <div style={{ fontSize: 8, color: '#64748B', textAlign: 'right', marginTop: 2 }}>{winPct}% win</div>
-                    </div>
-                  );
+                    );
+                  };
                   return (<>
                     <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Season form</div>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                      <FormCard label={teamShortName(selectedMatch.home_team)} color={hc} r={hr} winPct={hWin} />
-                      <FormCard label={teamShortName(selectedMatch.away_team)} color={ac} r={ar} winPct={aWin} />
+                      <ScoutCard t={selectedMatch.home_team} r={hr} color={hc} />
+                      <ScoutCard t={selectedMatch.away_team} r={ar} color={ac} />
                     </div>
                   </>);
                 }
