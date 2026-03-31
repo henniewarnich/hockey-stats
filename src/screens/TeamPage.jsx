@@ -405,15 +405,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           // Auto-open a specific match if navigated from landing page
           if (initialMatchId) {
             const target = ended.find(m => m.id === initialMatchId);
-            if (target) {
-              setSelectedMatch(target);
-              setLoadingEvents(true);
-              try {
-                const { data: evts } = await supabase.from('match_events').select('*').eq('match_id', target.id).order('seq', { ascending: false });
-                setSelectedEvents(evts || []);
-              } catch { setSelectedEvents([]); }
-              setLoadingEvents(false);
-            }
+            if (target) handleMatchTap(target);
           }
 
           if (live) {
