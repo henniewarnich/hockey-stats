@@ -172,7 +172,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [loadingStats, setLoadingStats] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
-  const [matchPredictions, setMatchPredictions] = useState(null); // { kykie, publicPreds } for selected match
+  const [matchPredictions, setMatchPredictions] = useState(null);
+  const [matchDetailRecords, setMatchDetailRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga} for selected match detail
 
   // Fetch opposition records for upcoming matches + own team
   useEffect(() => {
@@ -317,28 +318,26 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       const totalVotes = userPreds.length;
       const topVote = totalVotes > 0 ? Object.entries(publicVotes).sort((a, b) => b[1] - a[1])[0] : null;
       setMatchPredictions({ kykie, publicVotes, totalVotes, topVote });
-      // Ensure oppRecords has both teams for season form display
-      const neededIds = [m.home_team_id, m.away_team_id].filter(Boolean);
+      // Fetch season records for both teams in this match
+      const bothIds = [m.home_team_id, m.away_team_id].filter(Boolean);
       const { data: recData } = await supabase.from('matches')
         .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
         .eq('status', 'ended')
-        .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
-      if (recData) {
-        const newRecs = {};
-        recData.forEach(rm => {
-          neededIds.forEach(id => {
-            if (rm.home_team_id !== id && rm.away_team_id !== id) return;
-            if (!newRecs[id]) newRecs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-            const ih = rm.home_team_id === id;
-            newRecs[id].p++;
-            newRecs[id].gf += ih ? rm.home_score : rm.away_score;
-            newRecs[id].ga += ih ? rm.away_score : rm.home_score;
-            const o = matchOutcome(rm, id);
-            if (o === 'W') newRecs[id].w++; else if (o === 'D') newRecs[id].d++; else newRecs[id].l++;
-          });
+        .or(bothIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
+      const detailRecs = {};
+      (recData || []).forEach(rm => {
+        bothIds.forEach(id => {
+          if (rm.home_team_id !== id && rm.away_team_id !== id) return;
+          if (!detailRecs[id]) detailRecs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+          const ih = rm.home_team_id === id;
+          detailRecs[id].p++;
+          detailRecs[id].gf += ih ? rm.home_score : rm.away_score;
+          detailRecs[id].ga += ih ? rm.away_score : rm.home_score;
+          const o = matchOutcome(rm, id);
+          if (o === 'W') detailRecs[id].w++; else if (o === 'D') detailRecs[id].d++; else detailRecs[id].l++;
         });
-        setOppRecords(prev => ({ ...prev, ...newRecs }));
-      }
+      });
+      setMatchDetailRecords(detailRecs);
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
   };
@@ -1015,7 +1014,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {selectedMatch && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
           <div style={{ padding: "6px 14px 0" }}>
-            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); setMatchDetailRecords({}); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
           </div>
           {/* Match scoreboard */}
           <div style={{ padding: "8px 14px 10px" }}>
@@ -1118,8 +1117,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 } else {
                   const homeId = selectedMatch.home_team?.id;
                   const awayId = selectedMatch.away_team?.id;
-                  const hr = oppRecords[homeId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-                  const ar = oppRecords[awayId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                  const hr = matchDetailRecords[homeId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                  const ar = matchDetailRecords[awayId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
                   const ScoutCard = ({ t, r, color }) => {
                     const gd = (r.gf || 0) - (r.ga || 0);
                     const rk = latestRankings[t?.id];
@@ -1162,41 +1161,60 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 }
               })()}
               {/* ── PREDICTIONS ── */}
-              {matchPredictions && (matchPredictions.kykie || matchPredictions.totalVotes > 0) && (<>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Predictions</div>
-                {matchPredictions.kykie && (() => {
-                  const k = matchPredictions.kykie;
-                  const predLabel = k.prediction === 'home' ? teamShortName(selectedMatch.home_team) : k.prediction === 'away' ? teamShortName(selectedMatch.away_team) : 'Draw';
-                  const conf = k.home_win_pct != null ? Math.round(Math.max(k.home_win_pct, k.draw_pct || 0, k.away_win_pct || 0)) : null;
-                  return (
-                    <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#F59E0B22', border: '1.5px solid #F59E0B44', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>🤖</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Kykie: {predLabel}</div>
-                        {conf != null && <div style={{ fontSize: 9, color: '#64748B' }}>{conf}% confidence</div>}
+              {(() => {
+                const hRec = matchDetailRecords[selectedMatch.home_team?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                const aRec = matchDetailRecords[selectedMatch.away_team?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+                const hName = teamShortName(selectedMatch.home_team);
+                const aName = teamShortName(selectedMatch.away_team);
+                const pred = (hRec.p >= 1 || aRec.p >= 1) ? predictMatch(hRec, aRec, hName, aName) : null;
+                const storedKykie = matchPredictions?.kykie;
+                const winner = matchWinner(selectedMatch);
+                if (!pred && !storedKykie && !(matchPredictions?.totalVotes > 0)) return null;
+                return (<>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Predictions</div>
+                  {/* Kykie prediction — stored or computed */}
+                  {(storedKykie || pred) && (() => {
+                    let predLabel, conf, correct;
+                    if (storedKykie) {
+                      predLabel = storedKykie.prediction === 'home' ? hName : storedKykie.prediction === 'away' ? aName : 'Draw';
+                      conf = storedKykie.home_win_pct != null ? Math.round(Math.max(storedKykie.home_win_pct, storedKykie.draw_pct || 0, storedKykie.away_win_pct || 0)) : null;
+                      correct = storedKykie.correct;
+                    } else {
+                      const kPred = pred.draw >= pred.homeWin && pred.draw >= pred.awayWin ? 'draw' : pred.homeWin >= pred.awayWin ? 'home' : 'away';
+                      predLabel = kPred === 'home' ? hName : kPred === 'away' ? aName : 'Draw';
+                      conf = Math.round(Math.max(pred.homeWin, pred.draw, pred.awayWin));
+                      correct = kPred === winner;
+                    }
+                    return (
+                      <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#F59E0B22', border: '1.5px solid #F59E0B44', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>🤖</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Kykie: {predLabel}</div>
+                          {conf != null && <div style={{ fontSize: 9, color: '#64748B' }}>{conf}% confidence</div>}
+                        </div>
+                        {correct != null && <span style={{ fontSize: 11, fontWeight: 800, color: correct ? '#10B981' : '#EF4444' }}>{correct ? '✓' : '✗'}</span>}
                       </div>
-                      {k.correct != null && <span style={{ fontSize: 11, fontWeight: 800, color: k.correct ? '#10B981' : '#EF4444' }}>{k.correct ? '✓' : '✗'}</span>}
-                    </div>
-                  );
-                })()}
-                {matchPredictions.totalVotes > 0 && (() => {
-                  const { topVote, totalVotes } = matchPredictions;
-                  const predLabel = topVote[0] === 'home' ? teamShortName(selectedMatch.home_team) : topVote[0] === 'away' ? teamShortName(selectedMatch.away_team) : 'Draw';
-                  const pct = Math.round(topVote[1] / totalVotes * 100);
-                  const winner = matchWinner(selectedMatch);
-                  const correct = topVote[0] === winner;
-                  return (
-                    <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#8B5CF622', border: '1.5px solid #8B5CF644', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>👥</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Public: {predLabel}</div>
-                        <div style={{ fontSize: 9, color: '#64748B' }}>{pct}% voted · {totalVotes} prediction{totalVotes !== 1 ? 's' : ''}</div>
+                    );
+                  })()}
+                  {/* Public predictions */}
+                  {matchPredictions?.totalVotes > 0 && (() => {
+                    const { topVote, totalVotes } = matchPredictions;
+                    const predLabel = topVote[0] === 'home' ? hName : topVote[0] === 'away' ? aName : 'Draw';
+                    const pct = Math.round(topVote[1] / totalVotes * 100);
+                    const correct = topVote[0] === winner;
+                    return (
+                      <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#8B5CF622', border: '1.5px solid #8B5CF644', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>👥</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC' }}>Public: {predLabel}</div>
+                          <div style={{ fontSize: 9, color: '#64748B' }}>{pct}% voted · {totalVotes} prediction{totalVotes !== 1 ? 's' : ''}</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: correct ? '#10B981' : '#EF4444' }}>{correct ? '✓' : '✗'}</span>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: correct ? '#10B981' : '#EF4444' }}>{correct ? '✓' : '✗'}</span>
-                    </div>
-                  );
-                })()}
-              </>)}
+                    );
+                  })()}
+                </>);
+              })()}
               {/* ── COMMENTARY ── */}
               {selectedEvents.length > 0 && (<>
                 <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
