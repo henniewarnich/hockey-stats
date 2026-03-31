@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { archiveMatchStats, retrofitPredictions } from '../utils/sync.js';
+import { exportAllData } from '../utils/export.js';
 import { APP_VERSION } from '../utils/constants.js';
 import NavLogo from '../components/NavLogo.jsx';
 
@@ -41,6 +42,8 @@ export default function SystemHealthScreen({ onBack }) {
   const [archiving, setArchiving] = useState(false);
   const [archiveResult, setArchiveResult] = useState(null);
   const [retrofitting, setRetrofitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null);
   const [retrofitResult, setRetrofitResult] = useState(null);
   const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -479,6 +482,36 @@ export default function SystemHealthScreen({ onBack }) {
             </button>
             {retrofitResult && (
               <div style={{ fontSize: 10, color: retrofitResult.includes('Error') ? '#EF4444' : retrofitResult.includes('Processing') ? '#3B82F6' : '#10B981', marginTop: 4 }}>{retrofitResult}</div>
+            )}
+          </div>
+
+          {/* Export All Data */}
+          <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 14px', marginTop: 12, border: '1px solid #334155' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#8B5CF6', marginBottom: 6 }}>📦 Data Export</div>
+            <button
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                setExportProgress('Starting...');
+                try {
+                  const counts = await exportAllData(setExportProgress);
+                  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                  setExportProgress(`✓ Exported ${total.toLocaleString()} rows across ${Object.keys(counts).length} tables`);
+                } catch (err) {
+                  setExportProgress(`Error: ${err.message}`);
+                }
+                setExporting(false);
+              }}
+              style={{
+                width: '100%', padding: '8px 14px', borderRadius: 8, border: '1px solid #8B5CF644',
+                background: exporting ? '#334155' : '#8B5CF611', color: '#8B5CF6',
+                fontSize: 11, fontWeight: 700, cursor: exporting ? 'default' : 'pointer',
+              }}
+            >
+              {exporting ? '⏳ Exporting...' : '📦 Export All Data (JSON)'}
+            </button>
+            {exportProgress && (
+              <div style={{ fontSize: 10, color: exportProgress.startsWith('Error') ? '#EF4444' : exportProgress.startsWith('✓') ? '#10B981' : '#64748B', marginTop: 4 }}>{exportProgress}</div>
             )}
           </div>
 

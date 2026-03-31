@@ -14,6 +14,7 @@ import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
+import { exportTeamData } from '../utils/export.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -322,13 +323,11 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     // Fetch season records for both teams — separate try so it always runs
     try {
       const bothIds = [m.home_team?.id || m.home_team_id, m.away_team?.id || m.away_team_id].filter(Boolean);
-      console.log('[matchDetail] bothIds:', bothIds, 'from match:', m.id);
       if (bothIds.length > 0) {
-        const { data: recData, error: recErr } = await supabase.from('matches')
+        const { data: recData } = await supabase.from('matches')
           .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
           .eq('status', 'ended')
           .or(bothIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
-        console.log('[matchDetail] recData rows:', recData?.length, 'error:', recErr);
         const detailRecs = {};
         (recData || []).forEach(rm => {
           bothIds.forEach(id => {
@@ -342,10 +341,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             if (o === 'W') detailRecs[id].w++; else if (o === 'D') detailRecs[id].d++; else detailRecs[id].l++;
           });
         });
-        console.log('[matchDetail] detailRecs:', JSON.stringify(detailRecs));
         setMatchDetailRecords(detailRecs);
-      } else {
-        console.warn('[matchDetail] No team IDs found on match:', m);
       }
     } catch (err) { console.error('matchDetailRecords fetch error:', err); }
     setLoadingEvents(false);
@@ -638,6 +634,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               {winRate > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "1px 6px", borderRadius: 99 }}>{winRate}%</span>}
             </div>
           </div>
+          <button onClick={async () => {
+            const btn = document.getElementById('team-export-btn');
+            if (btn) btn.textContent = '⏳';
+            try { await exportTeamData(team, () => {}); } catch (e) { console.error('Export error:', e); }
+            if (btn) btn.textContent = '📥';
+          }} id="team-export-btn" title="Download team data (JSON)" style={{
+            width: 32, height: 32, borderRadius: 8, border: '1px solid #33415544', background: '#1E293B',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0,
+          }}>📥</button>
         </div>
       </div>
       {team?.id && <SponsorBanner tier="team" targetId={team.id} size="md" />}

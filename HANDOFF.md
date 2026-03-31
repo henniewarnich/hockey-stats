@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.10.47 | Date: 30 March 2026**
+**Version: 7.10.52 | Date: 31 March 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -117,3 +117,43 @@ ALTER TABLE predictions ADD CONSTRAINT predictions_match_id_fkey
 - Display helper (`src/utils/teams.js`): 10 functions + 6 query constants
 - All 35+ files updated: queries, display refs, search, slugs, colors
 - Team objects in live flows pass institution through for downstream display
+
+## Session Summary (v7.10.33 → v7.10.52) — 31 March 2026
+
+### Bug Fixes
+- **Penalty scores not persisting** — local/cloud merge in HistoryScreen now overlays cloud penalty/status data; refetch after save
+- **Duplicate team names on coach view** — `teamSlug()` now includes age_group/variant; `getCoachTeams()`/`getAllCoachTeams()` fetch all team fields
+- **Coach team pills wrong names** — UserManagementScreen uses `teamDisplayName()` instead of raw `t.name`
+- **setSportDropdownOpen crash** — dead reference in LandingPage tab buttons; crashed all click handlers including match detail
+- **Match detail empty from Results tab** — `initialMatchId` handler now calls `handleMatchTap()` instead of inline partial fetch
+- **"No matches yet" on season form** — dedicated `matchDetailRecords` state with independent fetch; no stale closure issues
+- **Service worker stale cache** — `sw.js` CACHE_NAME updated from v6.3.0 to current version; now bumped with each build
+
+### Penalty & Abandoned Visibility
+- Results + TeamPage: penalty score shown as amber pill (10px), abandoned shows "Abandoned" text
+- Match detail: header shows "MATCH ABANDONED" or "FULL TIME"; penalty shown as "Penalties: X – Y" amber badge
+
+### Public Match Detail (TeamPage)
+- **With live stats**: 6 stat rows (Territory, Possession, D Entries, Short Corners, Shots on Goal, Shots off Target) — home left, label centre, away right, split progress bars
+- **Without live stats**: Season Form scout cards (P/W/D/L/GF/GA/GD per team)
+- **Predictions**: Kykie (🤖) computed inline via `predictMatch()` + Public majority vote (👥) with ✓/✗
+- Stats computed on-demand from events or `match_stats` archive
+
+### Two-Line Scouting Cards
+- All scouting cards (LandingPage upcoming, TeamPage upcoming, match detail season form): institution short name line 1 (bold + rank), derived name line 2 (grey)
+- Proper `minWidth: 0` + `overflow: hidden` + `textOverflow: ellipsis` at all flex levels
+
+### Video Review Access
+- Commentator role now routes to `#/admin` (AppContent) for Game History access
+- Button logic: no live recording → show for admin/comm admin/commentator; has live recording → admin only (red "Re-record" with double confirm); non-admin hidden
+
+### Data Export
+- `src/utils/export.js`: `exportAllData()` and `exportTeamData()`
+- Admin: System Health → "Export All Data" button → full DB as JSON
+- TeamPage: 📥 button in header → per-team JSON with enriched matches, events, stats, predictions, rankings
+- Per-team JSON structured for Claude AI analysis
+
+### Key Patterns Added
+- `matchDetailRecords` — dedicated state for public match detail, separate from `oppRecords`
+- SW cache name bumped with every version (previously frozen at v6.3.0)
+- `handleMatchTap()` is single source of truth for match detail data loading
