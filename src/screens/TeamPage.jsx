@@ -174,13 +174,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
   const [matchPredictions, setMatchPredictions] = useState(null); // { kykie, publicPreds } for selected match
 
-  // Fetch opposition records for upcoming matches (coach scouting)
+  // Fetch opposition records for upcoming matches + own team
   useEffect(() => {
-    if (!team || upcomingMatches.length === 0) return;
+    if (!team) return;
     const oppIds = [...new Set(upcomingMatches.map(m =>
       m.home_team_id === team.id ? m.away_team_id : m.home_team_id
     ).filter(Boolean))];
-    // Include own team
+    // Always include own team
     const allIds = [...new Set([team.id, ...oppIds])];
     if (allIds.length === 0) return;
     supabase.from('matches')
@@ -320,26 +320,24 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       // Ensure oppRecords has both teams for season form display
       const neededIds = [m.home_team_id, m.away_team_id].filter(id => id && !oppRecords[id]);
       if (neededIds.length > 0) {
-        supabase.from('matches')
+        const { data: recData } = await supabase.from('matches')
           .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
           .eq('status', 'ended')
-          .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','))
-          .then(({ data: recData }) => {
-            const recs = { ...oppRecords };
-            (recData || []).forEach(rm => {
-              neededIds.forEach(id => {
-                if (rm.home_team_id !== id && rm.away_team_id !== id) return;
-                if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-                const ih = rm.home_team_id === id;
-                recs[id].p++;
-                recs[id].gf += ih ? rm.home_score : rm.away_score;
-                recs[id].ga += ih ? rm.away_score : rm.home_score;
-                const o = matchOutcome(rm, id);
-                if (o === 'W') recs[id].w++; else if (o === 'D') recs[id].d++; else recs[id].l++;
-              });
-            });
-            setOppRecords(recs);
+          .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
+        const recs = { ...oppRecords };
+        (recData || []).forEach(rm => {
+          neededIds.forEach(id => {
+            if (rm.home_team_id !== id && rm.away_team_id !== id) return;
+            if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+            const ih = rm.home_team_id === id;
+            recs[id].p++;
+            recs[id].gf += ih ? rm.home_score : rm.away_score;
+            recs[id].ga += ih ? rm.away_score : rm.home_score;
+            const o = matchOutcome(rm, id);
+            if (o === 'W') recs[id].w++; else if (o === 'D') recs[id].d++; else recs[id].l++;
           });
+        });
+        setOppRecords(recs);
       }
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
