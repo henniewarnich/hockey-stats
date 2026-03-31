@@ -468,7 +468,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
               { id: "results", label: "Results", count: resultsCount },
               { id: "teams", label: "Teams", count: teams.length },
             ].map(t => (
-              <button key={t.id} onClick={() => { setActiveTab(t.id); setSportDropdownOpen(false); }} style={{
+              <button key={t.id} onClick={() => { setActiveTab(t.id); }} style={{
                 flex: 1, padding: "6px 0", textAlign: "center", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
                 background: activeTab === t.id ? "#10B98122" : "#1E293B",
                 color: activeTab === t.id ? "#10B981" : "#64748B",
@@ -802,7 +802,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                             return (
                             <div key={slug} onClick={(e) => { e.stopPropagation(); window.location.hash = `#/team/${slug}`; }}
                               style={{
-                                flex: 1, padding: "8px 10px",
+                                flex: 1, minWidth: 0, overflow: "hidden", padding: "8px 10px",
                                 background: "#0B0F1A", borderRadius: 8, cursor: "pointer",
                                 border: `1px solid ${c}33`,
                               }}>
@@ -813,7 +813,11 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                                   fontSize: 11, fontWeight: 800, color: c, flexShrink: 0,
                                 }}>{teamInitial(t)}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamDisplayName(t)} {(() => { const r = latestRankings[t?.id]; return r ? <RankBadge rank={r.rank} /> : null; })()}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: "#F8FAFC", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{teamShortName(t)}</span>
+                                    {(() => { const r = latestRankings[t?.id]; return r ? <span style={{ flexShrink: 0 }}><RankBadge rank={r.rank} /></span> : null; })()}
+                                  </div>
+                                  <div style={{ fontSize: 9, color: "#64748B", fontWeight: 600 }}>{teamDerivedName(t)}</div>
                                 </div>
                               </div>
                               {rec ? (

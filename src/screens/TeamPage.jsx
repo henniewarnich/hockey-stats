@@ -926,8 +926,13 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 fontSize: 7, fontWeight: 900, color: "#fff", flexShrink: 0,
                               }}>{teamInitial(t)}</div>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{teamDisplayName(t) || 'TBD'}</span>
-                              {rk && <span style={{ fontSize: 8, color: "#10B981", flexShrink: 0 }}>#{rk.rank}</span>}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 800, color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{teamShortName(t) || 'TBD'}</span>
+                                  {rk && <span style={{ fontSize: 8, color: "#10B981", flexShrink: 0 }}>#{rk.rank}</span>}
+                                </div>
+                                <div style={{ fontSize: 8, color: "#64748B", fontWeight: 600 }}>{teamDerivedName(t)}</div>
+                              </div>
                             </div>
                             {r.p > 0 ? (
                               <div style={{ display: "flex", gap: 3, textAlign: "center" }}>
@@ -1133,17 +1138,22 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                     const rk = latestRankings[t?.id];
                     return (
                       <div style={{
-                        flex: 1, background: '#0B0F1A', borderRadius: 8, padding: '8px 8px',
+                        flex: 1, minWidth: 0, overflow: 'hidden', background: '#0B0F1A', borderRadius: 8, padding: '8px 8px',
                         border: `1px solid ${color}33`,
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                           <div style={{
                             width: 14, height: 14, borderRadius: 3, background: color,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 7, fontWeight: 900, color: '#fff',
+                            fontSize: 7, fontWeight: 900, color: '#fff', flexShrink: 0,
                           }}>{teamInitial(t)}</div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#F8FAFC' }}>{teamShortName(t)}</span>
-                          {rk && <span style={{ fontSize: 8, color: '#10B981' }}>#{rk.rank}</span>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>{teamShortName(t)}</span>
+                              {rk && <span style={{ fontSize: 8, color: '#10B981', flexShrink: 0 }}>#{rk.rank}</span>}
+                            </div>
+                            <div style={{ fontSize: 8, color: '#64748B', fontWeight: 600 }}>{teamDerivedName(t)}</div>
+                          </div>
                         </div>
                         {r.p > 0 ? (
                           <div style={{ display: 'flex', gap: 3, textAlign: 'center' }}>
