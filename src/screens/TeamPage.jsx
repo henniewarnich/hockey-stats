@@ -318,26 +318,26 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       const topVote = totalVotes > 0 ? Object.entries(publicVotes).sort((a, b) => b[1] - a[1])[0] : null;
       setMatchPredictions({ kykie, publicVotes, totalVotes, topVote });
       // Ensure oppRecords has both teams for season form display
-      const neededIds = [m.home_team_id, m.away_team_id].filter(id => id && !oppRecords[id]);
-      if (neededIds.length > 0) {
-        const { data: recData } = await supabase.from('matches')
-          .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
-          .eq('status', 'ended')
-          .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
-        const recs = { ...oppRecords };
-        (recData || []).forEach(rm => {
+      const neededIds = [m.home_team_id, m.away_team_id].filter(Boolean);
+      const { data: recData } = await supabase.from('matches')
+        .select('home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score')
+        .eq('status', 'ended')
+        .or(neededIds.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
+      if (recData) {
+        const newRecs = {};
+        recData.forEach(rm => {
           neededIds.forEach(id => {
             if (rm.home_team_id !== id && rm.away_team_id !== id) return;
-            if (!recs[id]) recs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+            if (!newRecs[id]) newRecs[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
             const ih = rm.home_team_id === id;
-            recs[id].p++;
-            recs[id].gf += ih ? rm.home_score : rm.away_score;
-            recs[id].ga += ih ? rm.away_score : rm.home_score;
+            newRecs[id].p++;
+            newRecs[id].gf += ih ? rm.home_score : rm.away_score;
+            newRecs[id].ga += ih ? rm.away_score : rm.home_score;
             const o = matchOutcome(rm, id);
-            if (o === 'W') recs[id].w++; else if (o === 'D') recs[id].d++; else recs[id].l++;
+            if (o === 'W') newRecs[id].w++; else if (o === 'D') newRecs[id].d++; else newRecs[id].l++;
           });
         });
-        setOppRecords(recs);
+        setOppRecords(prev => ({ ...prev, ...newRecs }));
       }
     } catch { setSelectedEvents([]); setTotalViewers(0); }
     setLoadingEvents(false);
