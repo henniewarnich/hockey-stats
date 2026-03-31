@@ -136,7 +136,7 @@ export default function App() {
   const handleLogin = (profile) => {
     setCurrentUser(profile);
     sessionStorage.setItem('kykie-user-id', profile.id);
-    if (['admin', 'commentator_admin'].includes(profile.role)) {
+    if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
       window.location.hash = '#/admin';
     } else {
       window.location.hash = '';
@@ -155,7 +155,7 @@ export default function App() {
   const handleRoleSwitch = (newRole) => {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
-    const isAdmin = newRole === 'admin' || newRole === 'commentator_admin';
+    const isAdmin = newRole === 'admin' || newRole === 'commentator_admin' || newRole === 'commentator';
     // Clean reload avoids all React state race conditions
     window.location.hash = isAdmin ? '#/admin' : '';
     window.location.reload();
@@ -282,7 +282,7 @@ export default function App() {
 
   // Admin area
   if (route.type === 'admin') {
-    if (!currentUser || !['admin', 'commentator_admin'].includes(currentUser.role)) {
+    if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     return (
@@ -297,7 +297,7 @@ export default function App() {
 
   // Default landing — redirect admin to #/admin, pass onRoleSwitch for logged-in users
   const activeRole = sessionStorage.getItem('kykie-active-role') || currentUser?.role;
-  if (currentUser && ['admin', 'commentator_admin'].includes(activeRole)) {
+  if (currentUser && ['admin', 'commentator_admin', 'commentator'].includes(activeRole)) {
     window.location.hash = '#/admin';
     return null;
   }
@@ -320,7 +320,7 @@ export default function App() {
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
   const navigate = (target, data) => {
-    if (target === "home" && currentUser && !['admin', 'commentator_admin'].includes(currentUser.role)) {
+    if (target === "home" && currentUser && !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       window.location.hash = '';
       return;
     }
@@ -502,7 +502,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       />;
 
     case "history":
-      return <HistoryScreen games={store.games} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} onVideoReview={handleVideoReview} />;
+      return <HistoryScreen games={store.games} currentUser={currentUser} onSelect={handleSelectGame} onBack={() => navigate("home")} onSyncAll={store.syncAllGames} syncing={store.syncing} onVideoReview={handleVideoReview} />;
 
     case "predictions":
       return <PredictionLeaderboard currentUser={currentUser} onBack={() => navigate("home")} />;

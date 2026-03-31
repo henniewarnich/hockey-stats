@@ -5,7 +5,7 @@ import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, te
 import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 
-export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
+export default function HistoryScreen({ games, currentUser, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState("desc");
   const [syncResult, setSyncResult] = useState(null);
@@ -200,16 +200,34 @@ export default function HistoryScreen({ games, onSelect, onBack, onSyncAll, sync
             return (
               <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", opacity: g.status === 'abandoned' ? 0.5 : 1 }}>
                 {/* Video Stats button */}
-                {onVideoReview && isSynced && (
-                  <button onClick={(e) => { e.stopPropagation(); onVideoReview(g); }} style={{
-                    width: 36, height: 36, borderRadius: 8, border: '1px solid #8B5CF644', background: '#8B5CF611',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', flexShrink: 0, padding: 0,
-                  }}>
-                    <span style={{ fontSize: 14, lineHeight: 1 }}>📹</span>
-                    <span style={{ fontSize: 6, fontWeight: 700, color: '#8B5CF6', marginTop: 1 }}>Video Stats</span>
-                  </button>
-                )}
+                {onVideoReview && isSynced && (() => {
+                  const isAdminRole = currentUser?.role === 'admin';
+                  const hasLiveRecording = (g.duration || 0) > 0;
+                  // Hide for non-admin if match already has a live recording
+                  if (hasLiveRecording && !isAdminRole) return null;
+                  const handleClick = (e) => {
+                    e.stopPropagation();
+                    if (hasLiveRecording && isAdminRole) {
+                      if (!confirm('⚠️ WARNING: This match has an existing live recording with detailed stats and commentary. Starting a video review will PERMANENTLY DELETE all existing event data.\n\nThis action cannot be undone.\n\nAre you absolutely sure?')) return;
+                      if (!confirm('⚠️ FINAL CONFIRMATION: All existing match events, stats, and commentary for this match will be permanently lost. Proceed?')) return;
+                    }
+                    onVideoReview(g);
+                  };
+                  return (
+                    <button onClick={handleClick} style={{
+                      width: 36, height: 36, borderRadius: 8,
+                      border: hasLiveRecording ? '1px solid #EF444444' : '1px solid #8B5CF644',
+                      background: hasLiveRecording ? '#EF444411' : '#8B5CF611',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', flexShrink: 0, padding: 0,
+                    }}>
+                      <span style={{ fontSize: 14, lineHeight: 1 }}>📹</span>
+                      <span style={{ fontSize: 6, fontWeight: 700, color: hasLiveRecording ? '#EF4444' : '#8B5CF6', marginTop: 1 }}>
+                        {hasLiveRecording ? 'Re-record' : 'Video Stats'}
+                      </span>
+                    </button>
+                  );
+                })()}
 
                 {/* Teams + Meta */}
                 <div style={{ flex: 1, cursor: "pointer" }} onClick={() => onSelect(g)}>
