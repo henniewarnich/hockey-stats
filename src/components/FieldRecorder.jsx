@@ -420,26 +420,43 @@ export default function FieldRecorder({
                     {hasBall && !showRestart && (
                       <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{ zIndex: 10, cursor: "pointer" }}>{makeBall(false)}</div>
                     )}
-                    {hasBall && overheadVisible && !showRestart && (
-                      <div onClick={handleOverheadTap} style={{
-                        position: "absolute", top: 2, left: "50%", transform: "translate(-50%, -100%)",
-                        zIndex: 26, display: "flex", flexDirection: "column", alignItems: "center",
-                        animation: "overhead-in 0.15s ease-out", pointerEvents: "auto",
-                      }}>
-                        <div style={{
-                          padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
-                          fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
-                          position: "relative", overflow: "hidden",
+                    {hasBall && overheadVisible && !showRestart && (() => {
+                      const flipBelow = zone.id === "z1" || zone.id === "z4";
+                      return (
+                        <div onClick={handleOverheadTap} style={{
+                          position: "absolute", left: "50%",
+                          ...(flipBelow
+                            ? { bottom: 2, transform: "translate(-50%, 100%)", flexDirection: "column-reverse" }
+                            : { top: 2, transform: "translate(-50%, -100%)", flexDirection: "column" }),
+                          zIndex: 26, display: "flex", alignItems: "center",
+                          animation: "overhead-in 0.15s ease-out", pointerEvents: "auto",
                         }}>
-                          ↑ Overhead
-                          <div style={{
-                            position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD",
-                            animation: "overhead-timer 2s linear forwards",
+                          {!flipBelow && (
+                            <div style={{
+                              padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
+                              fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
+                              position: "relative", overflow: "hidden",
+                            }}>
+                              ↑ Overhead
+                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 2s linear forwards" }} />
+                            </div>
+                          )}
+                          <div style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
+                            ...(flipBelow ? { borderBottom: "5px solid #3B82F6" } : { borderTop: "5px solid #3B82F6" }),
                           }} />
+                          {flipBelow && (
+                            <div style={{
+                              padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
+                              fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
+                              position: "relative", overflow: "hidden",
+                            }}>
+                              ↑ Overhead
+                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 2s linear forwards" }} />
+                            </div>
+                          )}
                         </div>
-                        <div style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid #3B82F6" }} />
-                      </div>
-                    )}
+                      );
+                    })()}
                     {hasGhost && <div style={{ position: "absolute", zIndex: 5 }}>{makeBall(true)}</div>}
                   </div>
                 );
