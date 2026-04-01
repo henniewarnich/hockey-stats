@@ -15,6 +15,13 @@ import PausePopup from '../components/PausePopup.jsx';
 import TeamPicker from '../components/TeamPicker.jsx';
 import { teamColor, teamDisplayName, teamShortName, teamSlug } from '../utils/teams.js';
 
+const ZONES = [
+  { id: "z1", label: "Opp Quarter" },
+  { id: "z2", label: "Opp Midfield" },
+  { id: "z3", label: "Own Midfield" },
+  { id: "z4", label: "Own Quarter" },
+];
+
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(home.color, away.color);
@@ -158,11 +165,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
   // Callback from FieldRecorder after ball movement
   const handleBallMoved = (eventType) => {
-    if (['Ball forward', 'Ball back', 'Ball across'].includes(eventType)) {
-      showToast({ type: 'movement', buttons: [
-        { label: '↑ Overhead', event: 'Overhead throw', color: '#3B82F6' },
-      ]});
-    }
+    // Overhead reclassify now handled by FieldRecorder's inline button
   };
 
   // Ball tap = swap possession (except in D → show popup)
@@ -172,12 +175,30 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     const other = otherTeam(possession);
     addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teamShortName(teams[other])} won possession`);
     setPossession(other);
-    showToast({ type: 'turnover', buttons: [
-      { label: '🏑 Free Hit', event: 'Free Hit', color: '#10B981' },
-      { label: '⚠️ Foul', event: 'Foul Won', color: '#EF4444' },
-      { label: '🟢 Green', event: 'Green Card', color: '#22C55E' },
-      { label: '🟨 Yellow', event: 'Yellow Card', color: '#F59E0B' },
-    ]});
+  };
+
+  // Backline action button (Green Card, Yellow Card, Short Corner, Penalty)
+  const handleAction = (actionId, end) => {
+    if (!running || !possession) return;
+    const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
+    const defendingTeam = otherTeam(attackingTeam);
+    const zone = ballPos?.zoneId ? ZONES.find(z => z.id === ballPos.zoneId) : null;
+    const zoneLbl = zone ? `${zone.label} (${ballPos.pos || "centre"})` : "Centre";
+
+    if (actionId === "green_card") {
+      addLog(defendingTeam, "Green Card", zoneLbl, `Green Card to ${teamShortName(teams[defendingTeam])} in ${zoneLbl}`);
+    } else if (actionId === "yellow_card") {
+      addLog(defendingTeam, "Yellow Card", zoneLbl, `Yellow Card to ${teamShortName(teams[defendingTeam])} in ${zoneLbl}`);
+    } else if (actionId === "short_corner") {
+      addLog(attackingTeam, "Short Corner", `${teamShortName(teams[defendingTeam])} D`, `${teamShortName(teams[attackingTeam])} awarded Short Corner in ${zoneLbl}`);
+    } else if (actionId === "penalty") {
+      // Move ball to centre in front of D, give to attacking team
+      const penZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
+      addLog(attackingTeam, "Penalty", `${teamShortName(teams[defendingTeam])} D`, `${teamShortName(teams[attackingTeam])} awarded Penalty at ${teamShortName(teams[defendingTeam])}'s D`);
+      setPossession(attackingTeam);
+      setPrevBallPos(ballPos);
+      setBallPos({ zoneId: penZone, pos: "centre" });
+    }
   };
 
   // D option
@@ -454,6 +475,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           onShowDPopup={setShowDPopup} showDPopup={showDPopup}
           onShowTeamPicker={setShowTeamPicker}
           onBallTap={handleBallTap}
+          onOverhead={() => reclassify('Overhead throw')}
+          onAction={handleAction}
         />
       )}
 

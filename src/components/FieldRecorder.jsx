@@ -21,6 +21,13 @@ const D_OPTIONS = [
 
 const grassA = "#2D8B4E", grassB = "#258043";
 
+const ACTION_OPTIONS = [
+  { id: "green_card", label: "Green Card", icon: "🟢", color: "#22C55E" },
+  { id: "yellow_card", label: "Yellow Card", icon: "🟡", color: "#F59E0B" },
+  { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
+  { id: "penalty", label: "Penalty", icon: "⚠️", color: "#EF4444" },
+];
+
 export default function FieldRecorder({
   teams,         // { home: { name, color, short }, away: { ... } }
   possession, setPossession,
@@ -36,10 +43,37 @@ export default function FieldRecorder({
   onShowDPopup, showDPopup, onDOptionSelect, onCloseDPopup,
   onShowTeamPicker,
   onBallTap,
+  onOverhead,
+  onAction, // callback: (actionType, end) => void
 }) {
   const [flash, setFlash] = useState(null);
+  const [overheadVisible, setOverheadVisible] = useState(false);
+  const [actionPopup, setActionPopup] = useState(null); // 'top' | 'bottom' | null
   const fieldRef = useRef(null);
   const longPressRef = useRef(null);
+  const overheadTimerRef = useRef(null);
+
+  // Show overhead button above ball, auto-dismiss after 2s
+  const triggerOverhead = () => {
+    setOverheadVisible(true);
+    if (overheadTimerRef.current) clearTimeout(overheadTimerRef.current);
+    overheadTimerRef.current = setTimeout(() => setOverheadVisible(false), 2000);
+  };
+  const dismissOverhead = () => {
+    setOverheadVisible(false);
+    if (overheadTimerRef.current) { clearTimeout(overheadTimerRef.current); overheadTimerRef.current = null; }
+  };
+  const handleOverheadTap = (e) => {
+    e.stopPropagation();
+    dismissOverhead();
+    onOverhead?.();
+  };
+
+  const dismissActionPopup = () => setActionPopup(null);
+  const handleActionSelect = (actionType, end) => {
+    dismissActionPopup();
+    onAction?.(actionType, end);
+  };
 
   const doFlash = (id) => { setFlash(id); setTimeout(() => setFlash(null), 200); };
   const moveBall = (np) => { setPrevBallPos(ballPos); setBallPos(np); };
@@ -83,6 +117,7 @@ export default function FieldRecorder({
   // Zone tap
   const handleZoneTap = (zoneId, pos) => {
     if (!running || showRestart || !possession) return;
+    dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const zone = ZONES.find(z => z.id === zoneId);
     const fromZone = ballPos?.zoneId ? ZONES.find(z => z.id === ballPos.zoneId) : null;
@@ -98,6 +133,9 @@ export default function FieldRecorder({
     onAddLog(possession, event, `${zone.label} (${pos})`, `${teams[possession].name}: ${event} → ${zone.label} (${pos})`);
     if (onBallMoved) onBallMoved(event);
     moveBall({ zoneId, pos });
+    // Show overhead button above ball for zone-to-zone movements
+    if (['Ball forward', 'Ball back', 'Ball across'].includes(event)) triggerOverhead();
+    else dismissOverhead();
   };
 
   // Long press = possession conceded
@@ -116,6 +154,8 @@ export default function FieldRecorder({
   // D tap
   const handleDTap = (end) => {
     if (!running || showRestart || !possession) return;
+    dismissOverhead();
+    dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
     const defendingTeam = otherTeam(attackingTeam);
@@ -130,6 +170,8 @@ export default function FieldRecorder({
   // Dead ball on backline
   const handleDead = (end, side) => {
     if (!running || showRestart || !possession) return;
+    dismissOverhead();
+    dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
     onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teams[defendingTeam].name}'s backline (${side}). ${teams[defendingTeam].name} restart.`);
@@ -141,6 +183,8 @@ export default function FieldRecorder({
   // Long corner
   const handleLongCorner = (end, side) => {
     if (!running || showRestart || !possession) return;
+    dismissOverhead();
+    dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
     const defendingTeam = otherTeam(attackingTeam);
@@ -155,6 +199,8 @@ export default function FieldRecorder({
   // Sideline out with reversal
   const handleSidelineOut = (side, zoneId) => {
     if (!running || showRestart || !possession) return;
+    dismissOverhead();
+    dismissActionPopup();
     const zone = ZONES.find(z => z.id === zoneId);
     if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
       const newTeamOut = otherTeam(sidelineOut.team);
@@ -215,11 +261,20 @@ export default function FieldRecorder({
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#1a3a2a", position: "relative" }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: dColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>{teams[defendingTeam].name}</span>
+          {running && !showRestart && (
+            <div onClick={(e) => { e.stopPropagation(); setActionPopup(actionPopup === end ? null : end); }}
+              style={{
+                position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                width: 22, height: 22, borderRadius: 6, border: `1.5px solid ${dColor}66`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", fontSize: 10, fontWeight: 800, color: dColor, zIndex: 18,
+              }}>⚡</div>
+          )}
           {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
-            <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
+            <div style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
           )}
           {isGhostAt("sc", null, end) && (
-            <div style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+            <div style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
           )}
         </div>
         <div onClick={() => handleLongCorner(end, "right")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderLeft: "1px solid #0f1f18" }}>
@@ -365,6 +420,26 @@ export default function FieldRecorder({
                     {hasBall && !showRestart && (
                       <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{ zIndex: 10, cursor: "pointer" }}>{makeBall(false)}</div>
                     )}
+                    {hasBall && overheadVisible && !showRestart && (
+                      <div onClick={handleOverheadTap} style={{
+                        position: "absolute", top: 2, left: "50%", transform: "translate(-50%, -100%)",
+                        zIndex: 26, display: "flex", flexDirection: "column", alignItems: "center",
+                        animation: "overhead-in 0.15s ease-out", pointerEvents: "auto",
+                      }}>
+                        <div style={{
+                          padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
+                          fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
+                          position: "relative", overflow: "hidden",
+                        }}>
+                          ↑ Overhead
+                          <div style={{
+                            position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD",
+                            animation: "overhead-timer 2s linear forwards",
+                          }} />
+                        </div>
+                        <div style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid #3B82F6" }} />
+                      </div>
+                    )}
                     {hasGhost && <div style={{ position: "absolute", zIndex: 5 }}>{makeBall(true)}</div>}
                   </div>
                 );
@@ -388,9 +463,45 @@ export default function FieldRecorder({
         {renderBackline("bottom")}
       </div>
 
+      {/* Action popup */}
+      {actionPopup && (
+        <div onClick={dismissActionPopup} style={{
+          position: "fixed", inset: 0, zIndex: 40, background: "rgba(0,0,0,0.5)",
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            position: "absolute",
+            left: "50%", transform: "translateX(-50%)",
+            ...(actionPopup === "top"
+              ? { top: (fieldRef.current?.getBoundingClientRect().top || 0) + 20 }
+              : { bottom: window.innerHeight - (fieldRef.current?.getBoundingClientRect().bottom || 0) + 20 }),
+            zIndex: 41, background: "#0F172Aee", borderRadius: 12, padding: 8,
+            border: "1px solid #33415566", backdropFilter: "blur(8px)",
+            display: "flex", flexDirection: "column", gap: 4, minWidth: 180,
+          }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 2px 2px" }}>
+              <div onClick={dismissActionPopup} style={{
+                width: 26, height: 26, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#64748B", fontSize: 14, cursor: "pointer",
+              }}>✕</div>
+            </div>
+            {ACTION_OPTIONS.map(opt => (
+              <div key={opt.id} onClick={() => handleActionSelect(opt.id, actionPopup)} style={{
+                padding: "8px 12px", borderRadius: 6, border: `1px solid ${opt.color}44`,
+                background: `${opt.color}18`, color: "#F8FAFC", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <span>{opt.icon}</span><span>{opt.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes pulse-ball { 0%,100% { box-shadow: 0 0 16px rgba(255,255,255,0.6), 0 0 32px rgba(255,255,255,0.3); transform: scale(1); } 50% { box-shadow: 0 0 24px rgba(255,255,255,0.8), 0 0 48px rgba(255,255,255,0.4); transform: scale(1.1); } }
         @keyframes halo-pulse { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+        @keyframes overhead-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 4px)); } to { opacity: 1; transform: translate(-50%, -100%); } }
+        @keyframes overhead-timer { from { width: 100%; } to { width: 0%; } }
       `}</style>
     </div>
   );
