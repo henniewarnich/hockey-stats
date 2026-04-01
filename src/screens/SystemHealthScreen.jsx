@@ -45,7 +45,7 @@ export default function SystemHealthScreen({ onBack }) {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(null);
   const [retrofitResult, setRetrofitResult] = useState(null);
-  const [dailyActive, setDailyActive] = useState([]); // [{date, count}]
+  const [dailyActivity, setDailyActivity] = useState([]); // [{date, visitors, users}]
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
   const [recordings, setRecordings] = useState({ live: 0, videoReview: 0 }); // active recording sessions
@@ -74,8 +74,6 @@ export default function SystemHealthScreen({ onBack }) {
       if (allProfiles) {
         const now = Date.now();
         const h24 = 24 * 60 * 60 * 1000;
-        const d7 = 7 * h24;
-        const d30 = 30 * h24;
         const m10 = 10 * 60 * 1000;
         const active = allProfiles.filter(p => !p.blocked);
         const byRole = {};
@@ -83,8 +81,7 @@ export default function SystemHealthScreen({ onBack }) {
         setUserStats({
           total: active.length,
           active24h: active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < h24).length,
-          active7d: active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < d7).length,
-          active30d: active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < d30).length,
+          active7d: 0, active30d: 0, // populated below from real data
           byRole,
         });
         // Online now (last 10 minutes)
@@ -92,21 +89,60 @@ export default function SystemHealthScreen({ onBack }) {
           active.filter(p => p.last_seen_at && (now - new Date(p.last_seen_at).getTime()) < m10)
             .sort((a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at))
         );
-
-        // Daily active users trend (last 30 days)
-        const days = [];
-        for (let i = 29; i >= 0; i--) {
-          const d = new Date(now - i * h24);
-          days.push({ date: d.toISOString().slice(0, 10), count: 0 });
-        }
-        active.forEach(p => {
-          if (!p.last_seen_at) return;
-          const dayKey = new Date(p.last_seen_at).toISOString().slice(0, 10);
-          const entry = days.find(d => d.date === dayKey);
-          if (entry) entry.count++;
-        });
-        setDailyActive(days);
       }
+
+      // Daily activity trend (last 30 days) — from match_viewers + audit_log
+      const now = Date.now();
+      const h24 = 24 * 60 * 60 * 1000;
+      const thirtyDaysAgo = new Date(now - 30 * h24).toISOString();
+      const days = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now - i * h24);
+        days.push({ date: d.toISOString().slice(0, 10), visitors: 0, users: 0 });
+      }
+
+      // Fetch match_viewers for visitor counts (anonymous + registered)
+      const { data: viewerRows } = await supabase
+        .from('match_viewers')
+        .select('viewer_id, created_at')
+        .gte('created_at', thirtyDaysAgo);
+      if (viewerRows) {
+        // Group by day → distinct viewer_ids
+        const dayVisitors = {};
+        viewerRows.forEach(r => {
+          const dayKey = new Date(r.created_at).toISOString().slice(0, 10);
+          if (!dayVisitors[dayKey]) dayVisitors[dayKey] = new Set();
+          dayVisitors[dayKey].add(r.viewer_id);
+        });
+        days.forEach(d => { d.visitors = dayVisitors[d.date]?.size || 0; });
+        // Update 7d/30d visitor stats
+        const uniqueVisitors7d = new Set();
+        const uniqueVisitors30d = new Set();
+        viewerRows.forEach(r => {
+          const age = now - new Date(r.created_at).getTime();
+          uniqueVisitors30d.add(r.viewer_id);
+          if (age < 7 * h24) uniqueVisitors7d.add(r.viewer_id);
+        });
+        setUserStats(prev => ({ ...prev, active7d: uniqueVisitors7d.size, active30d: uniqueVisitors30d.size }));
+      }
+
+      // Fetch audit_log for registered user activity
+      const { data: auditRows } = await supabase
+        .from('audit_log')
+        .select('user_id, created_at')
+        .gte('created_at', thirtyDaysAgo);
+      if (auditRows) {
+        const dayUsers = {};
+        auditRows.forEach(r => {
+          if (!r.user_id) return;
+          const dayKey = new Date(r.created_at).toISOString().slice(0, 10);
+          if (!dayUsers[dayKey]) dayUsers[dayKey] = new Set();
+          dayUsers[dayKey].add(r.user_id);
+        });
+        days.forEach(d => { d.users = dayUsers[d.date]?.size || 0; });
+      }
+
+      setDailyActivity(days);
 
       // DB size estimate (rough: sum of row counts * avg row size)
       const totalRows = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -225,19 +261,23 @@ export default function SystemHealthScreen({ onBack }) {
           </div>
 
           {/* User activity */}
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>User activity</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>Activity</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#10B981' }}>{userStats.active24h}</div>
-              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Active 24h</div>
+              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Users 24h</div>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B' }}>{userStats.active7d}</div>
-              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Active 7d</div>
+              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Visitors 7d</div>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#94A3B8' }}>{userStats.active30d}</div>
-              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Active 30d</div>
+              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Visitors 30d</div>
+            </div>
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#8B5CF6' }}>{userStats.total}</div>
+              <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>Registered</div>
             </div>
           </div>
 
@@ -266,51 +306,64 @@ export default function SystemHealthScreen({ onBack }) {
             </div>
           )}
 
-          {/* Daily active users trend */}
-          {dailyActive.length > 0 && (() => {
-            const max = Math.max(...dailyActive.map(d => d.count), 1);
-            const total = dailyActive.reduce((s, d) => s + d.count, 0);
+          {/* Daily activity trend */}
+          {dailyActivity.length > 0 && (() => {
+            const maxV = Math.max(...dailyActivity.map(d => d.visitors), 1);
+            const maxU = Math.max(...dailyActivity.map(d => d.users), 1);
+            const max = Math.max(maxV, maxU);
+            const totalV = dailyActivity.reduce((s, d) => s + d.visitors, 0);
+            const totalU = dailyActivity.reduce((s, d) => s + d.users, 0);
             const chartW = 340;
             const chartH = 100;
-            const padL = 0, padR = 0;
-            const plotW = chartW - padL - padR;
-            const step = plotW / (dailyActive.length - 1 || 1);
-            const pts = dailyActive.map((d, i) => ({
-              x: padL + i * step,
-              y: chartH - (d.count / max) * (chartH - 12),
-              count: d.count, date: d.date,
-            }));
-            const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-            const areaPath = linePath + ` L${pts[pts.length - 1].x.toFixed(1)},${chartH} L${pts[0].x.toFixed(1)},${chartH} Z`;
+            const step = chartW / (dailyActivity.length - 1 || 1);
+            const toY = (val) => chartH - (val / max) * (chartH - 12);
+            const makeLine = (key) => dailyActivity.map((d, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${toY(d[key]).toFixed(1)}`).join(' ');
+            const makeArea = (key) => makeLine(key) + ` L${((dailyActivity.length - 1) * step).toFixed(1)},${chartH} L0,${chartH} Z`;
+            const vLine = makeLine('visitors');
+            const uLine = makeLine('users');
             return (
               <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>
-                Active users per day (30d) — total: {total}
-                <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 10px 6px', marginTop: 8, border: '1px solid #334155' }}>
+                Daily activity (30d)
+                <div style={{ display: 'flex', gap: 12, marginTop: 4, marginBottom: 4, fontWeight: 600, fontSize: 9, letterSpacing: 0, textTransform: 'none' }}>
+                  <span style={{ color: '#10B981' }}>● Visitors: {totalV}</span>
+                  <span style={{ color: '#8B5CF6' }}>● Registered: {totalU}</span>
+                </div>
+                <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 10px 6px', marginTop: 4, border: '1px solid #334155' }}>
                   <svg width={chartW} height={chartH + 20} style={{ display: 'block' }}>
                     {/* Grid lines */}
                     {[0.25, 0.5, 0.75].map(frac => (
-                      <line key={frac} x1={padL} y1={chartH - frac * (chartH - 12)} x2={chartW} y2={chartH - frac * (chartH - 12)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3 3" />
+                      <line key={frac} x1={0} y1={chartH - frac * (chartH - 12)} x2={chartW} y2={chartH - frac * (chartH - 12)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3 3" />
                     ))}
-                    {/* Area fill */}
-                    <path d={areaPath} fill="#10B981" opacity="0.12" />
-                    {/* Line */}
-                    <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    {/* Dots for days with activity */}
-                    {pts.map((p, i) => p.count > 0 && (
-                      <g key={p.date}>
-                        <circle cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 3}
-                          fill={i === pts.length - 1 ? '#F59E0B' : '#10B981'} />
-                        <text x={p.x} y={p.y - 7} textAnchor="middle" fill="#94A3B8" fontSize="7" fontWeight="700">{p.count}</text>
+                    {/* Visitor area + line */}
+                    <path d={makeArea('visitors')} fill="#10B981" opacity="0.1" />
+                    <path d={vLine} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Registered area + line */}
+                    <path d={makeArea('users')} fill="#8B5CF6" opacity="0.1" />
+                    <path d={uLine} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Visitor dots */}
+                    {dailyActivity.map((d, i) => d.visitors > 0 && (
+                      <g key={'v' + d.date}>
+                        <circle cx={i * step} cy={toY(d.visitors)} r={i === dailyActivity.length - 1 ? 4 : 2.5} fill={i === dailyActivity.length - 1 ? '#F59E0B' : '#10B981'} />
+                        <text x={i * step} y={toY(d.visitors) - 6} textAnchor="middle" fill="#10B981" fontSize="7" fontWeight="700">{d.visitors}</text>
+                      </g>
+                    ))}
+                    {/* Registered user dots */}
+                    {dailyActivity.map((d, i) => d.users > 0 && (
+                      <g key={'u' + d.date}>
+                        <circle cx={i * step} cy={toY(d.users)} r={2.5} fill="#8B5CF6" />
                       </g>
                     ))}
                     {/* Baseline */}
-                    <line x1={padL} y1={chartH} x2={chartW} y2={chartH} stroke="#334155" strokeWidth="0.5" />
+                    <line x1={0} y1={chartH} x2={chartW} y2={chartH} stroke="#334155" strokeWidth="0.5" />
                     {/* Date labels */}
-                    {pts.filter((_, i) => i === 0 || i === 14 || i === pts.length - 1).map(p => (
-                      <text key={p.date} x={p.x} y={chartH + 12} textAnchor="middle" fill="#475569" fontSize="7">
-                        {new Date(p.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                      </text>
-                    ))}
+                    {dailyActivity.filter((_, i) => i === 0 || i === 14 || i === dailyActivity.length - 1).map((d, _, arr) => {
+                      const i = dailyActivity.indexOf(d);
+                      return (
+                        <text key={d.date} x={i * step} y={chartH + 12} textAnchor="middle" fill="#475569" fontSize="7">
+                          {new Date(d.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                        </text>
+                      );
+                    })}
                   </svg>
                 </div>
               </div>
