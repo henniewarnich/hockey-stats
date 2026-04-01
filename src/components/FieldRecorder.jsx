@@ -57,7 +57,7 @@ export default function FieldRecorder({
   const triggerOverhead = () => {
     setOverheadVisible(true);
     if (overheadTimerRef.current) clearTimeout(overheadTimerRef.current);
-    overheadTimerRef.current = setTimeout(() => setOverheadVisible(false), 2000);
+    overheadTimerRef.current = setTimeout(() => setOverheadVisible(false), 1500);
   };
   const dismissOverhead = () => {
     setOverheadVisible(false);
@@ -402,8 +402,8 @@ export default function FieldRecorder({
               }}>
                 <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
                 {running && possession && !(sidelineOut?.side === "left" && sidelineOut?.zoneId === zone.id) && (
-                  <svg width="12" height="20" viewBox="0 0 12 20" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 4 : undefined, bottom: dirArrowUp ? undefined : 4, pointerEvents: "none", opacity: 0.5 }}>
-                    <polygon points={dirArrowUp ? "6,2 11,16 1,16" : "6,18 11,4 1,4"} fill={teams[possession].color} />
+                  <svg width="16" height="24" viewBox="0 0 16 24" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 2 : undefined, bottom: dirArrowUp ? undefined : 2, pointerEvents: "none", opacity: 0.8 }}>
+                    <polygon points={dirArrowUp ? "8,2 15,20 1,20" : "8,22 15,4 1,4"} fill={teams[possession].color} />
                   </svg>
                 )}
               </div>
@@ -446,7 +446,7 @@ export default function FieldRecorder({
                               position: "relative", overflow: "hidden",
                             }}>
                               ↑ Overhead
-                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 2s linear forwards" }} />
+                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 1.5s linear forwards" }} />
                             </div>
                           )}
                           <div style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
@@ -459,7 +459,7 @@ export default function FieldRecorder({
                               position: "relative", overflow: "hidden",
                             }}>
                               ↑ Overhead
-                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 2s linear forwards" }} />
+                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 1.5s linear forwards" }} />
                             </div>
                           )}
                         </div>
@@ -481,8 +481,8 @@ export default function FieldRecorder({
               }}>
                 <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
                 {running && possession && !(sidelineOut?.side === "right" && sidelineOut?.zoneId === zone.id) && (
-                  <svg width="12" height="20" viewBox="0 0 12 20" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 4 : undefined, bottom: dirArrowUp ? undefined : 4, pointerEvents: "none", opacity: 0.5 }}>
-                    <polygon points={dirArrowUp ? "6,2 11,16 1,16" : "6,18 11,4 1,4"} fill={teams[possession].color} />
+                  <svg width="16" height="24" viewBox="0 0 16 24" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 2 : undefined, bottom: dirArrowUp ? undefined : 2, pointerEvents: "none", opacity: 0.8 }}>
+                    <polygon points={dirArrowUp ? "8,2 15,20 1,20" : "8,22 15,4 1,4"} fill={teams[possession].color} />
                   </svg>
                 )}
               </div>
