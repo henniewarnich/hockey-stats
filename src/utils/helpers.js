@@ -90,11 +90,11 @@ export function ensureContrastingColors(homeColor, awayColor) {
   if (!homeColor || !awayColor) return { homeColor, awayColor };
   const dist = colorDist(hexToRgb(homeColor), hexToRgb(awayColor));
   if (dist > 120) return { homeColor, awayColor }; // different enough
-  // Colors clash — give away team white or yellow, whichever contrasts better with home
+  // Colors clash — give away team yellow or blue, whichever contrasts better with home
   const homeRgb = hexToRgb(homeColor);
-  const whiteDist = colorDist(homeRgb, hexToRgb("#FFFFFF"));
   const yellowDist = colorDist(homeRgb, hexToRgb("#F59E0B"));
-  return { homeColor, awayColor: whiteDist > yellowDist ? "#FFFFFF" : "#F59E0B" };
+  const blueDist = colorDist(homeRgb, hexToRgb("#1D4ED8"));
+  return { homeColor, awayColor: yellowDist > blueDist ? "#F59E0B" : "#1D4ED8" };
 }
 
 // Calculate period durations from match length and break format

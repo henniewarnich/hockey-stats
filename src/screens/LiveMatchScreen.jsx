@@ -115,7 +115,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             eventSeqRef.current += 1;
             pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
           }
-          return [commentaryEntry, entry, ...prev];
+          // Event on top, insight below it in newest-first feed
+          return [entry, commentaryEntry, ...prev];
         }
       }
       return upd;
@@ -273,7 +274,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     if (events.length === 0) {
       const origAwayColor = teamColor(away);
       if (origAwayColor && ac !== origAwayColor) {
-        const colorName = ac === "#FFFFFF" ? "white" : ac === "#F59E0B" ? "yellow" : "alternate";
+        const colorName = ac === "#F59E0B" ? "yellow" : ac === "#1D4ED8" ? "blue" : "alternate";
         const awayName = teamShortName(teams.away);
         const homeName = teamShortName(teams.home);
         const commentEntry = { id: Date.now() + 2, team: "commentary", event: "💬", zone: "", detail: `${homeName} is the home team. ${awayName} playing in ${colorName} today instead of their normal strip.`, time: 0 };
