@@ -43,31 +43,91 @@ export default function FieldRecorder({
   onShowDPopup, showDPopup, onDOptionSelect, onCloseDPopup,
   onShowTeamPicker,
   onBallTap,
-  onOverhead,
+  onOverheadDrag, // callback: (fromZoneId, fromPos, toZoneId, toPos) => void
   onAction, // callback: (actionType, end) => void
 }) {
   const [flash, setFlash] = useState(null);
-  const [overheadVisible, setOverheadVisible] = useState(false);
   const [actionPopup, setActionPopup] = useState(null); // 'top' | 'bottom' | null
+  const [dragging, setDragging] = useState(false);
+  const [dragPos, setDragPos] = useState(null); // { x, y } relative to field
+  const [dragTarget, setDragTarget] = useState(null); // { zoneId, pos } zone under finger
   const fieldRef = useRef(null);
   const longPressRef = useRef(null);
-  const overheadTimerRef = useRef(null);
+  const dragStartRef = useRef(null); // { clientX, clientY }
+  const dragMovedRef = useRef(false);
+  const DRAG_THRESHOLD = 12;
 
-  // Show overhead button above ball, auto-dismiss after 2s
-  const triggerOverhead = () => {
-    setOverheadVisible(true);
-    if (overheadTimerRef.current) clearTimeout(overheadTimerRef.current);
-    overheadTimerRef.current = setTimeout(() => setOverheadVisible(false), 1500);
-  };
-  const dismissOverhead = () => {
-    setOverheadVisible(false);
-    if (overheadTimerRef.current) { clearTimeout(overheadTimerRef.current); overheadTimerRef.current = null; }
-  };
-  const handleOverheadTap = (e) => {
+  // Drag handlers for overhead throw
+  const onBallDragStart = (clientX, clientY, e) => {
     e.stopPropagation();
-    dismissOverhead();
-    onOverhead?.();
+    e.preventDefault();
+    dragStartRef.current = { clientX, clientY };
+    dragMovedRef.current = false;
+    setDragging(true);
+    setDragPos(null);
+    setDragTarget(null);
   };
+
+  const getZoneAtPoint = (clientX, clientY) => {
+    const els = document.elementsFromPoint(clientX, clientY);
+    for (const el of els) {
+      if (el.dataset?.zone && el.dataset?.pos) return { zoneId: el.dataset.zone, pos: el.dataset.pos };
+    }
+    return null;
+  };
+
+  const onBallDragMove = useCallback((clientX, clientY) => {
+    if (!dragStartRef.current) return;
+    const dx = clientX - dragStartRef.current.clientX;
+    const dy = clientY - dragStartRef.current.clientY;
+    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+      dragMovedRef.current = true;
+      const fr = fieldRef.current?.getBoundingClientRect();
+      if (fr) {
+        setDragPos({ x: clientX - fr.left, y: clientY - fr.top });
+        const target = getZoneAtPoint(clientX, clientY);
+        setDragTarget(target && !(target.zoneId === ballPos?.zoneId && target.pos === ballPos?.pos) ? target : null);
+      }
+    }
+  }, [ballPos]);
+
+  const onBallDragEnd = useCallback((clientX, clientY) => {
+    if (!dragStartRef.current) return;
+    const wasDrag = dragMovedRef.current;
+    dragStartRef.current = null;
+    setDragging(false);
+    setDragPos(null);
+    setDragTarget(null);
+
+    if (!wasDrag) {
+      // No drag — treat as ball tap (swap possession)
+      onBallTap?.();
+      return;
+    }
+    // Drag ended — find target zone
+    const target = getZoneAtPoint(clientX, clientY);
+    if (target && !(target.zoneId === ballPos?.zoneId && target.pos === ballPos?.pos)) {
+      onOverheadDrag?.(ballPos?.zoneId, ballPos?.pos, target.zoneId, target.pos);
+    }
+  }, [ballPos, onBallTap, onOverheadDrag]);
+
+  // Global move/end listeners for drag
+  useEffect(() => {
+    const handleTouchMove = (e) => { if (dragStartRef.current) { const t = e.touches[0]; onBallDragMove(t.clientX, t.clientY); e.preventDefault(); } };
+    const handleTouchEnd = (e) => { if (dragStartRef.current) { const t = e.changedTouches[0]; onBallDragEnd(t.clientX, t.clientY); } };
+    const handleMouseMove = (e) => { if (dragStartRef.current) onBallDragMove(e.clientX, e.clientY); };
+    const handleMouseUp = (e) => { if (dragStartRef.current) onBallDragEnd(e.clientX, e.clientY); };
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [onBallDragMove, onBallDragEnd]);
 
   const dismissActionPopup = () => setActionPopup(null);
   const handleActionSelect = (actionType, end) => {
@@ -136,8 +196,6 @@ export default function FieldRecorder({
     if (onBallMoved) onBallMoved(event);
     moveBall({ zoneId, pos });
     // Show overhead button above ball for zone-to-zone movements
-    if (['Ball forward', 'Ball back', 'Ball across'].includes(event)) triggerOverhead();
-    else dismissOverhead();
   };
 
   // Long press = possession conceded
@@ -156,7 +214,6 @@ export default function FieldRecorder({
   // D tap
   const handleDTap = (end) => {
     if (!running || showRestart || !possession) return;
-    dismissOverhead();
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
@@ -172,7 +229,6 @@ export default function FieldRecorder({
   // Dead ball on backline
   const handleDead = (end, side) => {
     if (!running || showRestart || !possession) return;
-    dismissOverhead();
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
@@ -185,7 +241,6 @@ export default function FieldRecorder({
   // Long corner
   const handleLongCorner = (end, side) => {
     if (!running || showRestart || !possession) return;
-    dismissOverhead();
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
@@ -201,7 +256,6 @@ export default function FieldRecorder({
   // Sideline out with reversal
   const handleSidelineOut = (side, zoneId) => {
     if (!running || showRestart || !possession) return;
-    dismissOverhead();
     dismissActionPopup();
     const zone = ZONES.find(z => z.id === zoneId);
     if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
@@ -347,6 +401,27 @@ export default function FieldRecorder({
           </svg>
         )}
 
+        {/* Drag overhead trail */}
+        {dragging && dragPos && ballCoords && (
+          <>
+            <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 15, pointerEvents: "none" }}>
+              <line x1={ballCoords.x} y1={ballCoords.y} x2={dragPos.x} y2={dragPos.y}
+                stroke="#3B82F6" strokeWidth="2" strokeDasharray="6 4" opacity="0.6" />
+            </svg>
+            <div style={{
+              position: "absolute", left: dragPos.x, top: dragPos.y, zIndex: 16, pointerEvents: "none",
+              width: 20, height: 20, borderRadius: "50%", background: "#F8FAFC",
+              border: "3px solid #3B82F6", boxShadow: "0 0 16px #3B82F688",
+              transform: "translate(-50%,-50%)",
+            }} />
+            <div style={{
+              position: "absolute", left: dragPos.x, top: dragPos.y - 20, zIndex: 17, pointerEvents: "none",
+              transform: "translateX(-50%)", background: "#3B82F6", color: "#fff",
+              padding: "3px 10px", borderRadius: 6, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap",
+            }}>↑ Overhead</div>
+          </>
+        )}
+
         {/* D arc overlays */}
         {renderDArc("top")}
         {renderDArc("bottom")}
@@ -414,6 +489,7 @@ export default function FieldRecorder({
                 const hasGhost = isGhostAt("zone", zone.id, pos);
                 return (
                   <div key={pos}
+                    data-zone={zone.id} data-pos={pos}
                     onClick={() => handleZoneTap(zone.id, pos)}
                     onTouchStart={() => startLP(zone.id, pos)} onTouchEnd={cancelLP}
                     onMouseDown={() => startLP(zone.id, pos)} onMouseUp={cancelLP} onMouseLeave={cancelLP}
@@ -426,45 +502,16 @@ export default function FieldRecorder({
                     }}>
                     {flash === `${zone.id}-${pos}` && <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.15)" }} />}
                     {hasBall && !showRestart && (
-                      <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{ zIndex: 10, cursor: "pointer" }}>{makeBall(false)}</div>
+                      <div
+                        onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
+                        onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
+                        style={{ zIndex: 10, cursor: "grab" }}
+                      >{makeBall(false)}</div>
                     )}
-                    {hasBall && overheadVisible && !showRestart && (() => {
-                      const flipBelow = zone.id === "z1";
-                      return (
-                        <div onClick={handleOverheadTap} style={{
-                          position: "absolute", left: "50%",
-                          ...(flipBelow
-                            ? { bottom: 2, transform: "translate(-50%, 100%)", flexDirection: "column-reverse" }
-                            : { top: 2, transform: "translate(-50%, -100%)", flexDirection: "column" }),
-                          zIndex: 26, display: "flex", alignItems: "center",
-                          animation: "overhead-in 0.15s ease-out", pointerEvents: "auto",
-                        }}>
-                          {!flipBelow && (
-                            <div style={{
-                              padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
-                              fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
-                              position: "relative", overflow: "hidden",
-                            }}>
-                              ↑ Overhead
-                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 1.5s linear forwards" }} />
-                            </div>
-                          )}
-                          <div style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
-                            ...(flipBelow ? { borderBottom: "5px solid #3B82F6" } : { borderTop: "5px solid #3B82F6" }),
-                          }} />
-                          {flipBelow && (
-                            <div style={{
-                              padding: "5px 14px", borderRadius: 8, background: "#3B82F6", color: "#fff",
-                              fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer",
-                              position: "relative", overflow: "hidden",
-                            }}>
-                              ↑ Overhead
-                              <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: "#93C5FD", animation: "overhead-timer 1.5s linear forwards" }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {/* Drag target highlight */}
+                    {dragging && dragTarget?.zoneId === zone.id && dragTarget?.pos === pos && (
+                      <div style={{ position: "absolute", inset: 0, background: "#3B82F622", border: "2px solid #3B82F666", zIndex: 12, pointerEvents: "none" }} />
+                    )}
                     {hasGhost && <div style={{ position: "absolute", zIndex: 5 }}>{makeBall(true)}</div>}
                   </div>
                 );
@@ -531,8 +578,6 @@ export default function FieldRecorder({
       <style>{`
         @keyframes pulse-ball { 0%,100% { box-shadow: 0 0 16px rgba(255,255,255,0.6), 0 0 32px rgba(255,255,255,0.3); transform: scale(1); } 50% { box-shadow: 0 0 24px rgba(255,255,255,0.8), 0 0 48px rgba(255,255,255,0.4); transform: scale(1.1); } }
         @keyframes halo-pulse { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
-        @keyframes overhead-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 4px)); } to { opacity: 1; transform: translate(-50%, -100%); } }
-        @keyframes overhead-timer { from { width: 100%; } to { width: 0%; } }
       `}</style>
     </div>
   );

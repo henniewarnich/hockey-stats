@@ -478,7 +478,17 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           onShowDPopup={setShowDPopup} showDPopup={showDPopup}
           onShowTeamPicker={setShowTeamPicker}
           onBallTap={handleBallTap}
-          onOverhead={() => reclassify('Overhead throw')}
+          onOverheadDrag={(fromZoneId, fromPos, toZoneId, toPos) => {
+            if (!running || !possession) return;
+            const fromZone = ZONES.find(z => z.id === fromZoneId);
+            const toZone = ZONES.find(z => z.id === toZoneId);
+            const fromLabel = fromZone ? `${fromZone.label} (${fromPos})` : "Centre";
+            const toLabel = toZone ? `${toZone.label} (${toPos})` : "Centre";
+            addLog(possession, "Overhead throw", fromLabel, `${teamShortName(teams[possession])}: Overhead throw from ${fromLabel}`);
+            addLog(possession, "Overhead received", toLabel, `${teamShortName(teams[possession])}: Overhead received in ${toLabel}`);
+            setPrevBallPos(ballPos);
+            setBallPos({ zoneId: toZoneId, pos: toPos });
+          }}
           onAction={handleAction}
         />
       )}
