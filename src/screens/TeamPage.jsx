@@ -634,7 +634,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               {winRate > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "1px 6px", borderRadius: 99 }}>{winRate}%</span>}
             </div>
           </div>
-          <button onClick={async () => {
+          {coachProfile?.role === 'admin' && <button onClick={async () => {
             const btn = document.getElementById('team-export-btn');
             if (btn) btn.textContent = '⏳';
             try { await exportTeamData(team, () => {}); } catch (e) { console.error('Export error:', e); }
@@ -642,7 +642,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           }} id="team-export-btn" title="Download team data (JSON)" style={{
             width: 32, height: 32, borderRadius: 8, border: '1px solid #33415544', background: '#1E293B',
             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0,
-          }}>📥</button>
+          }}>📥</button>}
         </div>
       </div>
       {team?.id && <SponsorBanner tier="team" targetId={team.id} size="md" />}
