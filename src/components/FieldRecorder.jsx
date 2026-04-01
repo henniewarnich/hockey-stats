@@ -82,6 +82,8 @@ export default function FieldRecorder({
   const topTeam = flipped ? "away" : "home";
   const botTeam = flipped ? "home" : "away";
   const otherTeam = (t) => t === "home" ? "away" : "home";
+  // Direction of play: home attacks toward z1 (top when !flipped)
+  const dirArrowUp = possession ? (possession === "home" ? !flipped : flipped) : true;
 
   // Ghost ball check
   const isGhostAt = (type, zoneId, pos) => {
@@ -396,8 +398,14 @@ export default function FieldRecorder({
                 opacity: running && !showRestart ? (sidelineOut?.side === "left" && sidelineOut?.zoneId === zone.id ? 1 : 0.6) : 0.25,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "background 0.3s, opacity 0.3s", borderRight: "1px solid rgba(0,0,0,0.3)",
+                position: "relative",
               }}>
                 <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
+                {running && possession && !(sidelineOut?.side === "left" && sidelineOut?.zoneId === zone.id) && (
+                  <svg width="12" height="20" viewBox="0 0 12 20" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 4 : undefined, bottom: dirArrowUp ? undefined : 4, pointerEvents: "none", opacity: 0.5 }}>
+                    <polygon points={dirArrowUp ? "6,2 11,16 1,16" : "6,18 11,4 1,4"} fill={teams[possession].color} />
+                  </svg>
+                )}
               </div>
 
               {/* 3 green blocks */}
@@ -469,8 +477,14 @@ export default function FieldRecorder({
                 opacity: running && !showRestart ? (sidelineOut?.side === "right" && sidelineOut?.zoneId === zone.id ? 1 : 0.6) : 0.25,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "background 0.3s, opacity 0.3s", borderLeft: "1px solid rgba(0,0,0,0.3)",
+                position: "relative",
               }}>
                 <span style={{ fontSize: 7, fontWeight: 800, color: "#CBD5E1", writingMode: "vertical-rl", textOrientation: "mixed", letterSpacing: "0.05em" }}>OUT</span>
+                {running && possession && !(sidelineOut?.side === "right" && sidelineOut?.zoneId === zone.id) && (
+                  <svg width="12" height="20" viewBox="0 0 12 20" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: dirArrowUp ? 4 : undefined, bottom: dirArrowUp ? undefined : 4, pointerEvents: "none", opacity: 0.5 }}>
+                    <polygon points={dirArrowUp ? "6,2 11,16 1,16" : "6,18 11,4 1,4"} fill={teams[possession].color} />
+                  </svg>
+                )}
               </div>
             </div>
           </div>

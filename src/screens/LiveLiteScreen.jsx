@@ -11,10 +11,6 @@ import PausePopup from '../components/PausePopup.jsx';
 
 const EVENTS = [
   { id: 'goal', label: 'Goal', icon: '⚽', isGoal: true },
-  { id: 'attacking', label: 'Attacking', icon: '🏑' },
-  { id: 'defending', label: 'Defending', icon: '🛡' },
-  { id: 'short_corner', label: 'Short Corner', icon: '🔶' },
-  { id: 'shot_saved', label: 'Shot Saved', icon: '🧤' },
 ];
 
 const PROMO_WINDOW = 5 * 60; // 5 minutes in seconds
@@ -29,6 +25,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const [endPenHome, setEndPenHome] = useState(null);
   const [endPenAway, setEndPenAway] = useState(null);
   const [lastClicked, setLastClicked] = useState(null); // { team, eventId }
+  const flashTimerRef = useRef(null);
   const [matchId, setMatchId] = useState(match.supabaseId || null);
   const [starting, setStarting] = useState(!match.supabaseId && !match.isDemo);
   const [error, setError] = useState('');
@@ -117,6 +114,8 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
     }
 
     setLastClicked({ team, eventId: event.id });
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setLastClicked(null), 2000);
     const evt = { team, event: eventText, detail: event.id, time: timer.matchTime };
     setEvents(prev => [evt, ...prev]);
     if (matchId && !isDemo) pushLiveEvent(matchId, evt, seq);
@@ -192,7 +191,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px 0' }}>
         <div style={{ flex: 1, fontSize: 10, fontWeight: 700, color: isDemo ? '#8B5CF6' : '#64748B', textTransform: 'uppercase', letterSpacing: 1 }}>
-          {isDemo ? '🎮 Demo' : 'Live'}
+          {isDemo ? '🎮 Demo' : 'Live Basic'}
         </div>
         <div style={{ fontSize: 9, padding: '2px 8px', borderRadius: 99, background: timer.running ? '#10B98122' : '#F59E0B22', color: timer.running ? '#10B981' : '#F59E0B', fontWeight: 700 }}>
           {timer.matchState === 'idle' ? 'Ready' : timer.matchState === 'ended' ? 'Full Time' : timer.running ? '● Recording' : 'Paused'}
@@ -224,22 +223,23 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
             <div key={evt.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
               {['home', 'away'].map(side => {
                 const isActive = lastClicked?.team === side && lastClicked?.eventId === evt.id;
+                const flashColor = side === 'home' ? teamColor(homeTeam) : teamColor(awayTeam);
                 return (
                   <button
                     key={side}
                     onClick={() => timer.running && handleEvent(side, evt)}
                     disabled={!timer.running}
                     style={{
-                      padding: '12px 8px', borderRadius: 10, border: 'none', cursor: timer.running ? 'pointer' : 'default',
-                      background: isActive ? '#F59E0B' : '#1E293B',
-                      color: isActive ? '#0B0F1A' : '#CBD5E1',
-                      fontSize: 13, fontWeight: isActive ? 800 : 600,
+                      padding: '14px 8px', borderRadius: 10, border: 'none', cursor: timer.running ? 'pointer' : 'default',
+                      background: isActive ? flashColor : '#1E293B',
+                      color: isActive ? '#FFF' : '#CBD5E1',
+                      fontSize: 14, fontWeight: isActive ? 800 : 600,
                       opacity: timer.running ? 1 : 0.4,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      transition: 'background 0.15s, color 0.15s',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      transition: 'background 0.2s, color 0.2s',
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>{evt.icon}</span> {evt.label}
+                    <span style={{ fontSize: 20 }}>{evt.icon}</span> {evt.label}
                   </button>
                 );
               })}
