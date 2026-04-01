@@ -421,7 +421,7 @@ export default function FieldRecorder({
                       <div onClick={(e) => { e.stopPropagation(); onBallTap?.(); }} style={{ zIndex: 10, cursor: "pointer" }}>{makeBall(false)}</div>
                     )}
                     {hasBall && overheadVisible && !showRestart && (() => {
-                      const flipBelow = zone.id === "z1" || zone.id === "z4";
+                      const flipBelow = zone.id === "z1";
                       return (
                         <div onClick={handleOverheadTap} style={{
                           position: "absolute", left: "50%",

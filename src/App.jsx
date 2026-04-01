@@ -74,6 +74,7 @@ export default function App() {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintDoor, setMaintDoor] = useState({ taps: 0, show: false, email: '', password: '', error: '', loading: false });
   const store = useMatchStore();
 
   // Check maintenance mode on load
@@ -173,6 +174,28 @@ export default function App() {
   // ── MAINTENANCE MODE ──
   // Admin/CommAdmin bypass maintenance to toggle it off
   if (maintenanceMode && !['admin', 'commentator_admin'].includes(currentUser?.role)) {
+    const handleMaintTap = () => {
+      const next = maintDoor.taps + 1;
+      if (next >= 5) setMaintDoor(d => ({ ...d, taps: next, show: true }));
+      else setMaintDoor(d => ({ ...d, taps: next }));
+    };
+    const handleMaintLogin = async () => {
+      setMaintDoor(d => ({ ...d, error: '', loading: true }));
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: maintDoor.email, password: maintDoor.password });
+        if (error) { setMaintDoor(d => ({ ...d, error: error.message, loading: false })); return; }
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+        if (!profile || !['admin', 'commentator_admin'].includes(profile.role)) {
+          setMaintDoor(d => ({ ...d, error: 'Admin access required', loading: false }));
+          await supabase.auth.signOut();
+          return;
+        }
+        // Success — reload to bypass maintenance with active session
+        window.location.reload();
+      } catch (e) {
+        setMaintDoor(d => ({ ...d, error: 'Login failed', loading: false }));
+      }
+    };
     return (
       <div style={{
         fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto",
@@ -197,7 +220,28 @@ export default function App() {
         <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155", overflow: "hidden" }}>
           <div style={{ width: "60%", height: "100%", background: "#F59E0B", borderRadius: 2, animation: "loading 1.5s ease-in-out infinite alternate" }} />
         </div>
-        <div style={{ fontSize: 10, color: "#475569", marginTop: 16 }}>v{APP_VERSION}</div>
+        <div onClick={handleMaintTap} style={{ fontSize: 10, color: "#475569", marginTop: 16, cursor: "default", userSelect: "none" }}>v{APP_VERSION}</div>
+
+        {/* Secret admin login — appears after 5 taps on version */}
+        {maintDoor.show && (
+          <div style={{ marginTop: 20, width: "100%", maxWidth: 260 }}>
+            <input type="email" placeholder="Email" value={maintDoor.email}
+              onChange={e => setMaintDoor(d => ({ ...d, email: e.target.value }))}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 12, marginBottom: 6, outline: "none" }}
+            />
+            <input type="password" placeholder="Password" value={maintDoor.password}
+              onChange={e => setMaintDoor(d => ({ ...d, password: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && handleMaintLogin()}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 12, marginBottom: 8, outline: "none" }}
+            />
+            {maintDoor.error && <div style={{ fontSize: 11, color: "#EF4444", marginBottom: 6 }}>{maintDoor.error}</div>}
+            <button onClick={handleMaintLogin} disabled={maintDoor.loading}
+              style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "none", background: "#F59E0B", color: "#0B0F1A", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: maintDoor.loading ? 0.5 : 1 }}>
+              {maintDoor.loading ? 'Signing in...' : 'Admin Sign In'}
+            </button>
+          </div>
+        )}
+
         <style>{`@keyframes loading { from { width: 20%; margin-left: 0; } to { width: 60%; margin-left: 40%; } }`}</style>
       </div>
     );
