@@ -374,6 +374,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       teams, events, duration: timer.matchTime,
       matchLength, breakFormat, matchType, venue,
       homeScore: score.home, awayScore: score.away,
+      abandoned: true,
     };
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);

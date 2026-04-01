@@ -142,7 +142,7 @@ export async function saveMatchToSupabase(game) {
     venue: game.venue || null,
     match_type: game.matchType || 'league',
     duration: game.duration || 0,
-    status: 'ended',
+    status: game.abandoned ? 'abandoned' : 'ended',
   };
 
   let match;

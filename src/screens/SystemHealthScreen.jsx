@@ -272,32 +272,45 @@ export default function SystemHealthScreen({ onBack }) {
             const total = dailyActive.reduce((s, d) => s + d.count, 0);
             const chartW = 340;
             const chartH = 100;
-            const barW = Math.floor(chartW / dailyActive.length) - 1;
+            const padL = 0, padR = 0;
+            const plotW = chartW - padL - padR;
+            const step = plotW / (dailyActive.length - 1 || 1);
+            const pts = dailyActive.map((d, i) => ({
+              x: padL + i * step,
+              y: chartH - (d.count / max) * (chartH - 12),
+              count: d.count, date: d.date,
+            }));
+            const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+            const areaPath = linePath + ` L${pts[pts.length - 1].x.toFixed(1)},${chartH} L${pts[0].x.toFixed(1)},${chartH} Z`;
             return (
               <div style={{ fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: 1.5, margin: '14px 0 8px', textTransform: 'uppercase' }}>
                 Active users per day (30d) — total: {total}
                 <div style={{ background: '#1E293B', borderRadius: 10, padding: '12px 10px 6px', marginTop: 8, border: '1px solid #334155' }}>
                   <svg width={chartW} height={chartH + 20} style={{ display: 'block' }}>
-                    {dailyActive.map((d, i) => {
-                      const h = max > 0 ? (d.count / max) * chartH : 0;
-                      const x = i * (barW + 1);
-                      const isToday = i === dailyActive.length - 1;
-                      return (
-                        <g key={d.date}>
-                          <rect x={x} y={chartH - h} width={barW} height={Math.max(h, 1)} rx={2}
-                            fill={isToday ? '#F59E0B' : d.count > 0 ? '#10B981' : '#334155'} opacity={isToday ? 1 : 0.7} />
-                          {d.count > 0 && (
-                            <text x={x + barW / 2} y={chartH - h - 3} textAnchor="middle" fill="#94A3B8" fontSize="7" fontWeight="700">{d.count}</text>
-                          )}
-                          {(i === 0 || i === 14 || i === dailyActive.length - 1) && (
-                            <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" fill="#475569" fontSize="7">
-                              {new Date(d.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    })}
-                    <line x1="0" y1={chartH} x2={chartW} y2={chartH} stroke="#334155" strokeWidth="0.5" />
+                    {/* Grid lines */}
+                    {[0.25, 0.5, 0.75].map(frac => (
+                      <line key={frac} x1={padL} y1={chartH - frac * (chartH - 12)} x2={chartW} y2={chartH - frac * (chartH - 12)} stroke="#334155" strokeWidth="0.5" strokeDasharray="3 3" />
+                    ))}
+                    {/* Area fill */}
+                    <path d={areaPath} fill="#10B981" opacity="0.12" />
+                    {/* Line */}
+                    <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Dots for days with activity */}
+                    {pts.map((p, i) => p.count > 0 && (
+                      <g key={p.date}>
+                        <circle cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 3}
+                          fill={i === pts.length - 1 ? '#F59E0B' : '#10B981'} />
+                        <text x={p.x} y={p.y - 7} textAnchor="middle" fill="#94A3B8" fontSize="7" fontWeight="700">{p.count}</text>
+                      </g>
+                    ))}
+                    {/* Baseline */}
+                    <line x1={padL} y1={chartH} x2={chartW} y2={chartH} stroke="#334155" strokeWidth="0.5" />
+                    {/* Date labels */}
+                    {pts.filter((_, i) => i === 0 || i === 14 || i === pts.length - 1).map(p => (
+                      <text key={p.date} x={p.x} y={chartH + 12} textAnchor="middle" fill="#475569" fontSize="7">
+                        {new Date(p.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                      </text>
+                    ))}
                   </svg>
                 </div>
               </div>
