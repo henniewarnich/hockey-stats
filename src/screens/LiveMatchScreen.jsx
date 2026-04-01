@@ -482,10 +482,14 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             if (!running || !possession) return;
             const fromZone = ZONES.find(z => z.id === fromZoneId);
             const toZone = ZONES.find(z => z.id === toZoneId);
-            const fromLabel = fromZone ? `${fromZone.label} (${fromPos})` : "Centre";
-            const toLabel = toZone ? `${toZone.label} (${toPos})` : "Centre";
-            addLog(possession, "Overhead throw", fromLabel, `${teamShortName(teams[possession])}: Overhead throw from ${fromLabel}`);
+            // Zone labels are home-perspective; invert for away team so commentary reads naturally
+            const AWAY_ZONE_MAP = { "Opp Quarter": "Own Quarter", "Opp Midfield": "Own Midfield", "Own Midfield": "Opp Midfield", "Own Quarter": "Opp Quarter" };
+            const mapLabel = (z) => possession === "away" && z ? (AWAY_ZONE_MAP[z.label] || z.label) : z?.label || "Centre";
+            const fromLabel = fromZone ? `${mapLabel(fromZone)} (${fromPos})` : "Centre";
+            const toLabel = toZone ? `${mapLabel(toZone)} (${toPos})` : "Centre";
+            // Log received first so throw appears above it in the feed (newest-first)
             addLog(possession, "Overhead received", toLabel, `${teamShortName(teams[possession])}: Overhead received in ${toLabel}`);
+            addLog(possession, "Overhead throw", fromLabel, `${teamShortName(teams[possession])}: Overhead throw from ${fromLabel}`);
             setPrevBallPos(ballPos);
             setBallPos({ zoneId: toZoneId, pos: toPos });
           }}
