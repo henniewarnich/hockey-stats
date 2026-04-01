@@ -191,6 +191,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       addLog(defendingTeam, "Yellow Card", zoneLbl, `Yellow Card to ${teamShortName(teams[defendingTeam])} in ${zoneLbl}`);
     } else if (actionId === "short_corner") {
       addLog(attackingTeam, "Short Corner", `${teamShortName(teams[defendingTeam])} D`, `${teamShortName(teams[attackingTeam])} awarded Short Corner in ${zoneLbl}`);
+      setPossession(attackingTeam);
+      setPrevBallPos(ballPos);
+      setBallPos({ type: "sc", end });
     } else if (actionId === "penalty") {
       // Move ball to centre in front of D, give to attacking team
       const penZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
