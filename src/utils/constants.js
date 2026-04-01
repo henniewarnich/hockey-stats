@@ -1,4 +1,4 @@
-export const APP_VERSION = "7.10.65";
+export const APP_VERSION = "7.10.69";
 
 export const ZONES = [
   { id: "opp_quarter", label: "Opp Quarter" },
@@ -65,6 +65,7 @@ export const KEY_EVENTS = [
 
 // Events visible to public viewers (no tactical data)
 export const PUBLIC_EVENTS = [
-  "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
-  "Card", "Penalty Stroke",
+  "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
+  "Green Card", "Yellow Card", "Penalty Stroke",
+  "D Entry", "Shot on Goal", "Shot Off Target", "Dead Ball", "Long Corner", "Lost Possession",
 ];

@@ -9,7 +9,7 @@ const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + Stri
 // Filter events to only show public-safe ones
 function filterPublicEvents(events) {
   return events.filter(e => {
-    if (e.team === "meta") return e.event?.includes("Pause") || e.event?.includes("Half") || e.event?.includes("Quarter");
+    if (e.team === "meta") return e.event?.includes("Pause") || e.event?.includes("Resume") || e.event?.includes("Start") || e.event?.includes("Half") || e.event?.includes("Quarter");
     if (e.team === "commentary") return true; // narratives are public
     return PUBLIC_EVENTS.some(k => e.event?.startsWith(k));
   });
@@ -19,6 +19,7 @@ function classifyEvent(entry) {
   if (entry.event?.startsWith("Goal")) return "goal";
   if (entry.event === "Short Corner" || entry.event === "Long Corner" || entry.event === "Penalty") return "set_piece";
   if (entry.event?.includes("Card")) return "card";
+  if (entry.event === "D Entry" || entry.event === "Shot on Goal" || entry.event === "Shot Off Target" || entry.event === "Dead Ball" || entry.event === "Lost Possession") return "d_action";
   if (entry.team === "commentary") return "narrative";
   if (entry.team === "meta") return "info";
   return "other";

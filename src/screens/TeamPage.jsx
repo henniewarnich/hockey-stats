@@ -21,7 +21,11 @@ const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + Stri
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
 
 // Public-visible event types
-const PUBLIC_EVENTS = ["Goal!", "Goal! (SC)", "Short Corner", "Long Corner", "Penalty", "Start", "Ball Dead"];
+const PUBLIC_EVENTS = [
+  "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
+  "Green Card", "Yellow Card", "Penalty Stroke",
+  "D Entry", "Shot on Goal", "Shot Off Target", "Dead Ball", "Long Corner", "Lost Possession",
+];
 const COMMENTARY_TYPES = ["commentary", "meta"];
 
 function classifyEvent(e) {

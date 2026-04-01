@@ -24,7 +24,7 @@ const ZONES = [
 
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
-  const { homeColor: hc, awayColor: ac } = ensureContrastingColors(home.color, away.color);
+  const { homeColor: hc, awayColor: ac } = ensureContrastingColors(teamColor(home), teamColor(away));
   const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
@@ -269,6 +269,21 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const handleRestart = (team) => {
     setSidelineOut(null);
     addLog(team, "Start", "Centre", `${teamShortName(teams[team])} takes centre pass`);
+    // On first start, add strip colour commentary if away team colour was changed
+    if (events.length === 0) {
+      const origAwayColor = teamColor(away);
+      if (origAwayColor && ac !== origAwayColor) {
+        const colorName = ac === "#FFFFFF" ? "white" : ac === "#F59E0B" ? "yellow" : "alternate";
+        const awayName = teamShortName(teams.away);
+        const homeName = teamShortName(teams.home);
+        const commentEntry = { id: Date.now() + 2, team: "commentary", event: "💬", zone: "", detail: `${homeName} is the home team. ${awayName} playing in ${colorName} today instead of their normal strip.`, time: 0 };
+        setEvents(prev => [commentEntry, ...prev]);
+        if (liveMatchId && !isDemo) {
+          eventSeqRef.current += 1;
+          pushLiveEvent(liveMatchId, commentEntry, eventSeqRef.current).catch(() => {});
+        }
+      }
+    }
     setPossession(team); setPrevBallPos(null);
     setBallPos({ type: "centre", team }); setShowRestart(false); setShowTeamPicker(false);
     if (!running) timer.start();
@@ -299,12 +314,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       eventSeqRef.current += 1;
       pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
     }
-    if (pauseReason === "Quarter Break" || pauseReason === "Half Time") {
-      setPauseReason(null);
-    } else {
-      timer.resume();
-      setPauseReason(null);
-    }
+    timer.resume();
+    setPauseReason(null);
   };
 
   const [showDemoEnd, setShowDemoEnd] = useState(false);
@@ -487,9 +498,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             const mapLabel = (z) => possession === "away" && z ? (AWAY_ZONE_MAP[z.label] || z.label) : z?.label || "Centre";
             const fromLabel = fromZone ? `${mapLabel(fromZone)} (${fromPos})` : "Centre";
             const toLabel = toZone ? `${mapLabel(toZone)} (${toPos})` : "Centre";
-            // Log received first so throw appears above it in the feed (newest-first)
-            addLog(possession, "Overhead received", toLabel, `${teamShortName(teams[possession])}: Overhead received in ${toLabel}`);
+            // Log throw first, then received — received appears on top in newest-first feed
             addLog(possession, "Overhead throw", fromLabel, `${teamShortName(teams[possession])}: Overhead throw from ${fromLabel}`);
+            addLog(possession, "Overhead received", toLabel, `${teamShortName(teams[possession])}: Overhead received in ${toLabel}`);
             setPrevBallPos(ballPos);
             setBallPos({ zoneId: toZoneId, pos: toPos });
           }}

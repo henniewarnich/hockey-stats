@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { teamShortName, teamDerivedName, teamColor } from '../utils/teams.js';
 
 // Zones: top=opp attack, bottom=own defense (when flipped=false)
 const ZONES = [
@@ -157,7 +158,7 @@ export default function FieldRecorder({
 
   // Ball with halo
   const makeBall = (isGhost) => {
-    const teamColor = possession ? teams[possession].color : "#94A3B8";
+    const possColor = possession ? teams[possession].color : "#94A3B8";
     if (isGhost) {
       return <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#94A3B8", border: "2px solid #64748B", opacity: 0.4 }} />;
     }
@@ -165,12 +166,12 @@ export default function FieldRecorder({
       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{
           position: "absolute", width: 60, height: 60, borderRadius: "50%",
-          background: `${teamColor}55`, boxShadow: `0 0 20px ${teamColor}99, 0 0 40px ${teamColor}66`,
+          background: `${possColor}55`, boxShadow: `0 0 20px ${possColor}99, 0 0 40px ${possColor}66`,
           animation: "halo-pulse 1.8s ease-in-out infinite",
         }} />
         <div style={{
           width: 24, height: 24, borderRadius: "50%", background: "#F8FAFC",
-          border: `3px solid ${teamColor}`, boxShadow: `0 0 8px ${teamColor}88`, zIndex: 2,
+          border: `3px solid ${possColor}`, boxShadow: `0 0 8px ${possColor}88`, zIndex: 2,
         }} />
       </div>
     );
@@ -192,7 +193,7 @@ export default function FieldRecorder({
       else event = "Ball across";
     }
     doFlash(`${zoneId}-${pos}`);
-    onAddLog(possession, event, `${zone.label} (${pos})`, `${teams[possession].name}: ${event} → ${zone.label} (${pos})`);
+    onAddLog(possession, event, `${zone.label} (${pos})`, `${teamShortName(teams[possession])}: ${event} → ${zone.label} (${pos})`);
     if (onBallMoved) onBallMoved(event);
     moveBall({ zoneId, pos });
     // Show overhead button above ball for zone-to-zone movements
@@ -204,7 +205,7 @@ export default function FieldRecorder({
       if (!running || !possession) return;
       const other = otherTeam(possession);
       const zone = ZONES.find(z => z.id === zoneId);
-      onAddLog(possession, "Poss Conceded", `${zone.label} (${pos})`, `${teams[possession].name} lost to ${teams[other].name} in ${zone.label}`);
+      onAddLog(possession, "Poss Conceded", `${zone.label} (${pos})`, `${teamShortName(teams[possession])} lost to ${teamShortName(teams[other])} in ${zone.label}`);
       setPossession(other);
       moveBall({ zoneId, pos });
     }, 600);
@@ -221,7 +222,7 @@ export default function FieldRecorder({
     if (ballPos?.type === "d" && ballPos?.end === end) {
       onShowDPopup({ end }); return;
     }
-    onAddLog(attackingTeam, "D Entry", `${teams[defendingTeam].name} D`, `${teams[attackingTeam].name} entered ${teams[defendingTeam].name}'s D`);
+    onAddLog(attackingTeam, "D Entry", `${teamShortName(teams[defendingTeam])} D`, `${teamShortName(teams[attackingTeam])} entered ${teamShortName(teams[defendingTeam])}'s D`);
     moveBall({ type: "d", end });
     onShowDPopup({ end });
   };
@@ -232,7 +233,7 @@ export default function FieldRecorder({
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
-    onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teams[defendingTeam].name}'s backline (${side}). ${teams[defendingTeam].name} restart.`);
+    onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
     setPossession(defendingTeam);
     const defZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
     moveBall({ zoneId: defZone, pos: side });
@@ -245,9 +246,9 @@ export default function FieldRecorder({
     if (sidelineOut) setSidelineOut(null);
     const attackingTeam = end === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
     const defendingTeam = otherTeam(attackingTeam);
-    onAddLog(possession, "Ball Dead (backline)", `${teams[defendingTeam].name} Backline (${side})`, `${teams[possession].name} put ball over ${teams[defendingTeam].name}'s backline (${side})`);
-    onAddLog(defendingTeam, "Poss Conceded (LC)", `${teams[defendingTeam].name} Qtr (${side})`, `${teams[defendingTeam].name} concedes long corner on ${side}`);
-    onAddLog(attackingTeam, "Long Corner", `${teams[defendingTeam].name} Qtr (${side})`, `${teams[attackingTeam].name} wins long corner on ${side}`);
+    onAddLog(possession, "Ball Dead (backline)", `${teamShortName(teams[defendingTeam])} Backline (${side})`, `${teamShortName(teams[possession])} put ball over ${teamShortName(teams[defendingTeam])}'s backline (${side})`);
+    onAddLog(defendingTeam, "Poss Conceded (LC)", `${teamShortName(teams[defendingTeam])} Qtr (${side})`, `${teamShortName(teams[defendingTeam])} concedes long corner on ${side}`);
+    onAddLog(attackingTeam, "Long Corner", `${teamShortName(teams[defendingTeam])} Qtr (${side})`, `${teamShortName(teams[attackingTeam])} wins long corner on ${side}`);
     const atkZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
     setPossession(attackingTeam);
     moveBall({ zoneId: atkZone, pos: side });
@@ -261,7 +262,7 @@ export default function FieldRecorder({
     if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
       const newTeamOut = otherTeam(sidelineOut.team);
       const newTeamGets = sidelineOut.team;
-      onAddLog(newTeamOut, `Sideline Out (Reversed)`, zone.label, `Reversed — ${teams[newTeamOut].name} put ball out. ${teams[newTeamGets].name} free hit.`);
+      onAddLog(newTeamOut, `Sideline Out (Reversed)`, zone.label, `Reversed — ${teamShortName(teams[newTeamOut])} put ball out. ${teamShortName(teams[newTeamGets])} free hit.`);
       setPossession(newTeamGets);
       moveBall({ zoneId, pos: side === "left" ? "left" : "right" });
       setSidelineOut({ side, zoneId, team: newTeamOut, canReverse: false });
@@ -269,7 +270,7 @@ export default function FieldRecorder({
     }
     const teamOut = possession;
     const teamGets = otherTeam(possession);
-    onAddLog(teamOut, `Sideline Out (${side})`, zone.label, `${teams[teamOut].name} out on ${side} in ${zone.label}. ${teams[teamGets].name} free hit.`);
+    onAddLog(teamOut, `Sideline Out (${side})`, zone.label, `${teamShortName(teams[teamOut])} out on ${side} in ${zone.label}. ${teamShortName(teams[teamGets])} free hit.`);
     setPossession(teamGets);
     moveBall({ zoneId, pos: side === "left" ? "left" : "right" });
     setSidelineOut({ side, zoneId, team: teamOut, canReverse: true });
@@ -315,8 +316,9 @@ export default function FieldRecorder({
         <div onClick={() => handleLongCorner(end, "left")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderRight: "1px solid #0f1f18" }}>
           <span style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>◁ LC</span>
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#1a3a2a", position: "relative" }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: dColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>{teams[defendingTeam].name}</span>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#1a3a2a", position: "relative" }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: dColor, textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1 }}>{teamShortName(teams[defendingTeam])}</span>
+          <span style={{ fontSize: 6, fontWeight: 600, color: "#64748B", textTransform: "uppercase", lineHeight: 1, marginTop: 1 }}>{teamDerivedName(teams[defendingTeam])}</span>
           {running && !showRestart && (
             <div onClick={(e) => { e.stopPropagation(); setActionPopup(actionPopup === end ? null : end); }}
               style={{
