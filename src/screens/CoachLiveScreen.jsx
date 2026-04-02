@@ -286,7 +286,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* View toggle */}
       <div style={{ padding: "0 14px 8px" }}>
         <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }}>
-          {[["totals", "Match Totals"], ["quarters", breakFormat === "quarters" ? "By Quarter" : "By Period"], ["insights", "Match Insights"]].map(([k, l]) => (
+          {[["totals", "Match Totals"], ["insights", "Match Insights"]].map(([k, l]) => (
             <button key={k} onClick={() => setViewTab(k)} style={{
               flex: 1, padding: "6px 0", textAlign: "center", fontSize: 9, fontWeight: 700,
               background: viewTab === k ? "#10B98122" : "#1E293B", color: viewTab === k ? "#10B981" : "#64748B",
@@ -296,325 +296,102 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
         </div>
       </div>
 
-      {/* Match Totals */}
+      {/* Match Stats */}
       {viewTab === "totals" && (
         <div style={{ padding: "0 14px 20px" }}>
-          {/* Conversion rates */}
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Conversion Rates</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              {["home", "away"].map(t => (
-                <div key={t} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: t === "home" ? HC : AC }}>
-                    {teamShortName(teams[t])}
-                  </div>
-                </div>
-              ))}
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Match Stats</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: HC }}>{teamShortName(teams.home)}</div>
+              <div style={{ width: 90 }} />
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: AC }}>{teamShortName(teams.away)}</div>
             </div>
             {[
-              totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
-                ? ["Attack → D", "attack zone to D entry", t => atkConv(t), t => `${totalStat(t, "dEntries")} of ${totalStat(t, "atkZoneEntries")}`, true]
-                : null,
-              ["D → Short Crnr", "% of D entries", t => dToSC(t), t => `${totalStat(t, "shortCorners")} of ${totalStat(t, "dEntries")}`],
-              ["SC → Goal", "% of short corners", t => scToGoal(t), t => `${totalStat(t, "scGoals")} of ${totalStat(t, "shortCorners")}`, true, "#8B5CF6"],
-              ["Shots taken", "D Entry → Shot", t => dConv(t), t => `${shotsTaken(t)} of ${totalStat(t, "dEntries")}`],
-              ["On target", "% of shots", t => onTargetPct(t), t => `${totalStat(t, "shotsOn")} of ${shotsTaken(t)}`],
-              ["Goals", "% of shots on target", t => goalPct(t), t => `${t === "home" ? homeScore : awayScore} of ${totalStat(t, "shotsOn")}`, false, "#F59E0B"],
-            ].filter(Boolean).map(([label, sub, pctFn, detailFn, divider, color], i) => (
-              <div key={label}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: divider ? 0 : 8 }}>
-                <div style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: color || "#F8FAFC" }}>{pctFn("home")}%</div>
-                  <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("home")}</div>
-                </div>
-                <div style={{ width: 80, textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: color || "#94A3B8", fontWeight: 600 }}>{label}</div>
-                  <div style={{ fontSize: 8, color: "#475569" }}>{sub}</div>
-                </div>
-                <div style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: color || "#F8FAFC" }}>{pctFn("away")}%</div>
-                  <div style={{ fontSize: 9, color: "#94A3B8" }}>{detailFn("away")}</div>
-                </div>
-              </div>
-              {divider && <div style={{ borderBottom: "1px solid #33415544", margin: "8px 0" }} />}
-              </div>
-            ))}
-          </div>
-
-          {/* Short Corner Outcomes */}
-          {(() => {
-            const SKIP = new Set(['Ball forward', 'Ball back', 'Ball across', 'Ball in play', 'D Entry']);
-            const computeSCO = (team) => {
-              const out = { goal: 0, shotOn: 0, shotOff: 0, wonSC: 0, lostPoss: 0, deadBall: 0, other: 0 };
-              const sorted = events.filter(e => e.team !== 'commentary' && e.team !== 'meta').sort((a, b) => (a.time || 0) - (b.time || 0));
-              for (let i = 0; i < sorted.length; i++) {
-                if (sorted[i].event !== 'Short Corner' || sorted[i].team !== team) continue;
-                let found = false;
-                for (let j = i + 1; j < sorted.length; j++) {
-                  const n = sorted[j], ne = n.event || '';
-                  if (SKIP.has(ne)) continue;
-                  if (ne.startsWith('Goal') && n.team === team) { out.goal++; found = true; break; }
-                  if (ne === 'Shot on Goal' && n.team === team) { out.shotOn++; found = true; break; }
-                  if (ne === 'Shot Off Target' && n.team === team) { out.shotOff++; found = true; break; }
-                  if (ne === 'Short Corner' && n.team === team) { out.wonSC++; found = true; break; }
-                  if (ne === 'Dead Ball') { out.deadBall++; found = true; break; }
-                  if (ne === 'Start' || (n.team !== team && !SKIP.has(ne))) { out.lostPoss++; found = true; break; }
-                  if ((ne === 'Poss Conceded' || ne.startsWith('Sideline Out')) && n.team === team) { out.lostPoss++; found = true; break; }
-                }
-                if (!found) out.other++;
-              }
-              return out;
-            };
-            const hSCO = computeSCO('home');
-            const aSCO = computeSCO('away');
-            const hTotal = totalStat('home', 'shortCorners');
-            const aTotal = totalStat('away', 'shortCorners');
-            if (hTotal === 0 && aTotal === 0) return null;
-            const rows = [
-              { label: "⚽ Goal", key: "goal", color: "#F59E0B" },
-              { label: "◉ Shot on", key: "shotOn", color: "#10B981" },
-              { label: "○ Shot off", key: "shotOff", color: "#6B7280" },
-              { label: "🔲 Won SC", key: "wonSC", color: "#8B5CF6" },
-              { label: "✕ Lost poss", key: "lostPoss", color: "#EF4444" },
-              { label: "⊘ Dead ball", key: "deadBall", color: "#94A3B8" },
-            ];
-            return (
-              <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Short Corner Outcomes</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                  <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: HC }}>
-                    {teamShortName(teams.home)} <span style={{ color: "#475569", fontWeight: 400 }}>({hTotal})</span>
-                  </div>
-                  <div style={{ width: 80 }} />
-                  <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: AC }}>
-                    {teamShortName(teams.away)} <span style={{ color: "#475569", fontWeight: 400 }}>({aTotal})</span>
-                  </div>
-                </div>
-                {rows.filter(r => (hSCO[r.key] || 0) + (aSCO[r.key] || 0) > 0).map(r => (
-                  <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                    <div style={{ flex: 1, textAlign: "center" }}>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: hSCO[r.key] ? r.color : "#333" }}>{hSCO[r.key] || 0}</span>
-                      {hTotal > 0 && hSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(hSCO[r.key] / hTotal * 100)}%</span>}
-                    </div>
-                    <div style={{ width: 80, textAlign: "center", fontSize: 9, color: r.color, fontWeight: 600 }}>{r.label}</div>
-                    <div style={{ flex: 1, textAlign: "center" }}>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: aSCO[r.key] ? r.color : "#333" }}>{aSCO[r.key] || 0}</span>
-                      {aTotal > 0 && aSCO[r.key] > 0 && <span style={{ fontSize: 8, color: "#475569", marginLeft: 3 }}>{Math.round(aSCO[r.key] / aTotal * 100)}%</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
-          {/* Zone Control — time-based */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Zone Control</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: HC }} />
-                <span style={{ color: HC }}>{teamShortName(teams.home)}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <span style={{ color: AC }}>{teamShortName(teams.away)}</span>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: AC }} />
-              </div>
-            </div>
-            {(() => {
-              const zoned = events
-                .filter(e => e.team !== "commentary" && e.team !== "meta" && e.zone)
-                .sort((a, b) => (a.time || 0) - (b.time || 0));
-              const time = { attack: { home: 0, away: 0 }, midfield: { home: 0, away: 0 }, defense: { home: 0, away: 0 } };
-              for (let i = 0; i < zoned.length - 1; i++) {
-                const ev = zoned[i];
-                const dur = (zoned[i + 1].time || 0) - (ev.time || 0);
-                if (dur <= 0 || dur > 300) continue;
-                const z = ev.zone || "";
-                const isOppQ = z.includes("Opp Quarter");
-                const isOwnQ = z.includes("Own Quarter");
-                let area = "midfield";
-                if (ev.team === "home") {
-                  area = isOppQ ? "attack" : isOwnQ ? "defense" : "midfield";
-                } else {
-                  area = isOwnQ ? "attack" : isOppQ ? "defense" : "midfield";
-                }
-                if (ev.team === "home" || ev.team === "away") time[area][ev.team] += dur;
-              }
-              const totalH = time.attack.home + time.midfield.home + time.defense.home || 1;
-              const totalA = time.attack.away + time.midfield.away + time.defense.away || 1;
-              const zones = [
-                { label: "Attack", home: time.attack.home, away: time.attack.away },
-                { label: "Midfield", home: time.midfield.home, away: time.midfield.away },
-                { label: "Defense", home: time.defense.home, away: time.defense.away },
-              ];
+              { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+              { label: "Territory", sub: "% in opp half", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+              ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
+                ? [{ label: "Attack → D", sub: "attack zone to D entry", hVal: atkConv("home"), aVal: atkConv("away"), hDetail: `${totalStat("home", "dEntries")} of ${totalStat("home", "atkZoneEntries")}`, aDetail: `${totalStat("away", "dEntries")} of ${totalStat("away", "atkZoneEntries")}`, suffix: "%" }]
+                : []),
+              { label: "D → Short Crnr", sub: "% of D entries", hVal: dToSC("home"), aVal: dToSC("away"), hDetail: `${totalStat("home", "shortCorners")} of ${totalStat("home", "dEntries")}`, aDetail: `${totalStat("away", "shortCorners")} of ${totalStat("away", "dEntries")}`, suffix: "%" },
+              { label: "SC → Goal", sub: "% of short corners", hVal: scToGoal("home"), aVal: scToGoal("away"), hDetail: `${totalStat("home", "scGoals")} of ${totalStat("home", "shortCorners")}`, aDetail: `${totalStat("away", "scGoals")} of ${totalStat("away", "shortCorners")}`, suffix: "%" },
+              { label: "Shots taken", sub: "D Entry → Shot", hVal: dConv("home"), aVal: dConv("away"), hDetail: `${shotsTaken("home")} of ${totalStat("home", "dEntries")}`, aDetail: `${shotsTaken("away")} of ${totalStat("away", "dEntries")}`, suffix: "%" },
+              { label: "On target", sub: "% of shots", hVal: onTargetPct("home"), aVal: onTargetPct("away"), hDetail: `${totalStat("home", "shotsOn")} of ${shotsTaken("home")}`, aDetail: `${totalStat("away", "shotsOn")} of ${shotsTaken("away")}`, suffix: "%" },
+              { label: "Goals", sub: "% of shots on target", hVal: goalPct("home"), aVal: goalPct("away"), hDetail: `${homeScore} of ${totalStat("home", "shotsOn")}`, aDetail: `${awayScore} of ${totalStat("away", "shotsOn")}`, suffix: "%", color: "#F59E0B" },
+            ].map((r, i, arr) => {
+              const hColor = r.hVal > r.aVal ? "#10B981" : r.hVal < r.aVal ? "#EF4444" : "#F59E0B";
+              const aColor = r.aVal > r.hVal ? "#10B981" : r.aVal < r.hVal ? "#EF4444" : "#F59E0B";
               return (
-                <>
-                {zones.map(z => {
-                  const hPct = Math.round(z.home / totalH * 100);
-                  const aPct = Math.round(z.away / totalA * 100);
-                  return (
-                    <div key={z.label} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#F8FAFC", marginBottom: 4 }}>{z.label}</div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {/* Home bar */}
-                        <div style={{ width: 28, fontSize: 11, fontWeight: 900, color: HC, textAlign: "right" }}>{hPct}%</div>
-                        <div style={{ flex: 1, height: 14, borderRadius: 4, background: "#0B0F1A", overflow: "hidden", display: "flex", justifyContent: "flex-end" }}>
-                          <div style={{ width: `${Math.max(hPct, 3)}%`, background: `rgba(34,197,94,${0.25 + hPct * 0.005})`, borderRadius: 4, transition: "width 0.5s" }} />
-                        </div>
-                        {/* Away bar */}
-                        <div style={{ flex: 1, height: 14, borderRadius: 4, background: "#0B0F1A", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.max(aPct, 3)}%`, background: `rgba(148,163,184,${0.15 + aPct * 0.004})`, borderRadius: 4, transition: "width 0.5s" }} />
-                        </div>
-                        <div style={{ width: 28, fontSize: 11, fontWeight: 900, color: AC }}>{aPct}%</div>
-                      </div>
-                    </div>
-                  );
-                })}
-                </>
-              );
-            })()}
-            <div style={{ textAlign: "center", fontSize: 9, color: "#475569", marginTop: 4 }}>
-              Overall: <span style={{ color: HC, fontWeight: 700 }}>{avgTerritory("home")}%</span> – <span style={{ color: AC, fontWeight: 700 }}>{avgTerritory("away")}%</span> · Time-based
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quarters Tab */}
-      {viewTab === "quarters" && (
-        <div style={{ padding: "0 14px 20px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {quarterData.map(q => {
-              const isExp = expandedQ === q.label;
-              const isLive = q.status === "live";
-              const isUpcoming = q.status === "upcoming";
-
-              return (
-                <div key={q.label} style={{ borderRadius: 8, overflow: "hidden", border: isLive ? "1px solid #10B98133" : "1px solid #1E293B", opacity: isUpcoming ? 0.3 : 1 }}>
-                  {/* Header */}
-                  <div onClick={() => !isUpcoming && setExpandedQ(isExp ? null : q.label)} style={{
-                    display: "flex", alignItems: "center", padding: "8px 12px",
-                    background: isLive ? "#10B98108" : "#1E293B", cursor: isUpcoming ? "default" : "pointer",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, color: isLive ? "#10B981" : "#F8FAFC", width: 22 }}>{q.label}</div>
-                      {isLive && !isEnded && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122", color: "#10B981" }}>LIVE</span>}
-                      {isUpcoming && <span style={{ fontSize: 9, color: "#475569" }}>Upcoming</span>}
-                    </div>
-                    {!isUpcoming && (
-                      <div style={{ fontSize: 12, fontWeight: 800 }}>
-                        <span style={{ color: HC }}>{q.home.goals}</span>
-                        <span style={{ color: "#475569", margin: "0 4px" }}>–</span>
-                        <span style={{ color: AC }}>{q.away.goals}</span>
-                      </div>
-                    )}
-                    {!isUpcoming && <span style={{ fontSize: 10, color: "#334155", marginLeft: 8, transform: isExp ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>}
+                <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{r.hVal}{r.suffix}</div>
+                    {r.hDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.hDetail}</div>}
                   </div>
-
-                  {/* Expanded stats */}
-                  {isExp && !isUpcoming && (() => {
-                    const qConvRate = (t) => { const s = q[t].shotsOn + q[t].shotsOff; const g = q[t].goals; return s > 0 ? Math.round(g / s * 100) : 0; };
-                    const qDConv = (t) => { const d = q[t].dEntries; const s = q[t].shotsOn + q[t].shotsOff; return d > 0 ? Math.round(s / d * 100) : 0; };
-                    const qAtkConv = (t) => { const a = q[t].atkZoneEntries; const d = q[t].dEntries; return a > 0 ? Math.round(d / a * 100) : 0; };
-                    const qShots = (t) => q[t].shotsOn + q[t].shotsOff;
-                    const qOnPct = (t) => { const s = qShots(t); return s > 0 ? Math.round(q[t].shotsOn / s * 100) : 0; };
-                    const qGoalPct = (t) => { const on = q[t].shotsOn; return on > 0 ? Math.round(q[t].goals / on * 100) : 0; };
-                    const qDToSC = (t) => { const d = q[t].dEntries; return d > 0 ? Math.round(q[t].shortCorners / d * 100) : 0; };
-                    const qSCGoal = (t) => { const sc = q[t].shortCorners; return sc > 0 ? Math.round(q[t].scGoals / sc * 100) : 0; };
-                    const hEvents = events.filter(e => e.team === "home" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
-                    const aEvents = events.filter(e => e.team === "away" && e.time >= q.start && e.time <= q.end && e.team !== "commentary" && e.team !== "meta").length;
-                    const possTotal = hEvents + aEvents || 1;
-                    const hPoss = Math.round(hEvents / possTotal * 100);
-                    const aPoss = 100 - hPoss;
-
-                    const QStatBar = ({ hVal, aVal, label, suffix = "" }) => {
-                      const total = hVal + aVal;
-                      const hPct = total > 0 ? (hVal / total) * 100 : 50;
-                      const aPct = total > 0 ? (aVal / total) * 100 : 50;
-                      return (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
-                          <div style={{ width: 26, fontSize: 11, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? HC : "#64748B" }}>{hVal}{suffix}</div>
-                          <div style={{ flex: 1, display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{ width: `${hPct}%`, background: HC }} />
-                            <div style={{ width: `${aPct}%`, background: AC }} />
-                          </div>
-                          <div style={{ width: 26, fontSize: 11, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? AC : "#64748B" }}>{aVal}{suffix}</div>
-                          <div style={{ width: 74, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
-                        </div>
-                      );
-                    };
-
-                    return (
-                      <div style={{ padding: "6px 12px 10px", background: "#0B0F1A" }}>
-                        {/* Conversion rates */}
-                        <div style={{ display: "flex", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #1E293B" }}>
-                          {["home", "away"].map(t => (
-                            <div key={t} style={{ flex: 1, textAlign: "center" }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                                {teamShortName(teams[t])}
-                              </div>
-                              {(q.home.atkZoneEntries > 0 || q.away.atkZoneEntries > 0) && <>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC" }}>{qAtkConv(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Attack → D</div>
-                              </>}
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDToSC(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>D → Short Crnr</div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#8B5CF6", marginTop: 4 }}>{qSCGoal(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>SC → Goal</div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qDConv(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Shots taken</div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F8FAFC", marginTop: 4 }}>{qOnPct(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>On target</div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#F59E0B", marginTop: 4 }}>{qGoalPct(t)}%</div>
-                              <div style={{ fontSize: 9, color: "#CBD5E1" }}>Goals</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Stat bars */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          {DISPLAY_STATS.map(({ label, calc, suffix }) => (
-                            <QStatBar key={label} hVal={calc(q.home)} aVal={calc(q.away)} label={label} suffix={suffix || ""} />
-                          ))}
-                        </div>
-
-                        {/* Period Insights */}
-                        {(() => {
-                          const hIns = generatePeriodInsights(q.home, q.away, teamShortName(teams.home), teamShortName(teams.away));
-                          const aIns = generatePeriodInsights(q.away, q.home, teamShortName(teams.away), teamShortName(teams.home));
-                          if (hIns.length === 0 && aIns.length === 0) return null;
-                          const InsightIcon = ({ type }) => (
-                            <span style={{ fontSize: 10, marginRight: 3, fontWeight: 700 }}>{type === "strength" ? "+" : type === "weakness" ? "!" : "■"}</span>
-                          );
-                          return (
-                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #1E293B" }}>
-                              <div style={{ fontSize: 9, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Coach Insights</div>
-                              <div style={{ display: "flex", gap: 8 }}>
-                                {[["home", hIns], ["away", aIns]].map(([t, ins]) => ins.length > 0 && (
-                                  <div key={t} style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                                      {teamShortName(teams[t])}
-                                    </div>
-                                    {ins.map((i, idx) => (
-                                      <div key={idx} style={{ fontSize: 9, color: i.type === "strength" ? "#22C55E" : "#94A3B8", lineHeight: 1.4, marginBottom: 2 }}>
-                                        <InsightIcon type={i.type} />{i.text}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })()}
+                  <div style={{ textAlign: "center", width: 90 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
+                    <div style={{ fontSize: 7, color: "#475569" }}>{r.sub}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{r.aVal}{r.suffix}</div>
+                    {r.aDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.aDetail}</div>}
+                  </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Per-Match Averages */}
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Per-Match Averages</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: HC }}>{teamShortName(teams.home)}</div>
+              <div style={{ width: 90 }} />
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: AC }}>{teamShortName(teams.away)}</div>
+            </div>
+            {(() => {
+              const hGF = homeScore, aGF = awayScore;
+              const hGA = awayScore, aGA = homeScore;
+              const hGD = hGF - hGA, aGD = aGF - aGA;
+              const avgRows = [
+                { label: "Goals For", hVal: hGF, aVal: aGF, higherBetter: true, color: "#F59E0B" },
+                { label: "Goals Against", hVal: hGA, aVal: aGA, higherBetter: false },
+                { label: "Goal Difference", hVal: hGD, aVal: aGD, higherBetter: true },
+              ];
+              return avgRows.map((r, i) => {
+                const hBetter = r.higherBetter ? r.hVal > r.aVal : r.hVal < r.aVal;
+                const aBetter = r.higherBetter ? r.aVal > r.hVal : r.aVal < r.hVal;
+                const equal = r.hVal === r.aVal;
+                const hColor = equal ? "#F59E0B" : hBetter ? "#10B981" : "#EF4444";
+                const aColor = equal ? "#F59E0B" : aBetter ? "#10B981" : "#EF4444";
+                const fmtVal = (v) => r.label === "Goal Difference" && v > 0 ? `+${v}` : `${v}`;
+                return (
+                  <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < avgRows.length - 1 ? "1px solid #1a2536" : "none" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{fmtVal(r.hVal)}</div>
+                    </div>
+                    <div style={{ textAlign: "center", width: 90 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{fmtVal(r.aVal)}</div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "8px 0" }}>
+            {[["#10B981", "Better"], ["#F59E0B", "Equal"], ["#EF4444", "Worse"]].map(([c, l]) => (
+              <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: "#64748B" }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />
+                {l}
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
 
       {/* Match Insights Tab */}
       {viewTab === "insights" && (
@@ -654,43 +431,6 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                         <div key={`c${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
                           <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>!</span>
                           <span style={{ fontSize: 12, color: "#F59E0B", lineHeight: 1.5 }}>{i.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Per-period breakdown */}
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginTop: 4 }}>Period Breakdown</div>
-              {activeQs.map(q => {
-                const hIns = generatePeriodInsights(q.home, q.away, teamShortName(teams.home), teamShortName(teams.away));
-                const aIns = generatePeriodInsights(q.away, q.home, teamShortName(teams.away), teamShortName(teams.home));
-                if (hIns.length === 0 && aIns.length === 0) return null;
-                return (
-                  <div key={q.label} style={{ background: "#1E293B", borderRadius: 10, border: "1px solid #33415544", overflow: "hidden" }}>
-                    <div style={{ padding: "8px 12px", background: "#0B0F1A", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#F8FAFC" }}>{q.label}</div>
-                      <div style={{ fontSize: 12, fontWeight: 800 }}>
-                        <span style={{ color: HC }}>{q.home.goals}</span>
-                        <span style={{ color: "#475569", margin: "0 4px" }}>–</span>
-                        <span style={{ color: AC }}>{q.away.goals}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 0, borderTop: "1px solid #33415544" }}>
-                      {[["home", hIns], ["away", aIns]].map(([t, ins]) => (
-                        <div key={t} style={{ flex: 1, padding: "8px 10px", borderRight: t === "home" ? "1px solid #33415533" : "none" }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: t === "home" ? HC : AC, marginBottom: 4 }}>
-                            {teamShortName(teams[t])}
-                          </div>
-                          {ins.length === 0 ? (
-                            <div style={{ fontSize: 9, color: "#33415588" }}>—</div>
-                          ) : ins.map((i, idx) => (
-                            <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 4, padding: "2px 0" }}>
-                              <span style={{ color: i.type === "strength" ? "#10B981" : "#F59E0B", fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{i.type === "strength" ? "+" : "!"}</span>
-                              <span style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1.4 }}>{i.text}</span>
-                            </div>
-                          ))}
                         </div>
                       ))}
                     </div>
