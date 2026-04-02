@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { ensureContrastingColors, parseSAST, parseSASTDate, matchOutcome, matchWinner } from '../utils/helpers.js';
-import { computeMatchStats, statsFromArchive } from '../utils/stats.js';
+import { computeMatchStats, statsFromArchive, aggregateStats } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
 import { fetchLatestRankings } from '../utils/sync.js';
 import { useReactions } from '../hooks/useReactions.js';
@@ -174,6 +174,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [matchViewers, setMatchViewers] = useState(0);
   const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
+  const [top10Agg, setTop10Agg] = useState(null); // aggregated stats for top 10 ranked teams
   const [loadingStats, setLoadingStats] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
@@ -525,6 +526,59 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     })();
   }, [isCoach, team, matches.length]);
 
+  // Load top 10 team aggregate stats for coach benchmark
+  useEffect(() => {
+    if (!isCoach || !team || Object.keys(latestRankings).length === 0) return;
+    (async () => {
+      try {
+        // Get top 10 team IDs (excluding current team)
+        const ranked = Object.entries(latestRankings)
+          .filter(([id, r]) => r.rank && r.rank <= 10 && id !== team.id)
+          .map(([id]) => id);
+        if (ranked.length === 0) return;
+
+        // Fetch ended matches for top 10 teams
+        const { data: t10Matches } = await supabase
+          .from('matches')
+          .select('id, home_team_id, away_team_id')
+          .eq('status', 'ended')
+          .or(ranked.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
+        if (!t10Matches || t10Matches.length === 0) return;
+
+        // Fetch match_stats totals for those matches
+        const t10MatchIds = t10Matches.map(m => m.id);
+        const allRows = [];
+        for (let i = 0; i < t10MatchIds.length; i += 50) {
+          const batch = t10MatchIds.slice(i, i + 50);
+          const { data } = await supabase
+            .from('match_stats')
+            .select('*')
+            .in('match_id', batch)
+            .or('quarter.eq.0,quarter.is.null');
+          if (data) allRows.push(...data);
+        }
+
+        // Build matchStatsList from top10 perspective
+        const statsList = [];
+        t10Matches.forEach(m => {
+          const rows = allRows.filter(r => r.match_id === m.id);
+          if (rows.length < 2) return;
+          // Determine which top10 team played this match
+          const t10Id = ranked.find(id => id === m.home_team_id || id === m.away_team_id);
+          if (!t10Id) return;
+          const entry = statsFromArchive(rows, t10Id, m.home_team_id);
+          statsList.push(entry);
+        });
+
+        if (statsList.length > 0) {
+          setTop10Agg(aggregateStats(statsList));
+        }
+      } catch (e) {
+        console.error('Top10 stats error:', e);
+      }
+    })();
+  }, [isCoach, team, latestRankings]);
+
   const handleCoachLogout = async () => {
     await signOut();
     setIsCoach(false);
@@ -800,6 +854,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             teamId={team.id}
             allMatches={matches}
             matchCount={matches.filter(m => m.duration > 0).length}
+            top10Agg={top10Agg}
           />
         )
       )}
