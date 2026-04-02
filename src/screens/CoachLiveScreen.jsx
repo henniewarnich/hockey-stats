@@ -180,7 +180,7 @@ function getQuarters(events, breakFormat, matchLength, matchTime) {
   });
 }
 
-export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded }) {
+export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg }) {
   const teams = match?.teams || { home: { name: "Home", color: "#3B82F6" }, away: { name: "Away", color: "#EF4444" } };
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
@@ -348,9 +348,14 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: AC }}>{teamShortName(teams.away)}</div>
             </div>
             {(() => {
-              const hGF = homeScore, aGF = awayScore;
-              const hGA = awayScore, aGA = homeScore;
-              const hGD = hGF - hGA, aGD = aGF - aGA;
+              const hAvg = seasonAvg?.home;
+              const aAvg = seasonAvg?.away;
+              const hGF = hAvg ? +hAvg.gf.toFixed(1) : homeScore;
+              const aGF = aAvg ? +aAvg.gf.toFixed(1) : awayScore;
+              const hGA = hAvg ? +hAvg.ga.toFixed(1) : awayScore;
+              const aGA = aAvg ? +aAvg.ga.toFixed(1) : homeScore;
+              const hGD = hAvg ? +hAvg.gd.toFixed(1) : hGF - hGA;
+              const aGD = aAvg ? +aAvg.gd.toFixed(1) : aGF - aGA;
               const avgRows = [
                 { label: "Goals For", hVal: hGF, aVal: aGF, higherBetter: true, color: "#F59E0B" },
                 { label: "Goals Against", hVal: hGA, aVal: aGA, higherBetter: false },
@@ -378,6 +383,11 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
                 );
               });
             })()}
+            {seasonAvg && (seasonAvg.home || seasonAvg.away) && (
+              <div style={{ fontSize: 8, color: "#475569", textAlign: "center", marginTop: 6 }}>
+                {seasonAvg.home ? `${teamShortName(teams.home)}: ${seasonAvg.home.n} matches` : ""}{seasonAvg.home && seasonAvg.away ? " · " : ""}{seasonAvg.away ? `${teamShortName(teams.away)}: ${seasonAvg.away.n} matches` : ""}
+              </div>
+            )}
           </div>
 
           {/* Legend */}

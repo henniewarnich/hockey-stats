@@ -20,6 +20,20 @@ import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedNa
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
 
+// Compute per-match GF/GA/GD averages for a team from a list of matches
+const seasonAvgForTeam = (teamId, matchList) => {
+  const ended = (matchList || []).filter(m => m.status === 'ended');
+  if (ended.length === 0) return null;
+  let gf = 0, ga = 0;
+  ended.forEach(m => {
+    const isHome = m.home_team_id === teamId || m.home_team?.id === teamId;
+    gf += isHome ? (m.home_score || 0) : (m.away_score || 0);
+    ga += isHome ? (m.away_score || 0) : (m.home_score || 0);
+  });
+  const n = ended.length;
+  return { gf: gf / n, ga: ga / n, gd: (gf - ga) / n, n };
+};
+
 // Public-visible event types
 const PUBLIC_EVENTS = [
   "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
@@ -794,6 +808,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               events={liveEvents.map(e => ({ ...e, time: e.match_time }))}
               matchTime={liveTime}
               running={true}
+              seasonAvg={{
+                home: seasonAvgForTeam(liveMatch.home_team_id || liveMatch.home_team?.id, matches),
+                away: seasonAvgForTeam(liveMatch.away_team_id || liveMatch.away_team?.id, matches),
+              }}
             />
           ) : (
             /* Public: Commentary */
@@ -1142,6 +1160,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               events={selectedEvents.map(e => ({ ...e, time: e.match_time }))}
               matchTime={selectedMatch.duration || 0}
               running={false}
+              seasonAvg={{
+                home: seasonAvgForTeam(selectedMatch.home_team_id || selectedMatch.home_team?.id, matches),
+                away: seasonAvgForTeam(selectedMatch.away_team_id || selectedMatch.away_team?.id, matches),
+              }}
             />
           ) : (
             <div style={{ padding: "0 14px 20px" }}>
@@ -1290,47 +1312,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   })()}
                 </>);
               })()}
-              {/* ── COMMENTARY ── */}
-              {selectedEvents.length > 0 && (<>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match commentary</div>
-                {selectedEvents
-                  .filter(e => e.team === "commentary" || e.team === "meta" || PUBLIC_EVENTS.some(k => e.event?.startsWith(k)))
-                  .sort((a, b) => (b.match_time || 0) - (a.match_time || 0) || (b.seq || 0) - (a.seq || 0))
-                  .map((entry, i) => {
-                    const isMeta = entry.team === "meta";
-                    const isComm = entry.team === "commentary";
-                    const tc = isMeta ? "#F59E0B" : isComm ? "#F59E0B" : entry.team === "home" ? (selectedColors.homeColor || "#3B82F6") : (selectedColors.awayColor || "#EF4444");
-                    const mins = Math.floor((entry.match_time || 0) / 60);
-                    const isGoal = entry.event?.startsWith("Goal");
-                    const showReactions = isComm || isGoal || ["Short Corner", "Long Corner", "Penalty"].includes(entry.event);
-                    return (
-                      <div key={entry.id || i} style={{
-                        padding: "7px 10px", borderRadius: 8, marginBottom: 3,
-                        background: isComm ? "linear-gradient(135deg, #F59E0B12, #F59E0B08)" : tc + "08",
-                        borderLeft: isComm ? "3px solid #F59E0B55" : `3px solid ${tc}`,
-                      }}>
-                        {isComm ? (<>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                            <span style={{ fontSize: 12 }}>💬</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>Insight</span>
-                            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", marginLeft: "auto" }}>{mins}'</span>
-                          </div>
-                          <div style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.4, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail || entry.event}</div>
-                        </>) : (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <div style={{ fontSize: 10, fontFamily: "monospace", color: "#94A3B8", minWidth: 22 }}>{mins}'</div>
-                            <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
-                            <div style={{ fontSize: 12, fontWeight: 700, color: isGoal ? "#F59E0B" : isMeta ? "#F59E0B" : "#E2E8F0" }}>{entry.event}</div>
-                            {entry.detail && !isMeta && <div style={{ fontSize: 10, color: "#94A3B8", marginLeft: "auto", textAlign: "right", maxWidth: "50%" }}>{entry.detail}</div>}
-                          </div>
-                        )}
-                        {showReactions && entry.id && (
-                          <ReactionBar eventId={entry.id} counts={counts} myReactions={myReactions} onToggle={toggleReaction} readOnly />
-                        )}
-                      </div>
-                    );
-                  })}
-              </>)}
             </div>
           )}
         </div>
