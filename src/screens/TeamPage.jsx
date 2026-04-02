@@ -533,7 +533,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       try {
         // Get top 10 team IDs (excluding current team)
         const ranked = Object.entries(latestRankings)
-          .filter(([id, r]) => r.rank && r.rank <= 10 && id !== team.id)
+          .filter(([id, r]) => r.rank && r.rank <= 10)
           .map(([id]) => id);
         if (ranked.length === 0) return;
 
