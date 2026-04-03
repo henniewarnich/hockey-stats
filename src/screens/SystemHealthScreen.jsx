@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { archiveMatchStats, retrofitPredictions } from '../utils/sync.js';
-import { exportAllData } from '../utils/export.js';
+import { exportAllData, exportTeamData } from '../utils/export.js';
 import { APP_VERSION } from '../utils/constants.js';
+import { TEAM_SELECT, teamDisplayName } from '../utils/teams.js';
 import NavLogo from '../components/NavLogo.jsx';
 
 const THRESHOLDS = {
@@ -50,6 +51,10 @@ export default function SystemHealthScreen({ onBack }) {
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
   const [recordings, setRecordings] = useState({ live: 0, videoReview: 0 }); // active recording sessions
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [allTeams, setAllTeams] = useState([]);
+  const [teamExportId, setTeamExportId] = useState('');
+  const [teamExporting, setTeamExporting] = useState(false);
+  const [teamExportProgress, setTeamExportProgress] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -163,6 +168,10 @@ export default function SystemHealthScreen({ onBack }) {
           videoReview: locked.filter(m => m.status === 'ended' && m.updated_at > fourHoursAgo).length,
         });
       }
+
+      // Load teams for export dropdown
+      const { data: teamsData } = await supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name');
+      if (teamsData) setAllTeams(teamsData);
 
       setLoading(false);
     };
@@ -579,6 +588,44 @@ export default function SystemHealthScreen({ onBack }) {
             {exportProgress && (
               <div style={{ fontSize: 10, color: exportProgress.startsWith('Error') ? '#EF4444' : exportProgress.startsWith('✓') ? '#10B981' : '#64748B', marginTop: 4 }}>{exportProgress}</div>
             )}
+            {/* Team Export */}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #33415544' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>Export single team data</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select value={teamExportId} onChange={e => { setTeamExportId(e.target.value); setTeamExportProgress(null); }} style={{
+                  flex: 1, padding: '6px 8px', borderRadius: 6, border: '1px solid #33415566',
+                  background: '#0B0F1A', color: '#F8FAFC', fontSize: 11,
+                }}>
+                  <option value="">Select team...</option>
+                  {allTeams.map(t => <option key={t.id} value={t.id}>{teamDisplayName(t)}</option>)}
+                </select>
+                <button
+                  disabled={!teamExportId || teamExporting}
+                  onClick={async () => {
+                    const team = allTeams.find(t => t.id === teamExportId);
+                    if (!team) return;
+                    setTeamExporting(true);
+                    setTeamExportProgress('Exporting...');
+                    try {
+                      await exportTeamData(team, () => {});
+                      setTeamExportProgress('✓ Downloaded');
+                    } catch (e) {
+                      setTeamExportProgress(`Error: ${e.message}`);
+                    }
+                    setTeamExporting(false);
+                  }}
+                  style={{
+                    padding: '6px 12px', borderRadius: 6, border: '1px solid #8B5CF644',
+                    background: !teamExportId ? '#334155' : '#8B5CF611', color: '#8B5CF6',
+                    fontSize: 11, fontWeight: 700, cursor: !teamExportId ? 'default' : 'pointer',
+                    opacity: !teamExportId ? 0.4 : 1,
+                  }}
+                >📥</button>
+              </div>
+              {teamExportProgress && (
+                <div style={{ fontSize: 10, color: teamExportProgress.startsWith('Error') ? '#EF4444' : teamExportProgress.startsWith('✓') ? '#10B981' : '#64748B', marginTop: 4 }}>{teamExportProgress}</div>
+              )}
+            </div>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 9, color: '#334155' }}>v{APP_VERSION}</div>

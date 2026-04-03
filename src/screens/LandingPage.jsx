@@ -712,7 +712,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                         const myPred = userPredictions[m.id];
                         const hRec = teamRecords[m.home_team?.id];
                         const aRec = teamRecords[m.away_team?.id];
-                        const kp = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team));
+                        const kp = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team), { homeRank: latestRankings[m.home_team?.id]?.rank, awayRank: latestRankings[m.away_team?.id]?.rank });
                         const kPred = kp ? (kp.draw >= kp.homeWin && kp.draw >= kp.awayWin ? 'draw' : kp.homeWin >= kp.awayWin ? 'home' : 'away') : null;
                         const kLabel = kp ? (kPred === 'home' ? teamShortName(m.home_team) : kPred === 'away' ? teamShortName(m.away_team) : 'Draw') : null;
                         const kConf = kp ? Math.max(kp.homeWin, kp.draw, kp.awayWin) : null;
@@ -751,7 +751,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                       {isExp && (() => {
                         const hRec = teamRecords[m.home_team?.id];
                         const aRec = teamRecords[m.away_team?.id];
-                        const pred = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team));
+                        const pred = predictMatch(hRec, aRec, teamShortName(m.home_team), teamShortName(m.away_team), { homeRank: latestRankings[m.home_team?.id]?.rank, awayRank: latestRankings[m.away_team?.id]?.rank });
                         return (
                         <div style={{ background: "#1E293B", borderRadius: "0 0 10px 10px", padding: "6px 8px 8px", borderTop: "1px solid #33415544" }}>
                           {/* Prediction */}

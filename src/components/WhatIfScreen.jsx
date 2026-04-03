@@ -117,7 +117,7 @@ export default function WhatIfScreen({ onBack }) {
     const hTeam = teams.find(t => t.id === homeTeamId);
     const aTeam = teams.find(t => t.id === awayTeamId);
     if (!hRec || !aRec || !hTeam || !aTeam) { setPrediction(null); return; }
-    const p = predictMatch(hRec, aRec, teamShortName(hTeam), teamShortName(aTeam));
+    const p = predictMatch(hRec, aRec, teamShortName(hTeam), teamShortName(aTeam), { homeRank: rankings[homeTeamId]?.rank, awayRank: rankings[awayTeamId]?.rank });
     setPrediction(p);
   };
 

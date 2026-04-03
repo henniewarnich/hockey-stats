@@ -928,8 +928,10 @@ export async function retrofitPredictions(onProgress) {
     const hRec = { ...getRec(hId) };
     const aRec = { ...getRec(aId) };
 
-    // Kykie prediction — V2 model when 5+ games, ranking-based fallback otherwise
-    const kykie = predictMatch(hRec, aRec, hName, aName);
+    // Kykie prediction — V3 model (ranking + record + GD)
+    const hRank = rankMap[hId] || m.home_rank || 99;
+    const aRank = rankMap[aId] || m.away_rank || 99;
+    const kykie = predictMatch(hRec, aRec, hName, aName, { homeRank: hRank, awayRank: aRank });
     if (kykie) {
       const kPred = kykie.draw >= kykie.homeWin && kykie.draw >= kykie.awayWin ? 'draw'
         : kykie.homeWin >= kykie.awayWin ? 'home' : 'away';

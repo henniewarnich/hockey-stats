@@ -14,7 +14,6 @@ import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
-import { exportTeamData } from '../utils/export.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -189,6 +188,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
   const [top10Agg, setTop10Agg] = useState(null); // aggregated stats for top 10 ranked teams
+  const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
   const [loadingStats, setLoadingStats] = useState(false);
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
@@ -551,13 +551,30 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           .map(([id]) => id);
         if (ranked.length === 0) return;
 
-        // Fetch ended matches for top 10 teams
+        // Fetch ended matches for top 10 teams (with scores for per-match averages)
         const { data: t10Matches } = await supabase
           .from('matches')
-          .select('id, home_team_id, away_team_id')
+          .select('id, home_team_id, away_team_id, home_score, away_score')
           .eq('status', 'ended')
           .or(ranked.map(id => `home_team_id.eq.${id},away_team_id.eq.${id}`).join(','));
         if (!t10Matches || t10Matches.length === 0) return;
+
+        // Compute TOP10 per-match averages from ALL ended matches
+        let t10GF = 0, t10GA = 0, t10Count = 0;
+        t10Matches.forEach(m => {
+          const t10Id = ranked.find(id => id === m.home_team_id || id === m.away_team_id);
+          if (!t10Id) return;
+          const isHome = t10Id === m.home_team_id;
+          t10GF += isHome ? (m.home_score || 0) : (m.away_score || 0);
+          t10GA += isHome ? (m.away_score || 0) : (m.home_score || 0);
+          t10Count++;
+        });
+        const top10PerMatch = t10Count > 0 ? {
+          gf: +(t10GF / t10Count).toFixed(2),
+          ga: +(t10GA / t10Count).toFixed(2),
+          gd: +((t10GF - t10GA) / t10Count).toFixed(2),
+          n: t10Count,
+        } : null;
 
         // Fetch match_stats totals for those matches
         const t10MatchIds = t10Matches.map(m => m.id);
@@ -586,6 +603,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
         if (statsList.length > 0) {
           setTop10Agg(aggregateStats(statsList));
+        }
+        if (top10PerMatch) {
+          setTop10PM(top10PerMatch);
         }
       } catch (e) {
         console.error('Top10 stats error:', e);
@@ -706,15 +726,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               {winRate > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "1px 6px", borderRadius: 99 }}>{winRate}%</span>}
             </div>
           </div>
-          {coachProfile?.role === 'admin' && <button onClick={async () => {
-            const btn = document.getElementById('team-export-btn');
-            if (btn) btn.textContent = '⏳';
-            try { await exportTeamData(team, () => {}); } catch (e) { console.error('Export error:', e); }
-            if (btn) btn.textContent = '📥';
-          }} id="team-export-btn" title="Download team data (JSON)" style={{
-            width: 32, height: 32, borderRadius: 8, border: '1px solid #33415544', background: '#1E293B',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0,
-          }}>📥</button>}
         </div>
       </div>
       {team?.id && <SponsorBanner tier="team" targetId={team.id} size="md" />}
@@ -867,12 +878,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         ) : (
           <CoachOverall
             matchStatsList={Object.values(matchStatsMap)}
+            matchStatsMap={matchStatsMap}
             teamName={teamDisplayName(team)}
             teamColor={teamColor(team)}
             teamId={team.id}
             allMatches={matches}
             matchCount={matches.filter(m => m.duration > 0).length}
             top10Agg={top10Agg}
+            top10PM={top10PM}
           />
         )
       )}
@@ -942,7 +955,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   {isCoach && (() => {
                     const hRec = oppRecords[homeTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
                     const aRec = oppRecords[awayTeam?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
-                    const pred = predictMatch(hRec, aRec, teamShortName(homeTeam), teamShortName(awayTeam));
+                    const pred = predictMatch(hRec, aRec, teamShortName(homeTeam), teamShortName(awayTeam), { homeRank: latestRankings[homeTeam?.id]?.rank, awayRank: latestRankings[awayTeam?.id]?.rank });
                     return (<>
                     {pred && (
                       <div style={{ background: "linear-gradient(135deg,#1E293B,#0F172A)", borderRadius: 8, padding: "10px 12px", marginBottom: 6, border: "1px solid #F59E0B33" }}>
@@ -1263,7 +1276,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 const aRec = matchDetailRecords[selectedMatch.away_team?.id] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
                 const hName = teamShortName(selectedMatch.home_team);
                 const aName = teamShortName(selectedMatch.away_team);
-                const pred = (hRec.p >= 1 || aRec.p >= 1) ? predictMatch(hRec, aRec, hName, aName) : null;
+                const pred = (hRec.p >= 3 || aRec.p >= 3) ? predictMatch(hRec, aRec, hName, aName, { homeRank: latestRankings[selectedMatch.home_team?.id]?.rank, awayRank: latestRankings[selectedMatch.away_team?.id]?.rank }) : null;
                 const storedKykie = matchPredictions?.kykie;
                 const winner = matchWinner(selectedMatch);
                 if (!pred && !storedKykie && !(matchPredictions?.totalVotes > 0)) return null;
