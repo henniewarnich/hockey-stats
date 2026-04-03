@@ -284,7 +284,7 @@ export default function FieldRecorder({
     const xMap = { left: 28 + greenW / 6, centre: 28 + greenW / 2, right: 28 + 5 * greenW / 6 };
     if (bp.type === "centre") return { x: fw / 2, y: 174 };
     if (bp.type === "d") return { x: fw / 2, y: bp.end === "top" ? 42 : 318 };
-    if (bp.type === "sc") return { x: bp.end === "top" ? fw / 2 - 70 : fw / 2 + 70, y: bp.end === "top" ? 30 : 330 };
+    if (bp.type === "sc") return { x: bp.end === "top" ? 32 : fw - 32, y: bp.end === "top" ? 30 : 330 };
     if (bp.zoneId) {
       const ri = zones.findIndex(z => z.id === bp.zoneId);
       if (ri < 0) return null;
@@ -333,17 +333,15 @@ export default function FieldRecorder({
           {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
             <div style={{
               position: "absolute",
-              left: end === "top" ? "calc(50% - 70px)" : "calc(50% + 70px)",
-              [end === "top" ? "bottom" : "top"]: -11,
-              transform: "translateX(-50%)", zIndex: 16,
+              [end === "top" ? "left" : "right"]: 4,
+              top: "50%", transform: "translateY(-50%)", zIndex: 19,
             }}>{makeBall(false)}</div>
           )}
           {isGhostAt("sc", null, end) && (
             <div style={{
               position: "absolute",
-              left: end === "top" ? "calc(50% - 70px)" : "calc(50% + 70px)",
-              [end === "top" ? "bottom" : "top"]: -11,
-              transform: "translateX(-50%)", zIndex: 7,
+              [end === "top" ? "left" : "right"]: 4,
+              top: "50%", transform: "translateY(-50%)", zIndex: 7,
             }}>{makeBall(true)}</div>
           )}
         </div>
@@ -383,7 +381,7 @@ export default function FieldRecorder({
             position: "absolute", left: "50%", [isTop ? "bottom" : "top"]: 2, transform: "translateX(-50%)", zIndex: 16, cursor: "pointer",
           }}>{makeBall(false)}</div>
         )}
-        {hasGhost && (
+        {hasGhost && ballPos?.type !== "sc" && (
           <div style={{ position: "absolute", left: "50%", [isTop ? "bottom" : "top"]: 2, transform: "translateX(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
         )}
       </div>
