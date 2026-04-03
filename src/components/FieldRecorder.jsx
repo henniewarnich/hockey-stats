@@ -231,7 +231,7 @@ export default function FieldRecorder({
     onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
     setPossession(defendingTeam);
     const defZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
-    moveBall({ zoneId: defZone, pos: side });
+    moveBall({ zoneId: defZone, pos: side, nearLine: true });
   };
 
   // Long corner
@@ -331,10 +331,10 @@ export default function FieldRecorder({
               }}>⚡</div>
           )}
           {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
-            <div style={{ position: "absolute", left: "calc(50% + 48px)", bottom: -6, transform: "translateX(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
+            <div style={{ position: "absolute", left: "calc(50% + 42px)", top: "50%", transform: "translate(-50%,-50%)", zIndex: 16 }}>{makeBall(false)}</div>
           )}
           {isGhostAt("sc", null, end) && (
-            <div style={{ position: "absolute", left: "calc(50% + 48px)", bottom: -6, transform: "translateX(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+            <div style={{ position: "absolute", left: "calc(50% + 42px)", top: "50%", transform: "translate(-50%,-50%)", zIndex: 7 }}>{makeBall(true)}</div>
           )}
         </div>
         <div onClick={() => handleLongCorner(end, "right")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderLeft: "1px solid #0f1f18" }}>
@@ -507,13 +507,23 @@ export default function FieldRecorder({
                       WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
                     }}>
                     {flash === `${zone.id}-${pos}` && <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.15)" }} />}
-                    {hasBall && !showRestart && (
-                      <div
-                        onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
-                        onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
-                        style={{ zIndex: 10, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
-                      >{makeBall(false)}</div>
-                    )}
+                    {hasBall && !showRestart && (() => {
+                      const nl = ballPos?.nearLine;
+                      // nearLine: position at zone edge closest to midfield
+                      const nearStyle = nl ? {
+                        position: "absolute",
+                        [zi < 2 ? "bottom" : "top"]: -2,
+                        left: "50%", transform: "translateX(-50%)",
+                      } : {};
+                      return (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
+                          onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
+                          style={{ zIndex: 10, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", ...nearStyle }}
+                        >{makeBall(false)}</div>
+                      );
+                    })()}
                     {/* Drag target highlight */}
                     {dragging && dragTarget?.zoneId === zone.id && dragTarget?.pos === pos && (
                       <div style={{ position: "absolute", inset: 0, background: "#3B82F622", border: "2px solid #3B82F666", zIndex: 12, pointerEvents: "none" }} />
