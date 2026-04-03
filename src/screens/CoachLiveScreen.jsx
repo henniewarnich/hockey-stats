@@ -182,7 +182,7 @@ function getQuarters(events, breakFormat, matchLength, matchTime) {
   });
 }
 
-export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg, playPatterns, matchPlayPatterns, prominentZones, matchProminentZones }) {
+export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg, playPatterns, matchPlayPatterns, prominentZones, matchProminentZones, ballLossZones, matchBallLossZones }) {
   const teams = match?.teams || { home: { name: "Home", color: "#3B82F6" }, away: { name: "Away", color: "#EF4444" } };
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
@@ -464,6 +464,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               matchPatterns={matchPlayPatterns}
               prominentZones={prominentZones}
               matchProminentZones={matchProminentZones}
+              ballLossZones={ballLossZones}
+              matchBallLossZones={matchBallLossZones}
             />
           </div>
         </div>

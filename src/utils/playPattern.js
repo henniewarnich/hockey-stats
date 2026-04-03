@@ -265,3 +265,37 @@ export function getProminentZones(matches, eventsByMatch, teamId, topN = 3) {
     .map(([zone]) => zone);
 }
 
+/**
+ * Get top 3 ball-loss zones — zones with most possession conceded events.
+ * Returns array of grid zone names e.g. ['OM L', 'DM R', 'DQ C']
+ */
+export function getBallLossZones(matches, eventsByMatch, teamId, topN = 3) {
+  const LOSS_EVENTS = ['Poss Conceded', 'Poss Conceded (LC)'];
+  const zoneCounts = {};
+
+  for (const m of matches) {
+    const isHome = m.home_team_id === teamId;
+    const ownTeam = isHome ? m.home_team : m.away_team;
+    const oppTeam = isHome ? m.away_team : m.home_team;
+    const ownNames = teamNames(ownTeam);
+    const oppNames = teamNames(oppTeam);
+
+    const events = (eventsByMatch[m.id] || [])
+      .filter(e => e.team && e.zone && e.event);
+
+    for (const e of events) {
+      const isMine = (e.team === 'home' && isHome) || (e.team === 'away' && !isHome);
+      if (!isMine) continue;
+      if (!LOSS_EVENTS.some(le => e.event.includes(le))) continue;
+      const g = toGrid(e.zone, isHome, ownNames, oppNames);
+      if (!g || g === 'Own D' || g === 'Opp D') continue;
+      zoneCounts[g] = (zoneCounts[g] || 0) + 1;
+    }
+  }
+
+  return Object.entries(zoneCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([zone]) => zone);
+}
+

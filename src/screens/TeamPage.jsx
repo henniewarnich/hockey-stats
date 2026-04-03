@@ -13,7 +13,7 @@ import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import PlayPatternField from '../components/PlayPatternField.jsx';
-import { analysePlayPatterns, getProminentZones } from '../utils/playPattern.js';
+import { analysePlayPatterns, getProminentZones, getBallLossZones } from '../utils/playPattern.js';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
@@ -194,6 +194,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [loadingStats, setLoadingStats] = useState(false);
   const [playPatterns, setPlayPatterns] = useState(null);
   const [prominentZones, setProminentZones] = useState(null);
+  const [ballLossZones, setBallLossZones] = useState(null);
   const [rawEvents, setRawEvents] = useState({}); // matchId -> [events]
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
@@ -256,6 +257,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       return {
         patterns: analysePlayPatterns([selectedMatch], evtMap, team?.id),
         zones: getProminentZones([selectedMatch], evtMap, team?.id),
+        lossZones: getBallLossZones([selectedMatch], evtMap, team?.id),
       };
     } catch { return null; }
   }, [selectedMatch?.id, selectedEvents.length, isCoach, team?.id]);
@@ -564,6 +566,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           const patterns = analysePlayPatterns(liveProMatches, allEvents, team.id);
           setPlayPatterns(patterns);
           setProminentZones(getProminentZones(liveProMatches, allEvents, team.id));
+          setBallLossZones(getBallLossZones(liveProMatches, allEvents, team.id));
         }
       } catch (e) { console.error('Play pattern error:', e); }
 
@@ -931,7 +934,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           <div style={{ padding: "8px 14px 20px" }}>
             <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
-              <PlayPatternField patterns={playPatterns} prominentZones={prominentZones} />
+              <PlayPatternField patterns={playPatterns} prominentZones={prominentZones} ballLossZones={ballLossZones} />
             </div>
           </div>
         ) : (
@@ -1216,6 +1219,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               matchPlayPatterns={selectedMatchVisuals?.patterns}
               prominentZones={prominentZones}
               matchProminentZones={selectedMatchVisuals?.zones}
+              ballLossZones={ballLossZones}
+              matchBallLossZones={selectedMatchVisuals?.lossZones}
             />
           ) : (
             <div style={{ padding: "0 14px 20px" }}>

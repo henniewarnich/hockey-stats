@@ -6,7 +6,7 @@
  *                 prominentZones={aggZones} matchProminentZones={matchZones} />
  */
 
-export default function PlayPatternField({ patterns, matchPatterns, prominentZones, matchProminentZones }) {
+export default function PlayPatternField({ patterns, matchPatterns, prominentZones, matchProminentZones, ballLossZones, matchBallLossZones }) {
   if (!patterns || !patterns.exit || !patterns.attack) return null;
 
   const compare = !!(matchPatterns?.exit);
@@ -69,10 +69,12 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
   }
 
   // Render one field
-  function renderField(p, zones, isDotted, label, id) {
+  function renderField(p, zones, lossZones, isDotted, label, id) {
     const all = getAllPaths(p);
     const dash = isDotted ? '10 7' : 'none';
-    const whiteW = isDotted ? 0 : 0.2; // no white inner on dotted
+    const zoneSet = new Set(zones || []);
+    const lossSet = new Set(lossZones || []);
+    const allZoneKeys = [...new Set([...zoneSet, ...lossSet])];
 
     return (
       <div style={{ flex: 1, textAlign: 'center' }}>
@@ -87,10 +89,14 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
           </defs>
           <rect width="300" height="400" rx="12" fill="#7cc47c" />
           <g clipPath={`url(#ppf${id})`}>
-            {/* Prominent zones — top 3, equal shading */}
-            {(zones || []).map(z => {
+            {/* Zone shading: dark=prominent, red=ball loss, red+white border=overlap */}
+            {allZoneKeys.map(z => {
               const r = ZONE_RECTS[z];
-              return r ? <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#000" opacity="0.22" /> : null;
+              if (!r) return null;
+              const isProm = zoneSet.has(z);
+              const isLoss = lossSet.has(z);
+              if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" stroke={isProm ? '#fff' : 'none'} strokeWidth={isProm ? 3 : 0} />;
+              return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#000" opacity="0.22" />;
             })}
             {/* Grid */}
             <line x1="100" y1="0" x2="100" y2="400" stroke="#fff" strokeOpacity=".15" />
@@ -127,8 +133,8 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
   return (
     <div>
       <div style={{ display: 'flex', gap: compare ? 8 : 0 }}>
-        {renderField(patterns, prominentZones, false, `Overall (${patterns.matchCount})`, 'a')}
-        {compare && renderField(matchPatterns, matchProminentZones, true, 'This Match', 'm')}
+        {renderField(patterns, prominentZones, ballLossZones, false, `Overall (${patterns.matchCount})`, 'a')}
+        {compare && renderField(matchPatterns, matchProminentZones, matchBallLossZones, true, 'This Match', 'm')}
       </div>
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '6px 0', flexWrap: 'wrap' }}>
@@ -139,6 +145,9 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
         ))}
         <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
           <span style={{ display: 'inline-block', width: 12, height: 12, background: 'rgba(0,0,0,0.22)', borderRadius: 2 }} /> Prominent
+        </span>
+        <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+          <span style={{ display: 'inline-block', width: 12, height: 12, background: 'rgba(220,38,38,0.22)', borderRadius: 2 }} /> Ball Lost
         </span>
         {compare && (
           <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
