@@ -284,7 +284,7 @@ export default function FieldRecorder({
     const xMap = { left: 28 + greenW / 6, centre: 28 + greenW / 2, right: 28 + 5 * greenW / 6 };
     if (bp.type === "centre") return { x: fw / 2, y: 174 };
     if (bp.type === "d") return { x: fw / 2, y: bp.end === "top" ? 42 : 318 };
-    if (bp.type === "sc") return { x: fw / 2 + 55, y: bp.end === "top" ? 38 : 322 };
+    if (bp.type === "sc") return { x: fw / 2 - 48, y: bp.end === "top" ? 38 : 322 };
     if (bp.zoneId) {
       const ri = zones.findIndex(z => z.id === bp.zoneId);
       if (ri < 0) return null;
@@ -331,10 +331,10 @@ export default function FieldRecorder({
               }}>⚡</div>
           )}
           {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
-            <div style={{ position: "absolute", left: "calc(50% + 42px)", top: "50%", transform: "translate(-50%,-50%)", zIndex: 16 }}>{makeBall(false)}</div>
+            <div style={{ position: "absolute", left: "calc(50% - 48px)", bottom: -12, transform: "translateX(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
           )}
           {isGhostAt("sc", null, end) && (
-            <div style={{ position: "absolute", left: "calc(50% + 42px)", top: "50%", transform: "translate(-50%,-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+            <div style={{ position: "absolute", left: "calc(50% - 48px)", bottom: -12, transform: "translateX(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
           )}
         </div>
         <div onClick={() => handleLongCorner(end, "right")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderLeft: "1px solid #0f1f18" }}>
