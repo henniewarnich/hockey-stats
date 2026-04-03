@@ -75,6 +75,7 @@ export async function upsertInstitution(inst) {
     short_name: inst.short_name?.trim() || null,
     other_names: inst.other_names?.trim() || null,
     color: inst.color || '#1D4ED8',
+    domain: inst.domain?.trim() || null,
   };
 
   if (inst.id) {

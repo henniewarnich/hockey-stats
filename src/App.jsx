@@ -5,6 +5,7 @@ import { saveData, loadData } from './utils/helpers.js';
 import { saveMatchToSupabase, startVideoReview, clearMatchEvents } from './utils/sync.js';
 import { supabase } from './utils/supabase.js';
 import { APP_VERSION } from './utils/constants.js';
+import { teamSlug } from './utils/teams.js';
 import { getSession, getProfile, signOut } from './utils/auth.js';
 import HomeScreen from './screens/HomeScreen.jsx';
 import TeamsScreen from './screens/TeamsScreen.jsx';
@@ -470,8 +471,8 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     setScreen("live");
   };
 
-  const getTeamShareLink = (teamName) => {
-    const slug = teamName.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+  const getTeamShareLink = (team) => {
+    const slug = teamSlug(team);
     return `${window.location.origin}${window.location.pathname}#/team/${slug}`;
   };
 
@@ -501,7 +502,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "teams":
-      return <TeamsScreen teams={store.teams} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
+      return <TeamsScreen currentUser={currentUser} onSave={store.saveTeam} onDelete={store.deleteTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
 
     case "institutions":
       return <InstitutionScreen onBack={() => navigate("home")} />;
