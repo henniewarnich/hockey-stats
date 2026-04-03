@@ -55,12 +55,14 @@ export default function FieldRecorder({
   const fieldRef = useRef(null);
   const dragStartRef = useRef(null); // { clientX, clientY }
   const dragMovedRef = useRef(false);
+  const tapHandledRef = useRef(false); // prevent double-fire (touch+click)
   const DRAG_THRESHOLD = 12;
 
   // Drag handlers for overhead throw
   const onBallDragStart = (clientX, clientY, e) => {
     e.stopPropagation();
-    e.preventDefault();
+    // Don't preventDefault on touchstart — Safari suppresses click+touchend for taps
+    // Scroll prevention handled by touch-action:none CSS + preventDefault on touchmove
     dragStartRef.current = { clientX, clientY };
     dragMovedRef.current = false;
     setDragging(true);
@@ -101,6 +103,8 @@ export default function FieldRecorder({
 
     if (!wasDrag) {
       // No drag — treat as ball tap (swap possession)
+      tapHandledRef.current = true;
+      setTimeout(() => { tapHandledRef.current = false; }, 300);
       onBallTap?.();
       return;
     }
@@ -469,6 +473,7 @@ export default function FieldRecorder({
                 )}
                 {!showRestart && ballPos?.type === "centre" && (
                   <div
+                    onClick={(e) => { e.stopPropagation(); if (!tapHandledRef.current) onBallTap?.(); }}
                     onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
                     onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
                     style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 15, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
@@ -527,7 +532,7 @@ export default function FieldRecorder({
                       } : {};
                       return (
                         <div
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); if (!tapHandledRef.current) onBallTap?.(); }}
                           onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
                           onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
                           style={{ zIndex: 10, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", ...nearStyle }}
