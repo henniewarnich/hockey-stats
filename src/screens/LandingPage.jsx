@@ -26,7 +26,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
   const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
-  const [filters, setFilters] = useState({ sport: 'Hockey', gender: 'Girls', age: '1st' });
+  const [filters, setFilters] = useState({ sport: 'Hockey', gender: null, age: null });
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
   const [showResults, setShowResults] = useState(20);
@@ -862,7 +862,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   <button onClick={() => { window.location.hash = '#/issues'; }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: "transparent", color: "#EF4444", fontSize: 11, fontWeight: 700, border: "1px solid #EF444444", cursor: "pointer" }}>Report issue</button>
                 </div>
               )}
-              {!currentUser && (
+              {!currentUser && filtered.length > 0 && (
                 <div style={{ textAlign: "center", padding: "12px 0 4px" }}>
                   <button onClick={() => { window.location.hash = '#/register'; }} style={{ display: "inline-block", padding: "6px 14px", borderRadius: 6, border: "1px solid #F59E0B44", background: "#F59E0B11", color: "#F59E0B", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Register to add upcoming matches</button>
                 </div>

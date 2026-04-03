@@ -12,6 +12,8 @@ import RankBadge from '../components/RankBadge.jsx';
 import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
+import PlayPatternField from '../components/PlayPatternField.jsx';
+import { analysePlayPatterns } from '../utils/playPattern.js';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
@@ -190,6 +192,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [top10Agg, setTop10Agg] = useState(null); // aggregated stats for top 10 ranked teams
   const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
   const [loadingStats, setLoadingStats] = useState(false);
+  const [playPatterns, setPlayPatterns] = useState(null);
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
   const [matchPredictions, setMatchPredictions] = useState(null);
@@ -498,11 +501,11 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       for (const id of matchIds) {
         const { data } = await supabase
           .from('match_events')
-          .select('match_id, team, event, match_time, zone')
+          .select('match_id, team, event, match_time, zone, seq')
           .eq('match_id', id)
           .limit(5000);
         if (data && data.length > 0) {
-          allEvents[id] = data.map(e => ({ team: e.team, event: e.event, time: e.match_time, zone: e.zone }));
+          allEvents[id] = data;
         }
       }
       
@@ -528,7 +531,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       // Compute stats per match — events first, fallback to archive
       const statsMap = {};
       endedWithDuration.forEach(m => {
-        const events = allEvents[m.id] || [];
+        const raw = allEvents[m.id] || [];
+        const events = raw.map(e => ({ team: e.team, event: e.event, time: e.match_time, zone: e.zone }));
         if (events.length > 0) {
           statsMap[m.id] = computeMatchStats(events, team.id, m.home_team_id);
         } else if (archivedStats[m.id]) {
@@ -536,6 +540,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         }
       });
       setMatchStatsMap(statsMap);
+
+      // Play pattern analysis using raw events
+      try {
+        const liveProMatches = endedWithDuration.filter(m => (allEvents[m.id] || []).length > 0);
+        if (liveProMatches.length > 0) {
+          const patterns = analysePlayPatterns(liveProMatches, allEvents, team.id);
+          setPlayPatterns(patterns);
+        }
+      } catch (e) { console.error('Play pattern error:', e); }
+
       setLoadingStats(false);
     })();
   }, [isCoach, team, matches.length]);
@@ -876,6 +890,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         loadingStats ? (
           <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading stats...</div>
         ) : (
+          <>
           <CoachOverall
             matchStatsList={Object.values(matchStatsMap)}
             matchStatsMap={matchStatsMap}
@@ -887,6 +902,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             top10Agg={top10Agg}
             top10PM={top10PM}
           />
+          {playPatterns && playPatterns.exit && (
+            <div style={{ padding: "0 14px 20px" }}>
+              <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
+                <PlayPatternField patterns={playPatterns} teamName={teamDisplayName(team)} />
+              </div>
+            </div>
+          )}
+          </>
         )
       )}
 
