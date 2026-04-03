@@ -1,7 +1,7 @@
 {
   "name": "hockey-stats",
   "private": true,
-  "version": "7.10.89",
+  "version": "7.10.91",
   "type": "module",
   "scripts": {
     "dev": "vite",

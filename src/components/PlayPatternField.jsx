@@ -8,18 +8,26 @@ export default function PlayPatternField({ patterns, teamName }) {
   const { exit, attack, dEntry } = patterns;
 
   const X = { L: 50, C: 150, R: 250 };
+  const D_PATHS = {
+    L: 'M 55,80 Q 90,40 145,16',
+    C: 'M 150,80 L 150,14',
+    R: 'M 245,80 Q 210,40 155,16',
+  };
+
+  // Resolve dominant lane for each phase
+  const exitLane = exit.entryLane || 'C';
+  const attackLane = attack.transitLane || attack.entryLane || 'C';
 
   // Build paths for a phase
-  function buildPaths(data, y1, y2, laneKey) {
-    if (!data) return [];
+  // prevLane: resolved lane of previous phase — determines where arrows START
+  function buildPaths(targetLane, y1, y2, prevLane) {
     const paths = [];
-    const targetLane = data[laneKey || 'entryLane'] || data.entryLane || 'C';
 
     if (targetLane === 'balanced') {
-      // Three equal lines
-      const startBase = data.startLane === 'balanced' ? null : (data.startLane || 'C');
       for (const l of ['L', 'C', 'R']) {
-        const x1 = X[startBase || l];
+        // If previous phase was balanced, continue in same lane (L→L, C→C, R→R)
+        // If previous phase was dominant (e.g. 'L'), all start from that lane and fan out
+        const x1 = prevLane === 'balanced' ? X[l] : X[prevLane || 'C'];
         const x2 = X[l];
         if (x1 === x2) {
           paths.push({ d: `M ${x1},${y1} L ${x2},${y2}`, w: 9 });
@@ -30,8 +38,8 @@ export default function PlayPatternField({ patterns, teamName }) {
       }
     } else {
       // Single dominant line
-      const startX = X[data.startLane === 'balanced' ? 'C' : (data.startLane || 'C')];
-      const endX = X[targetLane || 'C'];
+      const startX = prevLane === 'balanced' ? X.C : X[prevLane || 'C'];
+      const endX = X[targetLane];
       if (startX === endX) {
         paths.push({ d: `M ${startX},${y1} L ${endX},${y2}`, w: 12 });
       } else {
@@ -42,44 +50,38 @@ export default function PlayPatternField({ patterns, teamName }) {
     return paths;
   }
 
-  // Build D-entry paths
+  // Build D-entry paths — always check for secondaries (>15% of total)
   function buildDPaths(data) {
     if (!data) return [];
     const paths = [];
     const entryLane = data.entryLane;
+    const lanes = data.lanes?.entry || {};
+    const sorted = Object.entries(lanes).sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((s, [, c]) => s + c, 0) || 1;
 
-    if (entryLane === 'C') {
-      paths.push({ d: 'M 150,58 L 150,14', w: 12 });
-    } else if (entryLane === 'balanced') {
-      // Multiple entry points curving to D centre
-      paths.push({ d: 'M 150,58 L 150,14', w: 8 });
-      paths.push({ d: 'M 55,58 Q 90,32 145,14', w: 5 });
-      paths.push({ d: 'M 245,58 Q 210,32 155,14', w: 5 });
-    } else if (entryLane === 'R') {
-      paths.push({ d: 'M 245,58 Q 210,32 155,14', w: 10 });
-      // Check if secondary exists
-      const lanes = data.lanes?.entry || {};
-      const sorted = Object.entries(lanes).sort((a, b) => b[1] - a[1]);
-      if (sorted.length >= 2 && sorted[1][1] > 0) {
+    if (entryLane === 'balanced') {
+      paths.push({ d: D_PATHS.C, w: 8 });
+      paths.push({ d: D_PATHS.L, w: 5 });
+      paths.push({ d: D_PATHS.R, w: 5 });
+    } else {
+      // Primary arrow
+      paths.push({ d: D_PATHS[entryLane] || D_PATHS.C, w: 10 });
+      // Secondary arrow if > 15% of total
+      if (sorted.length >= 2) {
         const secLane = sorted[1][0];
-        if (secLane === 'L') paths.push({ d: 'M 55,58 Q 90,32 145,14', w: 6 });
-        else if (secLane === 'C') paths.push({ d: 'M 150,58 L 150,14', w: 6 });
-      }
-    } else if (entryLane === 'L') {
-      paths.push({ d: 'M 55,58 Q 90,32 145,14', w: 10 });
-      const lanes = data.lanes?.entry || {};
-      const sorted = Object.entries(lanes).sort((a, b) => b[1] - a[1]);
-      if (sorted.length >= 2 && sorted[1][1] > 0) {
-        const secLane = sorted[1][0];
-        if (secLane === 'R') paths.push({ d: 'M 245,58 Q 210,32 155,14', w: 6 });
-        else if (secLane === 'C') paths.push({ d: 'M 150,58 L 150,14', w: 6 });
+        const secPct = sorted[1][1] / total * 100;
+        if (secPct > 15 && secLane !== entryLane) {
+          paths.push({ d: D_PATHS[secLane], w: 6 });
+        }
       }
     }
     return paths;
   }
 
-  const exitPaths = buildPaths(exit, 360, 195, 'entryLane');
-  const attackPaths = buildPaths(attack, 192, 60, 'transitLane');
+  // Exit always starts from centre (DQ C = 86-96% of starts)
+  const exitPaths = buildPaths(exitLane, 370, 210, 'C');
+  // Attack continues from where exit ended
+  const attackPaths = buildPaths(attackLane, 205, 85, exitLane);
   const dPaths = buildDPaths(dEntry);
 
   const renderArrow = (d, w, color, whiteW, whiteOp) => (
@@ -111,10 +113,10 @@ export default function PlayPatternField({ patterns, teamName }) {
         </g>
         <rect width="300" height="400" rx="14" fill="none" stroke="#5ea85e" strokeWidth="2" />
 
-        {/* Layer order: black (bottom), blue (middle), red (top) */}
-        {dPaths.map(({ d, w }) => renderArrow(d, w, '#1a1a1a', Math.max(1.2, w * 0.2), 0.5))}
-        {attackPaths.map(({ d, w }) => renderArrow(d, w, '#2563EB', Math.max(2, w * 0.2), 0.6))}
+        {/* Layer order: red (bottom), blue (middle), black D on top */}
         {exitPaths.map(({ d, w }) => renderArrow(d, w, '#DC2626', Math.max(2, w * 0.2), 0.6))}
+        {attackPaths.map(({ d, w }) => renderArrow(d, w, '#2563EB', Math.max(2, w * 0.2), 0.6))}
+        {dPaths.map(({ d, w }) => renderArrow(d, w, '#1a1a1a', Math.max(1.2, w * 0.2), 0.5))}
       </svg>
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', margin: '6px 0' }}>
