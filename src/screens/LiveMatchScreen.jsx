@@ -247,7 +247,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       setPossession(defendingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
-      setBallPos({ zoneId: outsideZone, pos: "centre" });
+      setBallPos({ zoneId: outsideZone, pos: "centre", nearLine: true });
     } else if (opt.id === "penalty") {
       addLog(attackingTeam, "Penalty", dLabel, `${teamShortName(teams[attackingTeam])}: Penalty in ${dLabel}`);
       setPossession(attackingTeam);
@@ -259,7 +259,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       setPossession(attackingTeam);
       const outsideZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
       setPrevBallPos(ballPos);
-      setBallPos({ zoneId: outsideZone, pos: "centre" });
+      setBallPos({ zoneId: outsideZone, pos: "centre", nearLine: true });
     } else {
       addLog(attackingTeam, opt.label, dLabel, `${teamShortName(teams[attackingTeam])}: ${opt.label} in ${dLabel}`);
     }
@@ -511,7 +511,23 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       )}
 
       {/* D Popup */}
-      {showDPopup && (
+      {showDPopup && (() => {
+        const popupEnd = showDPopup.end;
+        const atkTeam = popupEnd === "top" ? (flipped ? "away" : "home") : (flipped ? "home" : "away");
+        const isOwnD = possession && possession !== atkTeam;
+        const allOpts = [
+          { id: "goal", label: isOwnD ? "Own Goal" : "Goal!", icon: "⚽", color: "#F59E0B" },
+          { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
+          { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
+          { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
+          { id: "penalty", label: "Penalty", icon: "🟡", color: "#F59E0B" },
+          { id: "long_corner", label: "Long Corner", icon: "📐", color: "#3B82F6" },
+          { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
+          { id: "dead_ball", label: "Dead Ball", icon: "⊘", color: "#94A3B8" },
+        ];
+        const ownDIds = ["goal", "penalty", "long_corner", "lost_poss", "dead_ball"];
+        const opts = isOwnD ? allOpts.filter(o => ownDIds.includes(o.id)) : allOpts;
+        return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowDPopup(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: theme.surface, borderRadius: 12, padding: 16, width: 280, border: `1px solid ${showDPopup.lastShot ? showDPopup.lastShot.color + '66' : theme.border}` }}>
             {showDPopup.lastShot ? (
@@ -524,19 +540,10 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: 12, fontWeight: 800, color: theme.text, marginBottom: 10, textAlign: "center" }}>In the D — What happened?</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: theme.text, marginBottom: 10, textAlign: "center" }}>{isOwnD ? "In Own D — What happened?" : "In the D — What happened?"}</div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                { id: "goal", label: "Goal!", icon: "⚽", color: "#F59E0B" },
-                { id: "short_corner", label: "Short Corner", icon: "🔲", color: "#8B5CF6" },
-                { id: "shot_on", label: "Shot on Goal", icon: "◉", color: "#10B981" },
-                { id: "shot_off", label: "Shot Off Target", icon: "○", color: "#6B7280" },
-                { id: "penalty", label: "Penalty", icon: "🟡", color: "#F59E0B" },
-                { id: "long_corner", label: "Long Corner", icon: "📐", color: "#3B82F6" },
-                { id: "lost_poss", label: "Lost Possession", icon: "✕", color: "#EF4444" },
-                { id: "dead_ball", label: "Dead Ball", icon: "⊘", color: "#94A3B8" },
-              ].map(opt => (
+              {opts.map(opt => (
                 <button key={opt.id} onClick={() => handleDOption(opt)} style={{
                   display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
                   borderRadius: 8, border: `1px solid ${opt.color}33`, background: `${opt.color}11`,
@@ -548,7 +555,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Team Picker */}
       <TeamPicker show={showTeamPicker} teams={teams} topTeam={topTeam} bottomTeam={bottomTeam}

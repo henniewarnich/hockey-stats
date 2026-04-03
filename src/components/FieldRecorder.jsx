@@ -53,7 +53,6 @@ export default function FieldRecorder({
   const [dragPos, setDragPos] = useState(null); // { x, y } relative to field
   const [dragTarget, setDragTarget] = useState(null); // { zoneId, pos } zone under finger
   const fieldRef = useRef(null);
-  const longPressRef = useRef(null);
   const dragStartRef = useRef(null); // { clientX, clientY }
   const dragMovedRef = useRef(false);
   const DRAG_THRESHOLD = 12;
@@ -177,11 +176,21 @@ export default function FieldRecorder({
     );
   };
 
-  // Zone tap
+  // Zone tap — if ball already here, swap possession (turnover). Otherwise move ball.
   const handleZoneTap = (zoneId, pos) => {
     if (!running || showRestart || !possession) return;
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
+
+    // Tap where ball already is → turnover
+    if (ballPos?.zoneId === zoneId && ballPos?.pos === pos) {
+      const other = otherTeam(possession);
+      const zone = ZONES.find(z => z.id === zoneId);
+      onAddLog(possession, "Poss Conceded", `${zone.label} (${pos})`, `${teamShortName(teams[possession])} lost to ${teamShortName(teams[other])} in ${zone.label}`);
+      setPossession(other);
+      return;
+    }
+
     const zone = ZONES.find(z => z.id === zoneId);
     const fromZone = ballPos?.zoneId ? ZONES.find(z => z.id === ballPos.zoneId) : null;
     const fromIdx = fromZone ? ZONES.indexOf(fromZone) : -1;
@@ -196,21 +205,7 @@ export default function FieldRecorder({
     onAddLog(possession, event, `${zone.label} (${pos})`, `${teamShortName(teams[possession])}: ${event} → ${zone.label} (${pos})`);
     if (onBallMoved) onBallMoved(event);
     moveBall({ zoneId, pos });
-    // Show overhead button above ball for zone-to-zone movements
   };
-
-  // Long press = possession conceded
-  const startLP = (zoneId, pos) => {
-    longPressRef.current = setTimeout(() => {
-      if (!running || !possession) return;
-      const other = otherTeam(possession);
-      const zone = ZONES.find(z => z.id === zoneId);
-      onAddLog(possession, "Poss Conceded", `${zone.label} (${pos})`, `${teamShortName(teams[possession])} lost to ${teamShortName(teams[other])} in ${zone.label}`);
-      setPossession(other);
-      moveBall({ zoneId, pos });
-    }, 600);
-  };
-  const cancelLP = () => clearTimeout(longPressRef.current);
 
   // D tap
   const handleDTap = (end) => {
@@ -251,7 +246,7 @@ export default function FieldRecorder({
     onAddLog(attackingTeam, "Long Corner", `${teamShortName(teams[defendingTeam])} Qtr (${side})`, `${teamShortName(teams[attackingTeam])} wins long corner on ${side}`);
     const atkZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
     setPossession(attackingTeam);
-    moveBall({ zoneId: atkZone, pos: side });
+    moveBall({ zoneId: atkZone, pos: side, nearLine: true });
   };
 
   // Sideline out with reversal
@@ -289,11 +284,18 @@ export default function FieldRecorder({
     const xMap = { left: 28 + greenW / 6, centre: 28 + greenW / 2, right: 28 + 5 * greenW / 6 };
     if (bp.type === "centre") return { x: fw / 2, y: 174 };
     if (bp.type === "d") return { x: fw / 2, y: bp.end === "top" ? 42 : 318 };
-    if (bp.type === "sc") return { x: fw / 2 + 65, y: bp.end === "top" ? 15 : 345 };
+    if (bp.type === "sc") return { x: fw / 2 + 55, y: bp.end === "top" ? 38 : 322 };
     if (bp.zoneId) {
       const ri = zones.findIndex(z => z.id === bp.zoneId);
       if (ri < 0) return null;
-      const y = ri < 2 ? 30 + ri * 72 + 36 : 30 + ri * 72 + 1 + 36;
+      let y = ri < 2 ? 30 + ri * 72 + 36 : 30 + ri * 72 + 1 + 36;
+      // nearLine: shift ball toward zone boundary closest to midfield
+      if (bp.nearLine) {
+        if (ri === 0) y = 30 + 72 - 6;       // top quarter → near z1/z2 line
+        else if (ri === 3) y = 30 + 3*72 + 7; // bottom quarter → near z3/z4 line
+        else if (ri === 1) y = 30 + 72 - 6;   // opp mid → near z1/z2 line
+        else if (ri === 2) y = 30 + 3*72 + 7;  // own mid → near z3/z4 line
+      }
       return { x: xMap[bp.pos] || xMap.centre, y };
     }
     return null;
@@ -329,10 +331,10 @@ export default function FieldRecorder({
               }}>⚡</div>
           )}
           {ballPos?.type === "sc" && ballPos?.end === end && !showRestart && (
-            <div style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
+            <div style={{ position: "absolute", left: "calc(50% + 48px)", bottom: -6, transform: "translateX(-50%)", zIndex: 16 }}>{makeBall(false)}</div>
           )}
           {isGhostAt("sc", null, end) && (
-            <div style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
+            <div style={{ position: "absolute", left: "calc(50% + 48px)", bottom: -6, transform: "translateX(-50%)", zIndex: 7 }}>{makeBall(true)}</div>
           )}
         </div>
         <div onClick={() => handleLongCorner(end, "right")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderLeft: "1px solid #0f1f18" }}>
@@ -380,7 +382,7 @@ export default function FieldRecorder({
 
   return (
     <div style={{ padding: "0 6px" }}>
-      <div ref={fieldRef} style={{ borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative" }}>
+      <div ref={fieldRef} style={{ borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
 
         {/* Pause overlay */}
         {matchState === "paused" && (
@@ -456,7 +458,10 @@ export default function FieldRecorder({
                   </div>
                 )}
                 {!showRestart && ballPos?.type === "centre" && (
-                  <div onClick={onBallTap} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 15, cursor: "pointer" }}>
+                  <div
+                    onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
+                    onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
+                    style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", zIndex: 15, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}>
                     {makeBall(false)}
                   </div>
                 )}
@@ -493,21 +498,20 @@ export default function FieldRecorder({
                   <div key={pos}
                     data-zone={zone.id} data-pos={pos}
                     onClick={() => handleZoneTap(zone.id, pos)}
-                    onTouchStart={() => startLP(zone.id, pos)} onTouchEnd={cancelLP}
-                    onMouseDown={() => startLP(zone.id, pos)} onMouseUp={cancelLP} onMouseLeave={cancelLP}
                     style={{
                       flex: 1, background: zi % 2 === 0 ? grassA : grassB, position: "relative",
                       cursor: running && !showRestart ? "pointer" : "default",
                       borderRight: pi < 2 ? "1px solid rgba(255,255,255,0.06)" : "none",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "background 0.15s",
+                      WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
                     }}>
                     {flash === `${zone.id}-${pos}` && <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.15)" }} />}
                     {hasBall && !showRestart && (
                       <div
                         onTouchStart={(e) => onBallDragStart(e.touches[0].clientX, e.touches[0].clientY, e)}
                         onMouseDown={(e) => onBallDragStart(e.clientX, e.clientY, e)}
-                        style={{ zIndex: 10, cursor: "grab" }}
+                        style={{ zIndex: 10, cursor: "grab", touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
                       >{makeBall(false)}</div>
                     )}
                     {/* Drag target highlight */}
