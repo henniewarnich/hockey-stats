@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { theme } from '../utils/styles.js';
 import { teamColor, teamInitial, teamShortName } from '../utils/teams.js';
 
+import PlayPatternField from '../components/PlayPatternField.jsx';
+
 const HC = "#22C55E"; // home colour — always green
 const AC = "#64748B"; // away colour — always grey
 
@@ -180,7 +182,7 @@ function getQuarters(events, breakFormat, matchLength, matchTime) {
   });
 }
 
-export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg }) {
+export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg, playPatterns, matchPlayPatterns, prominentZones, matchProminentZones }) {
   const teams = match?.teams || { home: { name: "Home", color: "#3B82F6" }, away: { name: "Away", color: "#EF4444" } };
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
@@ -286,7 +288,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* View toggle */}
       <div style={{ padding: "0 14px 8px" }}>
         <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }}>
-          {[["totals", "Match Totals"], ["insights", "Match Insights"]].map(([k, l]) => (
+          {[["totals", "Match Totals"], ["insights", "Match Insights"], ...(matchPlayPatterns ? [["visuals", "Visuals"]] : [])].map(([k, l]) => (
             <button key={k} onClick={() => setViewTab(k)} style={{
               flex: 1, padding: "6px 0", textAlign: "center", fontSize: 9, fontWeight: 700,
               background: viewTab === k ? "#10B98122" : "#1E293B", color: viewTab === k ? "#10B981" : "#64748B",
@@ -449,6 +451,21 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Visuals Tab */}
+      {viewTab === "visuals" && matchPlayPatterns && playPatterns && (
+        <div style={{ padding: "0 14px 20px" }}>
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Play Pattern & Prominent Players</div>
+            <PlayPatternField
+              patterns={playPatterns}
+              matchPatterns={matchPlayPatterns}
+              prominentZones={prominentZones}
+              matchProminentZones={matchProminentZones}
+            />
+          </div>
         </div>
       )}
 

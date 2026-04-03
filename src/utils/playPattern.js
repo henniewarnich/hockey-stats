@@ -232,3 +232,36 @@ function findDominant(paths, type) {
     lanes: laneCounts,
   };
 }
+
+/**
+ * Get top 3 prominent player zones — zones with most passing/possession events.
+ * Returns array of grid zone names e.g. ['DM C', 'OM C', 'DM L']
+ */
+export function getProminentZones(matches, eventsByMatch, teamId, topN = 3) {
+  const zoneCounts = {};
+
+  for (const m of matches) {
+    const isHome = m.home_team_id === teamId;
+    const ownTeam = isHome ? m.home_team : m.away_team;
+    const oppTeam = isHome ? m.away_team : m.home_team;
+    const ownNames = teamNames(ownTeam);
+    const oppNames = teamNames(oppTeam);
+
+    const events = (eventsByMatch[m.id] || [])
+      .filter(e => e.team && e.zone);
+
+    for (const e of events) {
+      const isMine = (e.team === 'home' && isHome) || (e.team === 'away' && !isHome);
+      if (!isMine) continue;
+      const g = toGrid(e.zone, isHome, ownNames, oppNames);
+      if (!g || g === 'Own D' || g === 'Opp D') continue;
+      zoneCounts[g] = (zoneCounts[g] || 0) + 1;
+    }
+  }
+
+  return Object.entries(zoneCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([zone]) => zone);
+}
+

@@ -13,7 +13,7 @@ import CoachLiveScreen from './CoachLiveScreen.jsx';
 import CoachOverall from '../components/CoachOverall.jsx';
 import CoachTrends from '../components/CoachTrends.jsx';
 import PlayPatternField from '../components/PlayPatternField.jsx';
-import { analysePlayPatterns } from '../utils/playPattern.js';
+import { analysePlayPatterns, getProminentZones } from '../utils/playPattern.js';
 import SponsorBanner from '../components/SponsorBanner.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
@@ -193,6 +193,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
   const [loadingStats, setLoadingStats] = useState(false);
   const [playPatterns, setPlayPatterns] = useState(null);
+  const [prominentZones, setProminentZones] = useState(null);
   const [rawEvents, setRawEvents] = useState({}); // matchId -> [events]
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
@@ -247,15 +248,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   }, [selectedMatch?.home_team?.color, selectedMatch?.away_team?.color]);
 
   // Per-match play pattern (for coach overlay on selected match)
-  const selectedMatchPatterns = useMemo(() => {
+  const selectedMatchVisuals = useMemo(() => {
     if (!selectedMatch || !isCoach || selectedEvents.length === 0) return null;
     if (!selectedEvents.some(e => e.zone)) return null; // not a Live Pro match
     try {
-      return analysePlayPatterns(
-        [selectedMatch],
-        { [selectedMatch.id]: selectedEvents },
-        team?.id
-      );
+      const evtMap = { [selectedMatch.id]: selectedEvents };
+      return {
+        patterns: analysePlayPatterns([selectedMatch], evtMap, team?.id),
+        zones: getProminentZones([selectedMatch], evtMap, team?.id),
+      };
     } catch { return null; }
   }, [selectedMatch?.id, selectedEvents.length, isCoach, team?.id]);
 
@@ -562,6 +563,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         if (liveProMatches.length > 0) {
           const patterns = analysePlayPatterns(liveProMatches, allEvents, team.id);
           setPlayPatterns(patterns);
+          setProminentZones(getProminentZones(liveProMatches, allEvents, team.id));
         }
       } catch (e) { console.error('Play pattern error:', e); }
 
@@ -929,7 +931,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           <div style={{ padding: "8px 14px 20px" }}>
             <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
-              <PlayPatternField patterns={playPatterns} teamName={teamDisplayName(team)} />
+              <PlayPatternField patterns={playPatterns} prominentZones={prominentZones} />
             </div>
           </div>
         ) : (
@@ -1190,7 +1192,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           {loadingEvents ? (
             <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading...</div>
           ) : isCoach ? (
-            <>
             <CoachLiveScreen
               embedded
               match={{
@@ -1211,16 +1212,11 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 home: seasonAvgForTeam(selectedMatch.home_team_id || selectedMatch.home_team?.id, matches),
                 away: seasonAvgForTeam(selectedMatch.away_team_id || selectedMatch.away_team?.id, matches),
               }}
+              playPatterns={playPatterns}
+              matchPlayPatterns={selectedMatchVisuals?.patterns}
+              prominentZones={prominentZones}
+              matchProminentZones={selectedMatchVisuals?.zones}
             />
-            {selectedMatchPatterns && selectedMatchPatterns.exit && playPatterns && (
-              <div style={{ padding: "0 14px 16px" }}>
-                <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
-                  <PlayPatternField patterns={playPatterns} matchPatterns={selectedMatchPatterns} />
-                </div>
-              </div>
-            )}
-            </>
           ) : (
             <div style={{ padding: "0 14px 20px" }}>
               {/* ── PUBLIC MATCH STATS ── */}
