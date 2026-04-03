@@ -246,6 +246,19 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     return ensureContrastingColors(teamColor(selectedMatch.home_team), teamColor(selectedMatch.away_team));
   }, [selectedMatch?.home_team?.color, selectedMatch?.away_team?.color]);
 
+  // Per-match play pattern (for coach overlay on selected match)
+  const selectedMatchPatterns = useMemo(() => {
+    if (!selectedMatch || !isCoach || selectedEvents.length === 0) return null;
+    if (!selectedEvents.some(e => e.zone)) return null; // not a Live Pro match
+    try {
+      return analysePlayPatterns(
+        [selectedMatch],
+        { [selectedMatch.id]: selectedEvents },
+        team?.id
+      );
+    } catch { return null; }
+  }, [selectedMatch?.id, selectedEvents.length, isCoach, team?.id]);
+
   // Get or create anonymous viewer ID
   const getViewerId = () => {
     let id = sessionStorage.getItem('kykie-viewer-id');
@@ -778,7 +791,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             <button onClick={() => setTab("trends")} style={{
               flex: 1, padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
               background: tab === "trends" ? "#334155" : "#1E293B", color: tab === "trends" ? "#F8FAFC" : "#64748B",
-            }}>Trends</button>
+            }}>Visuals</button>
           )}
         </div>
       </div>
@@ -1177,6 +1190,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           {loadingEvents ? (
             <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading...</div>
           ) : isCoach ? (
+            <>
             <CoachLiveScreen
               embedded
               match={{
@@ -1198,6 +1212,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 away: seasonAvgForTeam(selectedMatch.away_team_id || selectedMatch.away_team?.id, matches),
               }}
             />
+            {selectedMatchPatterns && selectedMatchPatterns.exit && playPatterns && (
+              <div style={{ padding: "0 14px 16px" }}>
+                <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
+                  <PlayPatternField patterns={playPatterns} matchPatterns={selectedMatchPatterns} />
+                </div>
+              </div>
+            )}
+            </>
           ) : (
             <div style={{ padding: "0 14px 20px" }}>
               {/* ── PUBLIC MATCH STATS ── */}
