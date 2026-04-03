@@ -795,12 +795,37 @@ export async function submitCrowdUpcoming({ homeTeamId, awayTeamId, matchDate, s
 }
 
 // Suggest a new team (crowd user)
-export async function suggestTeam({ name, color, suggestedBy }) {
+export async function suggestTeam({ institutionId, newInstitutionName, newInstitutionColor, gender, ageGroup, sport, suggestedBy }) {
+  let instId = institutionId;
+
+  // Create new institution if needed
+  if (!instId && newInstitutionName?.trim()) {
+    const { data: inst, error: instErr } = await supabase
+      .from('institutions')
+      .insert({ name: newInstitutionName.trim(), color: newInstitutionColor || '#64748B' })
+      .select()
+      .single();
+    if (instErr) { console.error('Create institution error:', instErr); return null; }
+    instId = inst.id;
+    await logAudit('crowd_suggest_institution', 'institution', inst.id, { name: newInstitutionName.trim() });
+  }
+
+  if (!instId) { console.error('suggestTeam: no institution'); return null; }
+
+  const g = gender || 'Girls';
+  const s = sport || 'Hockey';
+  const ag = ageGroup || '1st';
+  const derivedName = `${g} ${s} ${ag}`;
+
   const { data, error } = await supabase
     .from('teams')
     .insert({
-      name: name.trim(),
-      color: color || '#64748B',
+      name: derivedName,
+      institution_id: instId,
+      gender: g,
+      age_group: ag,
+      sport: s,
+      color: newInstitutionColor || '#64748B',
       status: 'pending',
       suggested_by: suggestedBy,
     })
@@ -808,7 +833,7 @@ export async function suggestTeam({ name, color, suggestedBy }) {
     .single();
 
   if (error) { console.error('Suggest team error:', error); return null; }
-  await logAudit('crowd_suggest_team', 'team', data.id, { name });
+  await logAudit('crowd_suggest_team', 'team', data.id, { name: derivedName, institution_id: instId });
   return data;
 }
 

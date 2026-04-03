@@ -62,7 +62,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
         {[
           ["match_schedule", "📅", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
           ["match_setup", "⚡", "New Match", "Live match or quick score"],
-          ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
+          ["teams", "🏫", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
           ["history", "📊", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
           ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
             ["users", "🔑", "Users", "Manage user accounts"],

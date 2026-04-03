@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { teamColor, teamDisplayName, teamDerivedName, teamInitial, teamMatchesSearch, teamSlug } from '../utils/teams.js';
-import { fetchInstitutions, upsertInstitution, deleteInstitution, fetchTeams } from '../utils/sync.js';
+import { fetchInstitutions, upsertInstitution, deleteInstitution, fetchTeams, deleteTeamRemote } from '../utils/sync.js';
 import { getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
 
@@ -11,7 +11,7 @@ const GENDERS = ['Girls', 'Boys'];
 const AGE_GROUPS = ['U14', 'U16', '1st', '2nd', '3rd'];
 const SPORTS = ['Hockey', 'Rugby', 'Netball', 'Cricket'];
 
-export default function TeamsScreen({ currentUser, onSave, onDelete, onBack, getShareLink }) {
+export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink }) {
   const [institutions, setInstitutions] = useState([]);
   const [teams, setTeams] = useState([]);
   const [coaches, setCoaches] = useState([]);
@@ -116,10 +116,10 @@ export default function TeamsScreen({ currentUser, onSave, onDelete, onBack, get
     setTimeout(load, 500);
   };
 
-  const handleDeleteTeam = (team) => {
+  const handleDeleteTeam = async (team) => {
     if (!confirm(`Delete ${teamDisplayName(team)}?`)) return;
-    onDelete(team.id);
-    setTimeout(load, 500);
+    await deleteTeamRemote(team.id);
+    load();
   };
 
   const handleAssignCoach = async (coachId, teamId) => {
@@ -352,7 +352,7 @@ export default function TeamsScreen({ currentUser, onSave, onDelete, onBack, get
     <div style={S.app}>
       <div style={S.nav}>
         <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Teams & institutions ({institutions.length})</div>
+        <div style={S.navTitle}>Institutions & teams ({institutions.length})</div>
         <NavLogo />
       </div>
       <div style={S.page}>

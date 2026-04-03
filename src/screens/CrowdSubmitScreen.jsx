@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { submitCrowdResult, submitCrowdUpcoming, suggestTeam } from '../utils/sync.js';
+import { submitCrowdResult, submitCrowdUpcoming, suggestTeam, fetchInstitutions } from '../utils/sync.js';
 import { MATCH_TYPES } from '../utils/constants.js';
-import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch, teamSearchString, teamShortName } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamColor, teamDisplayName, teamDerivedName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
 
 const TEAM_COLORS = ['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#64748B'];
 
@@ -27,28 +27,37 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   const [duplicateWarning, setDuplicateWarning] = useState(null);
 
   // Team suggestion fields
-  const [teamName, setTeamName] = useState('');
-  const [teamColor, setTeamColor] = useState('#64748B');
+  const [institutions, setInstitutions] = useState([]);
+  const [suggestInst, setSuggestInst] = useState(null); // selected institution
+  const [instSearch, setInstSearch] = useState('');
+  const [newInstName, setNewInstName] = useState('');
+  const [newInstColor, setNewInstColor] = useState('#3B82F6');
+  const [suggestGender, setSuggestGender] = useState(null);
+  const [suggestAge, setSuggestAge] = useState(null);
+  const [suggestSport] = useState('Hockey');
   const [similarTeams, setSimilarTeams] = useState([]);
 
   useEffect(() => {
     supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name')
       .then(({ data }) => { if (data) setTeams(data); });
+    fetchInstitutions().then(setInstitutions);
   }, []);
 
-  // Fuzzy match: checks if words in input overlap with team names
-  const findSimilarTeams = (name) => {
-    if (!name || name.trim().length < 3) { setSimilarTeams([]); return; }
-    const words = name.toLowerCase().trim().split(/\s+/).filter(w => w.length >= 3);
-    const matches = teams.filter(t => {
-      const tName = teamSearchString(t);
-      // Exact substring match
-      if (tName.includes(name.toLowerCase().trim())) return true;
-      // Any significant word matches
-      return words.some(w => tName.includes(w));
-    }).slice(0, 5);
-    setSimilarTeams(matches);
+  // Check for duplicate: same institution + sport + gender + age_group
+  const checkDuplicateTeam = (instId, gender, ageGroup) => {
+    if (!instId || !gender || !ageGroup) { setSimilarTeams([]); return; }
+    const dupes = teams.filter(t =>
+      t.institution_id === instId && t.gender === gender && t.age_group === ageGroup && t.sport === suggestSport
+    );
+    setSimilarTeams(dupes);
   };
+
+  const filteredInstitutions = instSearch.trim().length >= 2
+    ? institutions.filter(i => {
+        const q = instSearch.toLowerCase();
+        return (i.name || '').toLowerCase().includes(q) || (i.short_name || '').toLowerCase().includes(q) || (i.other_names || '').toLowerCase().includes(q);
+      }).slice(0, 6)
+    : [];
 
   // Check for duplicate match (same teams, same day, either home/away order)
   const checkDuplicate = async (homeId, awayId, date) => {
@@ -71,7 +80,8 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
     setHomeScore(0); setAwayScore(0);
     setMatchDate(new Date().toISOString().slice(0, 10));
     setScheduledTime(''); setVenue(''); setMatchType('league');
-    setTeamName(''); setTeamColor('#64748B');
+    setSuggestInst(null); setInstSearch(''); setNewInstName(''); setNewInstColor('#3B82F6');
+    setSuggestGender(null); setSuggestAge(null);
     setError(''); setDuplicateWarning(null); setSimilarTeams([]);
   };
 
@@ -108,12 +118,24 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   };
 
   const handleSuggestTeam = async () => {
-    if (!teamName.trim()) { setError('Team name is required'); return; }
-    if (similarTeams.length > 0 && !confirm(`Similar teams exist: ${similarTeams.map(t => teamDisplayName(t)).join(', ')}. Submit anyway?`)) return;
+    if (!suggestInst && !newInstName.trim()) { setError('Select an institution or enter a new one'); return; }
+    if (!suggestGender) { setError('Please select a gender'); return; }
+    if (!suggestAge) { setError('Please select an age group'); return; }
+    if (similarTeams.length > 0) {
+      if (!confirm(`This team already exists: ${similarTeams.map(t => teamDisplayName(t)).join(', ')}. Submit anyway?`)) return;
+    }
     setLoading(true); setError('');
-    const result = await suggestTeam({ name: teamName, color: teamColor, suggestedBy: currentUser.id });
+    const result = await suggestTeam({
+      institutionId: suggestInst?.id || null,
+      newInstitutionName: suggestInst ? null : newInstName.trim(),
+      newInstitutionColor: suggestInst ? null : newInstColor,
+      gender: suggestGender,
+      ageGroup: suggestAge,
+      sport: suggestSport,
+      suggestedBy: currentUser.id,
+    });
     setLoading(false);
-    if (result) { setSuccess('Team suggestion submitted!'); resetForm(); setTimeout(() => setSuccess(''), 3000); }
+    if (result) { setSuccess('Team suggestion submitted for approval!'); resetForm(); setTimeout(() => setSuccess(''), 3000); }
     else setError('Failed to submit');
   };
 
@@ -226,38 +248,146 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
             <span>🏫</span> Suggest a Team
           </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <div style={labelStyle}>Team / School Name *</div>
-            <input value={teamName} onChange={e => { setTeamName(e.target.value); findSimilarTeams(e.target.value); }} placeholder="e.g. Stellenbosch Girls" style={inputStyle} />
-            {similarTeams.length > 0 && (
-              <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: '#F59E0B11', border: '1px solid #F59E0B33' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>Similar teams already exist:</div>
-                {similarTeams.map(t => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', fontSize: 11, color: '#94A3B8' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(t) }} />
-                    {teamDisplayName(t)}
+          {/* Institution picker */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={labelStyle}>Institution / School *</div>
+            {suggestInst ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, background: '#1E293B', border: `1px solid ${suggestInst.color || '#334155'}44` }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: suggestInst.color || '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>
+                  {(suggestInst.short_name || suggestInst.name || '?').charAt(0)}
+                </div>
+                <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>{suggestInst.name}</div>
+                <button onClick={() => { setSuggestInst(null); setInstSearch(''); setSimilarTeams([]); }}
+                  style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 14, cursor: 'pointer' }}>✕</button>
+              </div>
+            ) : newInstName ? (
+              <div style={{ padding: 10, borderRadius: 8, background: '#1E293B', border: '1px solid #F59E0B33' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: newInstColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>
+                    {newInstName.charAt(0).toUpperCase()}
                   </div>
-                ))}
-                <div style={{ fontSize: 9, color: '#64748B', marginTop: 4 }}>You can still submit — admin will review</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC' }}>{newInstName}</div>
+                    <div style={{ fontSize: 9, color: '#F59E0B' }}>New institution — will be created</div>
+                  </div>
+                  <button onClick={() => setNewInstName('')}
+                    style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 14, cursor: 'pointer' }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {TEAM_COLORS.map(c => (
+                    <div key={c} onClick={() => setNewInstColor(c)} style={{
+                      width: 24, height: 24, borderRadius: 6, background: c, cursor: 'pointer',
+                      border: newInstColor === c ? '2px solid #F8FAFC' : '2px solid transparent',
+                    }} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <input value={instSearch} onChange={e => setInstSearch(e.target.value)}
+                  placeholder="Search existing institutions..." style={inputStyle} />
+                {filteredInstitutions.length > 0 && (
+                  <div style={{ maxHeight: 150, overflowY: 'auto', borderRadius: 6, border: '1px solid #1E293B', marginTop: 4 }}>
+                    {filteredInstitutions.map(i => (
+                      <div key={i.id} onClick={() => { setSuggestInst(i); setInstSearch(''); checkDuplicateTeam(i.id, suggestGender, suggestAge); }}
+                        style={{ padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#CBD5E1', borderBottom: '1px solid #1E293B22' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 4, background: i.color || '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff' }}>
+                          {(i.short_name || i.name || '?').charAt(0)}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{i.name}</span>
+                        {i.short_name && <span style={{ fontSize: 9, color: '#64748B' }}>({i.short_name})</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {instSearch.trim().length >= 2 && filteredInstitutions.length === 0 && (
+                  <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: '#1E293B', border: '1px solid #334155' }}>
+                    <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 6 }}>No institutions found</div>
+                    <button onClick={() => { setNewInstName(instSearch.trim()); setInstSearch(''); }}
+                      style={{ ...btnStyle('#F59E0B'), padding: 8, fontSize: 11 }}>
+                      + Suggest "{instSearch.trim()}" as new institution
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Team Color</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-              {TEAM_COLORS.map(c => (
-                <div key={c} onClick={() => setTeamColor(c)} style={{
-                  width: 30, height: 30, borderRadius: 8, background: c, cursor: 'pointer',
-                  border: teamColor === c ? '3px solid #F8FAFC' : '3px solid transparent',
-                }} />
+          {/* Sport */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={labelStyle}>Sport *</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['Hockey', 'Rugby', 'Netball', 'Cricket'].map(s => (
+                <div key={s} style={{
+                  padding: '7px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                  border: s === 'Hockey' ? '2px solid #F59E0B' : '1px solid #334155',
+                  background: s === 'Hockey' ? '#F59E0B22' : '#0B0F1A',
+                  color: s === 'Hockey' ? '#F8FAFC' : '#334155',
+                  opacity: s === 'Hockey' ? 1 : 0.4,
+                }}>{s}</div>
               ))}
             </div>
           </div>
 
+          {/* Gender */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={labelStyle}>Gender *</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['Girls', 'Boys'].map(g => (
+                <button key={g} onClick={() => { setSuggestGender(g); checkDuplicateTeam(suggestInst?.id, g, suggestAge); }}
+                  style={{
+                    padding: '7px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    border: suggestGender === g ? '2px solid #F59E0B' : '1px solid #334155',
+                    background: suggestGender === g ? '#F59E0B22' : '#0B0F1A',
+                    color: suggestGender === g ? '#F8FAFC' : '#94A3B8',
+                  }}>{g}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Age Group */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={labelStyle}>Age Group *</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {['U14', 'U16', '1st', '2nd', '3rd'].map(a => (
+                <button key={a} onClick={() => { setSuggestAge(a); checkDuplicateTeam(suggestInst?.id, suggestGender, a); }}
+                  style={{
+                    padding: '7px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    border: suggestAge === a ? '2px solid #F59E0B' : '1px solid #334155',
+                    background: suggestAge === a ? '#F59E0B22' : '#0B0F1A',
+                    color: suggestAge === a ? '#F8FAFC' : '#94A3B8',
+                  }}>{a}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Duplicate warning */}
+          {similarTeams.length > 0 && (
+            <div style={{ marginBottom: 12, padding: 8, borderRadius: 6, background: '#EF444411', border: '1px solid #EF444433' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', marginBottom: 4 }}>This team already exists:</div>
+              {similarTeams.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', fontSize: 11, color: '#94A3B8' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: teamColor(t) }} />
+                  {teamDisplayName(t)}
+                </div>
+              ))}
+              <div style={{ fontSize: 9, color: '#64748B', marginTop: 4 }}>You can still submit — admin will review</div>
+            </div>
+          )}
+
+          {/* Preview */}
+          {(suggestInst || newInstName) && suggestGender && suggestAge && (
+            <div style={{ background: '#1E293B', borderRadius: 10, padding: 12, marginBottom: 14, textAlign: 'center', borderTop: `3px solid ${suggestInst?.color || newInstColor}` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#F8FAFC' }}>
+                {suggestInst?.short_name || suggestInst?.name || newInstName} {suggestGender} {suggestSport} {suggestAge}
+              </div>
+            </div>
+          )}
+
           {error && <div style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{error}</div>}
 
-          <button onClick={handleSuggestTeam} disabled={loading} style={btnStyle(loading ? '#334155' : '#F59E0B')}>
+          <button onClick={handleSuggestTeam} disabled={loading}
+            style={btnStyle(loading ? '#334155' : (suggestInst || newInstName) && suggestGender && suggestAge ? '#F59E0B' : '#334155')}>
             {loading ? 'Submitting...' : 'Submit Team'}
           </button>
           <button onClick={() => setMode(null)} style={{ ...btnStyle('transparent'), border: '1px solid #334155', color: '#94A3B8', marginTop: 8 }}>
