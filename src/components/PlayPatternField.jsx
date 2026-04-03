@@ -10,14 +10,16 @@ export default function PlayPatternField({ patterns, teamName }) {
   const X = { L: 50, C: 150, R: 250 };
 
   // Build paths for a phase
-  function buildPaths(data, y1, y2, curveDir) {
+  function buildPaths(data, y1, y2, laneKey) {
     if (!data) return [];
     const paths = [];
+    const targetLane = data[laneKey || 'entryLane'] || data.entryLane || 'C';
 
-    if (data.entryLane === 'balanced') {
+    if (targetLane === 'balanced') {
       // Three equal lines
+      const startBase = data.startLane === 'balanced' ? null : (data.startLane || 'C');
       for (const l of ['L', 'C', 'R']) {
-        const x1 = X[data.startLane === 'balanced' ? l : (data.startLane || 'C')];
+        const x1 = X[startBase || l];
         const x2 = X[l];
         if (x1 === x2) {
           paths.push({ d: `M ${x1},${y1} L ${x2},${y2}`, w: 9 });
@@ -29,7 +31,7 @@ export default function PlayPatternField({ patterns, teamName }) {
     } else {
       // Single dominant line
       const startX = X[data.startLane === 'balanced' ? 'C' : (data.startLane || 'C')];
-      const endX = X[data.entryLane || 'C'];
+      const endX = X[targetLane || 'C'];
       if (startX === endX) {
         paths.push({ d: `M ${startX},${y1} L ${endX},${y2}`, w: 12 });
       } else {
@@ -76,8 +78,8 @@ export default function PlayPatternField({ patterns, teamName }) {
     return paths;
   }
 
-  const exitPaths = buildPaths(exit, 360, 195);
-  const attackPaths = buildPaths(attack, 192, 60);
+  const exitPaths = buildPaths(exit, 360, 195, 'entryLane');
+  const attackPaths = buildPaths(attack, 192, 60, 'transitLane');
   const dPaths = buildDPaths(dEntry);
 
   const renderArrow = (d, w, color, whiteW, whiteOp) => (
