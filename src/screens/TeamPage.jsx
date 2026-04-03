@@ -193,6 +193,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
   const [loadingStats, setLoadingStats] = useState(false);
   const [playPatterns, setPlayPatterns] = useState(null);
+  const [rawEvents, setRawEvents] = useState({}); // matchId -> [events]
   const [latestRankings, setLatestRankings] = useState({});
   const [oppRecords, setOppRecords] = useState({}); // teamId -> {p,w,d,l,gf,ga}
   const [matchPredictions, setMatchPredictions] = useState(null);
@@ -542,6 +543,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       setMatchStatsMap(statsMap);
 
       // Play pattern analysis using raw events
+      setRawEvents(allEvents);
       try {
         const liveProMatches = endedWithDuration.filter(m => (allEvents[m.id] || []).length > 0);
         if (liveProMatches.length > 0) {
@@ -902,29 +904,23 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             top10Agg={top10Agg}
             top10PM={top10PM}
           />
-          {playPatterns && playPatterns.exit && (
-            <div style={{ padding: "0 14px 20px" }}>
-              <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
-                <PlayPatternField patterns={playPatterns} teamName={teamDisplayName(team)} />
-              </div>
-            </div>
-          )}
           </>
         )
       )}
 
-      {/* ═══ TRENDS TAB (Coach) ═══ */}
+      {/* ═══ TRENDS TAB (Coach) — Visual Play Analysis ═══ */}
       {tab === "trends" && isCoach && !selectedMatch && (
         loadingStats ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading trends...</div>
+          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading analysis...</div>
+        ) : playPatterns && playPatterns.exit ? (
+          <div style={{ padding: "8px 14px 20px" }}>
+            <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
+              <PlayPatternField patterns={playPatterns} teamName={teamDisplayName(team)} />
+            </div>
+          </div>
         ) : (
-          <CoachTrends
-            matches={matches}
-            matchStatsMap={matchStatsMap}
-            teamId={team.id}
-            teamColor={teamColor(team)}
-          />
+          <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No Live Pro matches to analyse</div>
         )
       )}
 
