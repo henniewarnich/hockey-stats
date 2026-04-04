@@ -43,7 +43,6 @@ export default function RegisterPage() {
   const [regRole, setRegRole] = useState('supporter'); // 'supporter' | 'commentator' | 'coach'
   const [selectedSport, setSelectedSport] = useState(''); // single sport for commentator/coach
   const [coachTeamIds, setCoachTeamIds] = useState([]); // multiple teams
-  const [coachTeamSearch, setCoachTeamSearch] = useState('');
 
   // Notifications & T&C
   const [notifyLive, setNotifyLive] = useState(true);
@@ -138,12 +137,6 @@ export default function RegisterPage() {
         return (i.name || '').toLowerCase().includes(q) || (i.short_name || '').toLowerCase().includes(q) || (i.other_names || '').toLowerCase().includes(q);
       }).slice(0, 6)
     : [];
-
-  const coachFilteredTeams = teams.filter(t =>
-    supportingInsts.includes(t.institution_id) &&
-    (!selectedSport || t.sport?.toLowerCase() === selectedSport.toLowerCase()) &&
-    teamMatchesSearch(t, coachTeamSearch)
-  ).slice(0, 12);
 
   const inputStyle = (hasError) => ({
     width: '100%', padding: 12, borderRadius: 10,
@@ -460,42 +453,43 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Coach: team picker within selected institutions */}
+              {/* Coach: team checkboxes within selected institutions */}
               {regRole === 'coach' && supportingInsts.length > 0 && selectedSport && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={labelStyle}>My Teams *</div>
-                  {coachTeamIds.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                      {coachTeamIds.map(tid => {
-                        const t = teams.find(x => x.id === tid);
-                        return t ? (
-                          <span key={tid} onClick={() => setCoachTeamIds(prev => prev.filter(id => id !== tid))} style={{
-                            fontSize: 10, padding: '4px 10px', borderRadius: 99, cursor: 'pointer',
-                            background: (teamColor(t)) + '33', color: teamColor(t),
-                            fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
-                          }}>
-                            {teamDisplayName(t)} ✕
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                  <input value={coachTeamSearch} onChange={e => setCoachTeamSearch(e.target.value)}
-                    placeholder="🔍 Search teams at your institutions..." style={inputStyle()} />
-                  {coachFilteredTeams.filter(t => !coachTeamIds.includes(t.id)).length > 0 && coachTeamSearch.trim().length >= 1 && (
-                    <div style={{ maxHeight: 140, overflowY: 'auto', borderRadius: 6, border: '1px solid #1E293B', marginTop: 4 }}>
-                      {coachFilteredTeams.filter(t => !coachTeamIds.includes(t.id)).map(t => (
-                        <div key={t.id} onClick={() => { setCoachTeamIds(prev => [...prev, t.id]); setCoachTeamSearch(''); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #1E293B22', fontSize: 12, color: '#CBD5E1' }}>
-                          <div style={{ width: 10, height: 10, borderRadius: 5, background: teamColor(t) }} />
-                          {teamDisplayName(t)}
+                  {supportingInsts.map(iid => {
+                    const inst = institutions.find(i => i.id === iid);
+                    if (!inst) return null;
+                    const instTeams = teams.filter(t =>
+                      t.institution_id === iid &&
+                      t.sport?.toLowerCase() === selectedSport.toLowerCase()
+                    );
+                    if (instTeams.length === 0) return (
+                      <div key={iid} style={{ fontSize: 10, color: '#475569', padding: '4px 0' }}>
+                        No {selectedSport} teams at {inst.short_name || inst.name}
+                      </div>
+                    );
+                    return (
+                      <div key={iid} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: inst.color || '#64748B', marginBottom: 4 }}>
+                          {inst.short_name || inst.name}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  {coachTeamSearch.trim().length >= 2 && coachFilteredTeams.filter(t => !coachTeamIds.includes(t.id)).length === 0 && (
-                    <div style={{ fontSize: 11, color: '#475569', padding: '8px 0' }}>No more teams found at your institutions for {selectedSport}</div>
-                  )}
+                        {instTeams.map(t => {
+                          const checked = coachTeamIds.includes(t.id);
+                          return (
+                            <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', borderBottom: '1px solid #1E293B22' }}>
+                              <input type="checkbox" checked={checked}
+                                onChange={() => setCoachTeamIds(prev => checked ? prev.filter(id => id !== t.id) : [...prev, t.id])}
+                                style={{ width: 16, height: 16, accentColor: teamColor(t), flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, color: checked ? '#F8FAFC' : '#94A3B8', fontWeight: checked ? 700 : 400 }}>
+                                {teamDisplayName(t)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                   <div style={{ fontSize: 9, color: '#475569', marginTop: 3 }}>Team assignments will need admin approval</div>
                 </div>
               )}

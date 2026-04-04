@@ -1,119 +1,94 @@
 # kykie.net — Next Session Planning
-**Date: 31 March 2026 | Current Version: 7.10.35**
+**Date: 4 April 2026 | Current Version: 7.12.11**
 
-## Immediate TODO
-
-### 1. Pending Migration
+## Pending Migration
 ```sql
--- If not already run:
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS variant TEXT;
+-- Run before deploying v7.12.5+:
+-- upgrade-scripts/v7.12.0/migration-institution-domain.sql
+-- upgrade-scripts/v7.12.5/migration-supporter-rename.sql
 ```
 
-### 2. Known Bugs
-- ~~**Admin → Users → Add Coach → Team selection pills show wrong team name**~~ — FIXED v7.10.35
-- **suggestTeam()** — crowd team suggestion needs institution creation flow
-- **App.jsx getTeamShareLink** — receives name string, should receive team object
+## Immediate Next: Commercialisation Step 2
 
----
+### Commentator Training Screen (`#/training`)
+Build a full-screen interactive training wizard that replicates the Live Pro field recorder exactly.
 
-## Planned Features (Prioritised)
+**13 steps with animations:**
+1. Start match — show demo teams, select one, ball changes colour
+2. Passing — ball moves to centre of zones as in Live Pro
+3. Turnover — tap ball with halo effect, possession flips
+4. Overhead — show hand icon + "Overhead" label, drag animation
+5. Out — ball moves to OUT strip, colour changes, directional arrows shown
+6. Dead Ball & Long Corner — ball moves from field to DEAD/LC, repositions correctly
+7. D-Entries — ball moves into D, popup appears ON entry (not exit)
+8. Short Corners — animate SC start position → outside D → into D with popup
+9. Pause & Resume — show actual pause/resume controls as in Live Pro
+10. Actions — lightning button animation with options popup
+11. Undo — show undo functionality
+12. Field Rotation — show flip animation
+13. End Match — show end match flow
 
-### HIGH PRIORITY
-**Bugs / Cleanup:**
-- `suggestTeam()` — institution creation flow for crowd suggestions
-- `getTeamShareLink` — receives string, should receive team object
+**Key requirement:** Field must look IDENTICAL to actual Live Pro (FieldRecorder.jsx — 632 lines). Import styles/constants, don't approximate.
 
-**Public View:**
-- Wire outcome predictor to public view (Pete, Suzi, Kykie already exist)
+**Track completion:** `training_completed_at` on profiles. Dashboard shows progress card.
 
-**Coach:**
-- Compare to team (side-by-side stats)
-- Compare to benchmark (top 10 average)
-- Analyse team (Exit/Attack/Midfield strategies)
+**After training:** Benchmark test (Step 2b) — trainee records a pre-scored YouTube match, auto-graded at 80% accuracy.
 
-**Commentator:**
-- Green + Yellow cards
-- Revisit D-Zone stats collector
-- Penalty strokes
-- Overheads recording
+## Commercialisation Implementation Priority
+(from commercialisation-strategy.md)
 
-**Video Review:**
-- Playback speed control (1x / 1.5x / 2x)
+1. ~~Registration revamp~~ ✅ Done (v7.12.5–v7.12.11)
+2. **Commentator training + benchmark test** ← NEXT
+3. Personal credit system + voucher management
+4. Team credit system + tier unlocks
+5. Coach dashboard progress bar + credit breakdown
+6. Feature gating (Free / Free Plus / Premium)
+7. Share-to-earn + WhatsApp share
+8. Sponsor integration with viewer metrics
 
-**Infrastructure:**
-- Prediction auto-scoring on match end
-- Reclassify toast (Overhead / Free Hit)
-- Organisation → Team hierarchy (multi-sport)
+## Other TODO (Parked)
 
-### MEDIUM PRIORITY
-**Admin:**
-- Stats interpretation skill (MD) for Claude analysis
+High:
+1. Prediction auto-scoring on match end
+2. Video review playback speed (1x / 1.5x / 2x)
+3. Wire outcome predictor to public view
 
-**Coach:**
-- Possession heatmap (Coach View)
-- Exit strategy analysis (Coach View)
-- D entry direction analysis (Coach View)
+Medium:
+1. Coach benchmark TOP10 bug — filter by sport/gender/age_group
+2. Stats interpretation skill (MD) for Claude analysis
+3. Staging environment (test.kykie.net)
 
-**Infrastructure:**
-- Staging environment (test.kykie.net)
+Low:
+1. Screen viewer (CT-style commentary feed)
+2. Season + Tournament fields on matches
+3. Filter stats by Season and Tournament
+4. Replay match (animated field play-by-play)
+5. Goalie saves — clarify saved vs missed
+6. Embeddable widgets for school websites
 
-### LOW PRIORITY
-**Public View:**
-- Screen viewer (CT-style commentary feed)
+## Key Architecture Notes
 
-**Match Setup:**
-- Season field (derive from match date year)
-- Tournament selection (create/pick, link matches)
+### Registration Flow (v7.12.11)
+- Email checked first (on blur) → blocks if exists, offers forgot password
+- Step 1: Email → Name → Username (auto) → Password
+- Step 2: Alias (defaults to firstname) → Role picker (Supporter/Commentator/Coach) → Sport (commentator/coach) → Institutions (max 4) → Teams (coach, checkboxes) → DOB/Gender → Sports I Follow (supporter) → Notifications → T&C → Create
 
-**Coach:**
-- Filter stats by Season and Tournament
-- Replay match (animated field play-by-play)
+### Data Model Changes
+- `profiles.role`: 'supporter' | 'commentator' | 'coach' | 'admin' | 'commentator_admin'
+- `profiles.supporting_institution_ids[]`: replaces old supporting_team_ids
+- `profiles.commentator_status`: NULL | 'trainee' | 'qualified'
+- `profiles.notify_live`, `notify_rewards`, `notify_general`: boolean
+- `profiles.accepted_terms_at`: timestamptz
+- `institutions.domain`: for future coach email vetting
 
-**Commentator:**
-- Goalie saves — clarify saved vs missed
+### Crowd Suggest Team (v7.12.2)
+- CrowdSubmitScreen suggest flow now picks institution or suggests new one
+- Selects sport/gender/age with pills
+- Checks for duplicate (same institution + sport + gender + age_group)
+- suggestTeam() in sync.js creates institution if needed, then pending team
 
-**Infrastructure:**
-- Embeddable widgets for school websites
-
----
-
-## Architecture Notes
-
-### Institution Display Rules
-- `teamDerivedName(team)` = gender + sport + age_group (or variant if set, replacing age_group)
-- `teamDisplayName(team)` = institution short_name/name + derived (auto-dedupes gender)
-- `teamShortName(team)` = institution.short_name || institution.name
-- `teamColor(team)` = institution.color || team.color
-- `teamSlug(team)` = slug of institution.name + age_group/variant (e.g. "paarl-gim-1st", "paarl-gim-2nd")
-- `teamMatchesSearch(team, query)` = searches institution.name + short_name + other_names + derived name + team_description
-- All query constants in `src/utils/teams.js`: `TEAM_SELECT`, `MATCH_HOME_TEAM`, `MATCH_AWAY_TEAM`, etc.
-- `MatchCardTeams` component: two-line display (institution names + rank on line 1, derived + meta on line 2)
-- `FilterBar` component: cycling pills for Sport/Gender/Age across all landing page tabs
-
-### Stats Engine
-- ONE button (Recompute All Stats) rebuilds everything from raw events
-- `archiveMatchStats` is idempotent: delete + insert, returns `{ ok, reason }`
-- Events fetched per match with `.limit(5000)` (never batch)
-
-### Prediction Engine
-- `predictMatch()` in predict.js: V2 model with draw boost (0.5 multiplier)
-- Fallback to ranking-based when <5 games
-- `retrofitPredictions()` in sync.js: builds progressive records chronologically
-- Kykie (user_id=null), Pete, Suzi all predict every match
-
-### RLS Rules
-- NEVER use `FOR ALL` policies alongside public SELECT
-- Always split into separate INSERT/UPDATE/DELETE policies
-- `institutions`: public SELECT + auth INSERT/UPDATE/DELETE
-
----
-
-## Files to Provide to Next Session
-1. **`hockey-stats-v7.10.35.zip`** — Full source + built docs/
-2. **`HANDOFF.md`** (inside zip) — Complete project state
-3. **This file** (`next-session-planning.md`) — Context and plans
-
-## Supabase Project Details
-- **URL**: belveuygzinoipiwanwb.supabase.co
-- **Domain**: kykie.net (Afrihost DNS, GitHub Pages)
-- **Repo**: github.com/henniewarnich/hockey-stats
+## Files to Provide
+1. **hockey-stats-v7.12.11.zip** — Full source + built docs/
+2. **HANDOFF.md** — Complete project state
+3. **This file** (next-session-planning.md)
+4. **commercialisation-strategy.md** — Full commercialisation plan
