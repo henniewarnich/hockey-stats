@@ -1,44 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { APP_VERSION, ZONES, D_OPTIONS } from '../utils/constants.js';
+import { APP_VERSION } from '../utils/constants.js';
 import { getBenchmarkConfig, getBenchmarkReferenceEvents, compareBenchmark, saveBenchmarkResult } from '../utils/benchmark.js';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
-
-const LEARN_TOPICS = [
-  {
-    id: 'zones',
-    title: 'The field zones',
-    content: 'The hockey field is divided into 4 zones from the home team\'s perspective: Own Quarter → Own Midfield → Opp Midfield → Opp Quarter. Each zone has Left, Centre, and Right positions. Tap anywhere on the field to record where the action is happening.',
-    tip: 'Remember: zones are always from the home team\'s perspective. The away team\'s zones are inverted.',
-  },
-  {
-    id: 'events',
-    title: 'Key event types',
-    content: 'The main events you\'ll record are: D Entry (ball enters the D-circle), Goal, Shot on Goal, Shot Off Target, Short Corner, Long Corner, Turnover Won, Possession Conceded, and Dead Ball. Don\'t worry about getting every single event — focus on the key ones.',
-    tip: 'D Entries, Goals, Short Corners, and Turnovers carry the most weight in analysis.',
-  },
-  {
-    id: 'dcircle',
-    title: 'D-circle popup',
-    content: 'When you tap in the opponent\'s quarter, a D-circle popup appears asking what happened. You\'ll choose from: Shot on Goal, Shot Off Target, Goal, Short Corner, Long Corner, Penalty, Lost Possession, or Dead Ball. The popup stays open after shots so you can quickly record the next action.',
-    tip: 'A Short Corner is awarded when a foul occurs inside the D. The ball is pushed from the backline.',
-  },
-  {
-    id: 'recording',
-    title: 'Recording flow',
-    content: 'Before the match starts, you\'ll set up the teams, match length, and break format. Once live, the timer runs and you tap zones as the action moves. Use the Pause button for quarter breaks and injuries. At the end, tap End Match to save.',
-    tip: 'Stay calm and don\'t chase every touch. Focus on when the ball changes zones, enters the D, or possession changes.',
-  },
-  {
-    id: 'quality',
-    title: 'Quality tips',
-    content: 'Aim for 4-8 events per minute as a guideline. Too few events mean gaps in coverage. Too many (like tapping for every touch) clutters the data. Watch for D Entries — these are the most important events for coaches. Always record goals and short corners accurately.',
-    tip: 'A good recording has clear zone transitions, all goals captured, and consistent coverage across all quarters.',
-  },
-];
+import TrainingWizard, { STEPS as WIZARD_STEPS } from '../components/TrainingWizard.jsx';
 
 const DEMO_CONFIG = {
   home: { name: 'Demo Lions', color: '#1D4ED8', id: 'demo-home', short: 'DLI' },
@@ -49,9 +17,8 @@ const DEMO_CONFIG = {
 
 export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, onQualified }) {
   const [view, setView] = useState('home'); // home | learn | benchmark_intro | benchmark_result
-  const [expandedTopic, setExpandedTopic] = useState(null);
-  const [readTopics, setReadTopics] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('kykie-training-read') || '[]'); } catch { return []; }
+  const [viewedSteps, setViewedSteps] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kykie-training-steps') || '[]'); } catch { return []; }
   });
   const [practiceCount, setPracticeCount] = useState(() => {
     return parseInt(localStorage.getItem('kykie-training-practices') || '0', 10);
@@ -77,19 +44,23 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
     setBenchmarkLoading(false);
   };
 
-  const markRead = (topicId) => {
-    const next = readTopics.includes(topicId) ? readTopics : [...readTopics, topicId];
-    setReadTopics(next);
-    localStorage.setItem('kykie-training-read', JSON.stringify(next));
+  const handleStepView = (stepIndex) => {
+    if (!viewedSteps.includes(stepIndex)) {
+      const next = [...viewedSteps, stepIndex];
+      setViewedSteps(next);
+      localStorage.setItem('kykie-training-steps', JSON.stringify(next));
+    }
   };
 
-  const markAllRead = () => {
-    const all = LEARN_TOPICS.map(t => t.id);
-    setReadTopics(all);
-    localStorage.setItem('kykie-training-read', JSON.stringify(all));
+  const handleWizardComplete = () => {
+    // Mark all steps as viewed
+    const all = WIZARD_STEPS.map((_, i) => i);
+    setViewedSteps(all);
+    localStorage.setItem('kykie-training-steps', JSON.stringify(all));
+    setView('home');
   };
 
-  const allRead = LEARN_TOPICS.every(t => readTopics.includes(t.id));
+  const allRead = viewedSteps.length >= WIZARD_STEPS.length;
   const practiced = practiceCount > 0;
   const stepsComplete = (allRead ? 1 : 0) + (practiced ? 1 : 0);
   const canTest = allRead && practiced;
@@ -295,7 +266,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
     );
   }
 
-  // ── Learn view ──
+  // ── Learn view (animated wizard) ──
   if (view === 'learn') {
     return (
       <div style={S.page}>
@@ -306,86 +277,11 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
           <div style={{ width: 40 }} />
         </div>
 
-        <div style={{ fontSize: 12, color: '#94A3B8', lineHeight: 1.6, marginBottom: 16 }}>
-          Hockey recording captures what happens on the field in real time. You'll tap zones and events as the action unfolds. Read through each topic below.
-        </div>
-
-        {LEARN_TOPICS.map(topic => {
-          const isRead = readTopics.includes(topic.id);
-          const isExpanded = expandedTopic === topic.id;
-          return (
-            <div key={topic.id} style={{ ...S.card, borderLeft: isRead ? '3px solid #10B981' : '3px solid #334155' }}
-              onClick={() => { setExpandedTopic(isExpanded ? null : topic.id); markRead(topic.id); }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{topic.title}</div>
-                <div style={{ fontSize: 10, color: isRead ? '#10B981' : '#F59E0B', fontWeight: 600 }}>
-                  {isRead ? '✓ Read' : 'Tap to read'}
-                </div>
-              </div>
-              {isExpanded && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.6 }}>{topic.content}</div>
-                  {topic.tip && (
-                    <div style={{
-                      marginTop: 8, padding: '8px 10px', background: '#0B0F1A', borderRadius: 6,
-                      borderLeft: '2px solid #F59E0B',
-                    }}>
-                      <div style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600, marginBottom: 2 }}>Tip</div>
-                      <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.5 }}>{topic.tip}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Zone diagram */}
-        <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 8, marginTop: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8, color: '#64748B' }}>Field zones (home perspective)</div>
-          <div style={{ display: 'flex', height: 50, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
-            {ZONES.map((z, i) => {
-              const colors = ['#10B98133', '#3B82F633', '#F59E0B33', '#EF444433'];
-              const textColors = ['#6EE7B7', '#93C5FD', '#FCD34D', '#FCA5A5'];
-              return (
-                <div key={z.id} style={{
-                  flex: 1, background: colors[i], display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: 8, color: textColors[i], fontWeight: 600, textAlign: 'center',
-                }}>{z.label}</div>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: 8, color: '#475569' }}>← Home defends</span>
-            <span style={{ fontSize: 8, color: '#475569' }}>Home attacks →</span>
-          </div>
-        </div>
-
-        {/* D-circle options reference */}
-        <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8, color: '#64748B' }}>D-circle options</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {D_OPTIONS.map(opt => (
-              <div key={opt.id} style={{
-                padding: '4px 8px', borderRadius: 6, background: opt.color + '22',
-                fontSize: 10, color: opt.color, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
-              }}>
-                <span>{opt.icon}</span> {opt.label}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {!allRead && (
-          <button onClick={markAllRead} style={S.btn('#10B981')}>
-            Mark all as read ✓
-          </button>
-        )}
-        {allRead && (
-          <div style={{ textAlign: 'center', fontSize: 12, color: '#10B981', fontWeight: 600, padding: 12 }}>
-            All topics read ✓
-          </div>
-        )}
+        <TrainingWizard
+          completedSteps={viewedSteps}
+          onStepView={handleStepView}
+          onComplete={handleWizardComplete}
+        />
       </div>
     );
   }
@@ -549,7 +445,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
             </div>
           </div>
           <div style={{ fontSize: 10, color: allRead ? '#10B981' : '#F59E0B', fontWeight: 600 }}>
-            {allRead ? 'Done' : `${readTopics.length}/${LEARN_TOPICS.length}`} ›
+            {allRead ? 'Done' : `${viewedSteps.length}/${WIZARD_STEPS.length}`} ›
           </div>
         </div>
       </div>

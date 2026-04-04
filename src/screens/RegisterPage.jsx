@@ -21,6 +21,13 @@ export default function RegisterPage() {
   const [done, setDone] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
 
+  // OTP verification
+  const [otpCode, setOtpCode] = useState('');
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [resending, setResending] = useState(false);
+
   // Step 1 fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -119,6 +126,32 @@ export default function RegisterPage() {
     setLoading(false);
   };
 
+  const handleVerifyOtp = async () => {
+    if (otpCode.length < 6) { setOtpError('Enter the 6-digit code'); return; }
+    setOtpVerifying(true);
+    setOtpError('');
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: otpCode.trim(),
+      type: 'signup',
+    });
+    if (error) {
+      setOtpError(error.message === 'Token has expired or is invalid' ? 'Invalid or expired code. Try again or resend.' : error.message);
+      setOtpVerifying(false);
+      return;
+    }
+    setOtpVerified(true);
+    setOtpVerifying(false);
+  };
+
+  const handleResendOtp = async () => {
+    setResending(true);
+    setOtpError('');
+    await supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase() });
+    setResending(false);
+    setOtpError('New code sent! Check your inbox.');
+  };
+
   const toggleSport = (id) => {
     setSportInterest(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
@@ -169,21 +202,68 @@ export default function RegisterPage() {
       <div style={{ fontSize: 24, fontWeight: 900, color: '#F59E0B', marginBottom: 2 }}>kykie</div>
 
       {done ? (
-        // ── SUCCESS ──
-        <div style={{ textAlign: 'center', maxWidth: 280, marginTop: 20 }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#10B981', marginBottom: 8 }}>Almost there!</div>
-          <div style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6 }}>
-            We sent a confirmation link to <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{email}</span>. Click the link to activate your account.
+        // ── OTP VERIFICATION ──
+        otpVerified ? (
+          <div style={{ textAlign: 'center', maxWidth: 280, marginTop: 20 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#10B981', marginBottom: 8 }}>You're in!</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6 }}>
+              Your account is verified and ready to go.
+            </div>
+            <button onClick={() => { window.location.hash = '#/login'; }} style={{
+              marginTop: 24, width: '100%', background: '#10B981', border: 'none', borderRadius: 10, padding: '14px 24px',
+              color: '#F8FAFC', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}>Sign In →</button>
           </div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 10 }}>
-            Can't find it? Check your spam or junk folder.
+        ) : (
+          <div style={{ textAlign: 'center', maxWidth: 280, marginTop: 20 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#F59E0B', marginBottom: 8 }}>Enter verification code</div>
+            <div style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6, marginBottom: 20 }}>
+              We sent a 6-digit code to <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{email}</span>
+            </div>
+
+            <input
+              value={otpCode}
+              onChange={e => { setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)); setOtpError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+              placeholder="000000"
+              inputMode="numeric"
+              autoFocus
+              style={{
+                width: '100%', padding: 14, borderRadius: 10, border: otpError && !otpError.includes('sent') ? '2px solid #EF4444' : '1px solid #334155',
+                background: '#1E293B', color: '#F8FAFC', fontSize: 24, fontWeight: 700,
+                textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+
+            {otpError && (
+              <div style={{ fontSize: 12, color: otpError.includes('sent') ? '#10B981' : '#EF4444', marginTop: 8 }}>
+                {otpError}
+              </div>
+            )}
+
+            <button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length < 6} style={{
+              width: '100%', padding: 14, borderRadius: 10, border: 'none', marginTop: 16,
+              background: otpVerifying || otpCode.length < 6 ? '#334155' : '#10B981',
+              color: otpVerifying || otpCode.length < 6 ? '#64748B' : '#F8FAFC',
+              fontSize: 14, fontWeight: 700, cursor: otpVerifying ? 'wait' : 'pointer',
+            }}>
+              {otpVerifying ? 'Verifying...' : 'Verify'}
+            </button>
+
+            <button onClick={handleResendOtp} disabled={resending} style={{
+              width: '100%', marginTop: 8, padding: 10, borderRadius: 10, border: '1px solid #334155',
+              background: 'none', color: '#94A3B8', fontSize: 11, cursor: 'pointer',
+            }}>
+              {resending ? 'Sending...' : "Didn't get the code? Resend"}
+            </button>
+
+            <div style={{ fontSize: 10, color: '#475569', marginTop: 10 }}>
+              Check your spam folder if you can't find it.
+            </div>
           </div>
-          <button onClick={() => { window.location.hash = '#/login'; }} style={{
-            marginTop: 24, background: '#F59E0B', border: 'none', borderRadius: 10, padding: '12px 24px',
-            color: '#0B0F1A', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          }}>Go to Sign In</button>
-        </div>
+        )
       ) : (
         <>
           {/* Step indicator */}
