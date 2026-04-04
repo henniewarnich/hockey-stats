@@ -174,7 +174,7 @@ export async function resetPassword(userId, newPassword) {
 }
 
 // Self-register (public registration)
-export async function registerUser({ email, password, firstname, lastname, username, role = 'supporter', alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_institution_ids, teamId, notify_live, notify_rewards, notify_general, accepted_terms_at }) {
+export async function registerUser({ email, password, firstname, lastname, username, role = 'supporter', alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_institution_ids, teamIds, notify_live, notify_rewards, notify_general, accepted_terms_at }) {
   // Pre-check: username uniqueness
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
@@ -211,9 +211,10 @@ export async function registerUser({ email, password, firstname, lastname, usern
 
   if (profileErr) return { error: `Account created but profile failed: ${profileErr.message}` };
 
-  // Coach: link to selected team
-  if (role === 'coach' && teamId) {
-    await supabase.from('coach_teams').upsert({ coach_id: data.user.id, team_id: teamId }, { onConflict: 'coach_id,team_id' });
+  // Coach: link to selected teams
+  if (role === 'coach' && teamIds && teamIds.length > 0) {
+    const rows = teamIds.map(tid => ({ coach_id: data.user.id, team_id: tid }));
+    await supabase.from('coach_teams').upsert(rows, { onConflict: 'coach_id,team_id' });
   }
 
   return { user: data.user };
