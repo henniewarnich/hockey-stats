@@ -174,7 +174,7 @@ export async function resetPassword(userId, newPassword) {
 }
 
 // Self-register (public registration)
-export async function registerUser({ email, password, firstname, lastname, username, role = 'supporter', alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_team_ids, teamId, notify_live, notify_rewards, notify_general, accepted_terms_at }) {
+export async function registerUser({ email, password, firstname, lastname, username, role = 'supporter', alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_institution_ids, teamId, notify_live, notify_rewards, notify_general, accepted_terms_at }) {
   // Pre-check: username uniqueness
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
@@ -202,7 +202,7 @@ export async function registerUser({ email, password, firstname, lastname, usern
     p_biological_gender: biological_gender || null,
     p_home_town: home_town?.trim() || null,
     p_sport_interest: sport_interest || [],
-    p_supporting_team_ids: supporting_team_ids || [],
+    p_supporting_institution_ids: supporting_institution_ids || [],
     p_notify_live: notify_live !== false,
     p_notify_rewards: notify_rewards !== false,
     p_notify_general: notify_general !== false,

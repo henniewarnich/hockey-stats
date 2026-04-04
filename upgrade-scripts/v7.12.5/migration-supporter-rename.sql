@@ -7,14 +7,24 @@ UPDATE profiles SET roles = array_replace(roles, 'crowd', 'supporter') WHERE 'cr
 -- 2. Rename in matches submitted_type
 UPDATE matches SET submitted_type = 'supporter' WHERE submitted_type = 'crowd';
 
--- 3. Add commentator status + notification + terms columns
+-- 3. Add commentator status + notification + terms + institution columns
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS commentator_status TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_live BOOLEAN DEFAULT true;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_rewards BOOLEAN DEFAULT true;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_general BOOLEAN DEFAULT true;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS supporting_institution_ids UUID[] DEFAULT '{}';
 
--- 4. Replace RPC to accept role + notification + terms parameters
+-- 3b. Migrate supporting_team_ids → supporting_institution_ids
+UPDATE profiles SET supporting_institution_ids = (
+  SELECT COALESCE(array_agg(DISTINCT t.institution_id), '{}')
+  FROM unnest(supporting_team_ids) AS tid
+  JOIN teams t ON t.id = tid
+  WHERE t.institution_id IS NOT NULL
+)
+WHERE supporting_team_ids IS NOT NULL AND array_length(supporting_team_ids, 1) > 0;
+
+-- 4. Replace RPC to accept role + notification + terms + institution parameters
 CREATE OR REPLACE FUNCTION register_crowd_profile(
   p_id UUID,
   p_email TEXT,
@@ -27,7 +37,7 @@ CREATE OR REPLACE FUNCTION register_crowd_profile(
   p_biological_gender TEXT DEFAULT NULL,
   p_home_town TEXT DEFAULT NULL,
   p_sport_interest TEXT[] DEFAULT '{}',
-  p_supporting_team_ids UUID[] DEFAULT '{}',
+  p_supporting_institution_ids UUID[] DEFAULT '{}',
   p_notify_live BOOLEAN DEFAULT true,
   p_notify_rewards BOOLEAN DEFAULT true,
   p_notify_general BOOLEAN DEFAULT true,
@@ -38,13 +48,13 @@ BEGIN
   INSERT INTO public.profiles (
     id, email, firstname, lastname, username, role, roles,
     alias_nickname, date_of_birth, biological_gender, home_town,
-    sport_interest, supporting_team_ids, commentator_status,
+    sport_interest, supporting_institution_ids, commentator_status,
     notify_live, notify_rewards, notify_general, accepted_terms_at
   ) VALUES (
     p_id, p_email, p_firstname, p_lastname, p_username,
     p_role, ARRAY[p_role],
     p_alias_nickname, p_date_of_birth, p_biological_gender, p_home_town,
-    p_sport_interest, p_supporting_team_ids,
+    p_sport_interest, p_supporting_institution_ids,
     CASE WHEN p_role = 'commentator' THEN 'trainee' ELSE NULL END,
     p_notify_live, p_notify_rewards, p_notify_general, p_accepted_terms_at
   );
