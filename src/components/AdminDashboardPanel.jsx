@@ -23,8 +23,7 @@ export default function AdminDashboardPanel({ onNavigate, currentUser }) {
     ["match_schedule", "📅", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
     ["match_setup", "⚡", "New Match", "Live match or quick score"],
     ["what_if", "🔮", "What-If Match", "Pick two teams — see prediction"],
-    ["teams", "👥", "Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
-    ["institutions", "🏫", "Institutions", "Schools, clubs & universities"],
+    ["teams", "🏫", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
     ["history", "📊", "Game History", "View all recorded matches"],
     ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
       ["users", "🔑", "Users", "Manage user accounts"],
@@ -32,7 +31,6 @@ export default function AdminDashboardPanel({ onNavigate, currentUser }) {
       ["pending", "📋", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
       ["health", "🩺", "System Health", "Database, users & activity"],
       ["sponsors", "🤝", "Sponsors", "Manage sponsor placements"],
-      ["contributors", "🏅", "Contributors", "Tiers, credits & rewards"],
     ] : []),
   ];
 

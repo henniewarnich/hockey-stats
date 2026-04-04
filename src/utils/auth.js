@@ -173,8 +173,8 @@ export async function resetPassword(userId, newPassword) {
   return { success: true };
 }
 
-// Self-register as a crowd user (public registration)
-export async function registerCrowdUser({ email, password, firstname, lastname, username, alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_team_ids }) {
+// Self-register (public registration)
+export async function registerUser({ email, password, firstname, lastname, username, role = 'supporter', alias_nickname, date_of_birth, biological_gender, home_town, sport_interest, supporting_team_ids, teamId, notify_live, notify_rewards, notify_general, accepted_terms_at }) {
   // Pre-check: username uniqueness
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase().trim()).maybeSingle();
   if (existing) return { error: `Username "${username}" is already taken.` };
@@ -196,18 +196,31 @@ export async function registerCrowdUser({ email, password, firstname, lastname, 
     p_firstname: firstname.trim(),
     p_lastname: lastname.trim(),
     p_username: username.toLowerCase().trim(),
+    p_role: role,
     p_alias_nickname: alias_nickname?.trim() || null,
     p_date_of_birth: date_of_birth || null,
     p_biological_gender: biological_gender || null,
     p_home_town: home_town?.trim() || null,
     p_sport_interest: sport_interest || [],
     p_supporting_team_ids: supporting_team_ids || [],
+    p_notify_live: notify_live !== false,
+    p_notify_rewards: notify_rewards !== false,
+    p_notify_general: notify_general !== false,
+    p_accepted_terms_at: accepted_terms_at || null,
   });
 
   if (profileErr) return { error: `Account created but profile failed: ${profileErr.message}` };
 
+  // Coach: link to selected team
+  if (role === 'coach' && teamId) {
+    await supabase.from('coach_teams').upsert({ coach_id: data.user.id, team_id: teamId }, { onConflict: 'coach_id,team_id' });
+  }
+
   return { user: data.user };
 }
+
+// Backward compat alias
+export const registerCrowdUser = registerUser;
 
 // Request password reset email (self-service)
 export async function requestPasswordReset(email) {

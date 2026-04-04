@@ -304,7 +304,7 @@ export default function App() {
 
   // Commentator recorder
   if (route.type === 'record') {
-    if (!currentUser || !['admin', 'commentator_admin', 'commentator', 'crowd'].includes(currentUser.role)) {
+    if (!currentUser || !['admin', 'commentator_admin', 'commentator', 'supporter'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
     // Team-specific — old commentator page (kept for backward compat)

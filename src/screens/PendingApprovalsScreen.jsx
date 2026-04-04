@@ -44,7 +44,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
     setActionLoading(match.id);
     await approvePendingMatch(match.id, currentUser.id, asUpcoming ? 'upcoming' : 'ended');
     // Award credits if crowd submission
-    if (match.submitted_by && match.submitted_type === 'crowd') {
+    if (match.submitted_by && match.submitted_type === 'supporter') {
       const isLive = match.duration && match.duration > 0;
       if (isLive) await onLiveMatchApproved(match.submitted_by, match.id);
       else await onQuickScoreApproved(match.submitted_by, match.id);
@@ -58,7 +58,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
     setActionLoading(match.id);
     await rejectPendingMatch(match.id, currentUser.id);
     // Deduct credits if crowd submission
-    if (match.submitted_by && match.submitted_type === 'crowd') {
+    if (match.submitted_by && match.submitted_type === 'supporter') {
       const isLive = match.duration && match.duration > 0;
       if (isLive) await onLiveMatchRejected(match.submitted_by, match.id);
       else await onQuickScoreRejected(match.submitted_by, match.id);

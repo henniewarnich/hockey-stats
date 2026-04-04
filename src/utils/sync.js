@@ -761,7 +761,7 @@ export async function submitCrowdResult({ homeTeamId, awayTeamId, homeScore, awa
       match_type: matchType || 'league',
       status: 'pending',
       submitted_by: submittedBy,
-      submitted_type: 'crowd',
+      submitted_type: 'supporter',
     })
     .select()
     .single();
@@ -784,7 +784,7 @@ export async function submitCrowdUpcoming({ homeTeamId, awayTeamId, matchDate, s
       match_type: matchType || 'league',
       status: 'pending',
       submitted_by: submittedBy,
-      submitted_type: 'crowd',
+      submitted_type: 'supporter',
     })
     .select()
     .single();

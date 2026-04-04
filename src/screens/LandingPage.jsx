@@ -79,7 +79,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     } else {
       await supabase.from('matches').update({
         home_score: seHomeScore, away_score: seAwayScore, ...penFields,
-        status: 'pending', submitted_by: currentUser.id, submitted_type: 'crowd',
+        status: 'pending', submitted_by: currentUser.id, submitted_type: 'supporter',
       }).eq('id', m.id);
       logAudit('quick_score_crowd', 'match', m.id, { home: seHomeScore, away: seAwayScore, ...penFields });
       setUpcomingMatches(prev => prev.filter(u => u.id !== m.id));
@@ -523,7 +523,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                 {(role === 'coach') && (
                   <CoachDashboardPanel currentUser={currentUser} />
                 )}
-                {(role === 'crowd') && (
+                {(role === 'supporter') && (
                   <CrowdDashboardPanel currentUser={currentUser} />
                 )}
               </div>

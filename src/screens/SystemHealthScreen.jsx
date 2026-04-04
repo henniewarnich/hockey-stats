@@ -195,7 +195,7 @@ export default function SystemHealthScreen({ onBack }) {
     commentator_admin: { label: 'Comm Admin', color: '#F59E0B' },
     commentator: { color: '#10B981' },
     coach: { color: '#8B5CF6' },
-    crowd: { color: '#3B82F6' },
+    supporter: { color: '#3B82F6' },
   };
 
   const cardStyle = { background: '#1E293B', borderRadius: 8, padding: '10px 12px' };
