@@ -36,6 +36,7 @@ import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
 import WhatIfScreen from './components/WhatIfScreen.jsx';
+import TrainingScreen from './screens/TrainingScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -57,6 +58,7 @@ function getHashRoute() {
   if (hash === 'pending') return { type: 'pending' };
   if (hash === 'issues') return { type: 'issues' };
   if (hash === 'health') return { type: 'health' };
+  if (hash === 'training') return { type: 'training' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -137,7 +139,12 @@ export default function App() {
     setCurrentUser(profile);
     sessionStorage.setItem('kykie-user-id', profile.id);
     if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
-      window.location.hash = '#/admin';
+      // Trainee commentators go to training, qualified go to admin
+      if (profile.role === 'commentator' && profile.commentator_status === 'trainee') {
+        window.location.hash = '#/training';
+      } else {
+        window.location.hash = '#/admin';
+      }
     } else {
       window.location.hash = '';
     }
@@ -156,8 +163,12 @@ export default function App() {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
     const isAdmin = newRole === 'admin' || newRole === 'commentator_admin' || newRole === 'commentator';
-    // Clean reload avoids all React state race conditions
-    window.location.hash = isAdmin ? '#/admin' : '';
+    // Trainee commentators go to training
+    if (newRole === 'commentator' && currentUser.commentator_status === 'trainee') {
+      window.location.hash = '#/training';
+    } else {
+      window.location.hash = isAdmin ? '#/admin' : '';
+    }
     window.location.reload();
   };
 
@@ -302,10 +313,34 @@ export default function App() {
     return <IssuesScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
   }
 
+  // Commentator training (trainee commentators)
+  if (route.type === 'training') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return (
+      <TrainingScreen
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onRoleSwitch={handleRoleSwitch}
+        onQualified={() => {
+          // Reload profile to pick up qualified status
+          window.location.hash = '#/admin';
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
   // Commentator recorder
   if (route.type === 'record') {
     if (!currentUser || !['admin', 'commentator_admin', 'commentator', 'supporter'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
+    }
+    // Trainee commentators can't record real matches
+    if (currentUser.role === 'commentator' && currentUser.commentator_status === 'trainee') {
+      window.location.hash = '#/training';
+      return null;
     }
     // Team-specific — old commentator page (kept for backward compat)
     if (route.slug) {
@@ -328,6 +363,11 @@ export default function App() {
     if (!currentUser || !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
     }
+    // Trainee commentators go to training instead
+    if (currentUser.role === 'commentator' && currentUser.commentator_status === 'trainee') {
+      window.location.hash = '#/training';
+      return null;
+    }
     return (
       <AppContent
         store={store} screen={screen} setScreen={setScreen}
@@ -341,7 +381,12 @@ export default function App() {
   // Default landing — redirect admin to #/admin, pass onRoleSwitch for logged-in users
   const activeRole = sessionStorage.getItem('kykie-active-role') || currentUser?.role;
   if (currentUser && ['admin', 'commentator_admin', 'commentator'].includes(activeRole)) {
-    window.location.hash = '#/admin';
+    // Trainee commentators go to training
+    if (activeRole === 'commentator' && currentUser.commentator_status === 'trainee') {
+      window.location.hash = '#/training';
+    } else {
+      window.location.hash = '#/admin';
+    }
     return null;
   }
 

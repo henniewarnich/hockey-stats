@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.12.11 | Date: 4 April 2026**
+**Version: 7.13.0 | Date: 4 April 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -53,6 +53,18 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **DOB**: three dropdowns (DD/Mon/Year) instead of native date picker
 - **RPC**: `register_crowd_profile` accepts p_role, p_supporting_institution_ids, p_notify_*, p_accepted_terms_at
 
+### Commentator Training (v7.13.0+)
+- **Trainee gating**: Commentators with `commentator_status: 'trainee'` see TrainingScreen instead of CommentatorDashboard
+- **Three steps**: Learn (read 5 topic cards) → Practice (complete 1+ demo match) → Benchmark Test (score a YouTube match, 80% to pass)
+- **Learn topics**: Field zones, Event types, D-circle popup, Recording flow, Quality tips — tracked via localStorage
+- **Practice**: Reuses existing demo match flow (Live or Live Pro mode chooser)
+- **Benchmark test**: Trainee records a YouTube match, system compares events against gold-standard reference using weighted scoring (Goals 25%, D Entries 20%, SCs 15%, Shots 15%, Zones 15%, Turnovers 10%)
+- **Promotion**: ≥80% → `commentator_status: 'qualified'`, `benchmark_passed_at` set, `benchmark_score` saved
+- **Admin-created commentators**: automatically get `commentator_status: 'qualified'` (skip training)
+- **Benchmark config**: stored in `site_settings` key `benchmark_config` as JSON (videoUrl, refMatchId, team names, match length)
+- **Route**: `#/training` — trainee commentators auto-redirected here from `#/admin`
+- **Files**: `src/screens/TrainingScreen.jsx`, `src/utils/benchmark.js`
+
 ### Merged Institutions & Teams Screen (v7.12.0+)
 - Single screen replaces old separate Teams + Institutions screens
 - Institution list with expandable teams nested inside
@@ -102,6 +114,7 @@ upgrade-scripts/v7.9.81/         — Predictions table + RLS
 upgrade-scripts/v7.10.0/         — Institutions table + teams columns + data population
 upgrade-scripts/v7.12.0/         — Institution domain column
 upgrade-scripts/v7.12.5/         — Supporter rename + registration roles + notifications + T&C + supporting_institution_ids
+upgrade-scripts/v7.13.0/         — Training benchmark columns (benchmark_score, benchmark_passed_at, training_progress)
 ```
 
 ## Known Issues
@@ -164,3 +177,32 @@ upgrade-scripts/v7.12.5/         — Supporter rename + registration roles + not
 - getTeamShareLink uses teamSlug(team) instead of manual slugging
 - FieldRecorder stale setCoachTeamId reference fixed
 - SystemHealthScreen role colour key updated
+
+## Session Summary (v7.12.11 → v7.13.0) — 4 April 2026
+
+### Commentator Training Screen (Commercialisation Step 2)
+- New `TrainingScreen.jsx` — three-step flow: Learn → Practice → Benchmark Test
+- Learn section: 5 expandable topic cards (zones, events, D-circle, recording flow, quality tips) with read/unread tracking, zone diagram, D-option reference
+- Practice section: launches existing demo match via LiveModeChooser, tracks completion count
+- Benchmark test: records YouTube match via Live Pro, compares against gold-standard reference events
+- Benchmark comparison engine (`src/utils/benchmark.js`): weighted scoring across 6 metrics, configurable tolerances
+- Results screen: score circle + per-metric breakdown bars with pass/fail at 80%
+
+### Trainee Gating
+- `#/admin` redirects trainee commentators to `#/training`
+- `#/record` blocked for trainees (redirects to training)
+- Login redirect: trainees → `#/training`, qualified → `#/admin`
+- Role switch respects trainee status
+- Admin-created commentators auto-set to `commentator_status: 'qualified'`
+
+### Migration (v7.13.0)
+- `profiles.benchmark_score NUMERIC` — best benchmark result
+- `profiles.benchmark_passed_at TIMESTAMPTZ` — qualification timestamp
+- `profiles.training_progress JSONB` — learn/practice tracking
+- Existing commentators with NULL status set to 'qualified'
+- Benchmark config via `site_settings.benchmark_config` JSON
+
+### Next: Commercialisation Step 3
+- Personal credit system + voucher management
+- Wire credits to match completion events (live/video/score)
+- Reactivate dormant `credits.js` with new credit values from strategy doc

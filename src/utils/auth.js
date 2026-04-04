@@ -137,6 +137,11 @@ export async function createUser({ firstname, lastname, username, email, passwor
     await supabase.from('profiles').update({ roles }).eq('id', data.user.id);
   }
 
+  // Admin-created commentators are qualified by default (skip training)
+  if (role === 'commentator' || roles?.includes('commentator')) {
+    await supabase.from('profiles').update({ commentator_status: 'qualified' }).eq('id', data.user.id);
+  }
+
   await logAudit('user_create', 'user', data.user.id, { firstname, lastname, username, email, role, roles });
   return { user: data.user };
 }
