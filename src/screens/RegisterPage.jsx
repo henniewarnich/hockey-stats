@@ -127,7 +127,7 @@ export default function RegisterPage() {
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length < 6) { setOtpError('Enter the 6-digit code'); return; }
+    if (otpCode.length < 6) { setOtpError('Enter the verification code'); return; }
     setOtpVerifying(true);
     setOtpError('');
     const { error } = await supabase.auth.verifyOtp({
@@ -220,20 +220,20 @@ export default function RegisterPage() {
             <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#F59E0B', marginBottom: 8 }}>Enter verification code</div>
             <div style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6, marginBottom: 20 }}>
-              We sent a 6-digit code to <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{email}</span>
+              We sent a verification code to <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{email}</span>
             </div>
 
             <input
               value={otpCode}
-              onChange={e => { setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)); setOtpError(''); }}
+              onChange={e => { setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 8)); setOtpError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
-              placeholder="000000"
+              placeholder="00000000"
               inputMode="numeric"
               autoFocus
               style={{
                 width: '100%', padding: 14, borderRadius: 10, border: otpError && !otpError.includes('sent') ? '2px solid #EF4444' : '1px solid #334155',
                 background: '#1E293B', color: '#F8FAFC', fontSize: 24, fontWeight: 700,
-                textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box',
+                textAlign: 'center', letterSpacing: 6, outline: 'none', boxSizing: 'border-box',
               }}
             />
 
