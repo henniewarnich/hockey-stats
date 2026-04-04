@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { registerUser } from '../utils/auth.js';
 import { fetchTeams, fetchInstitutions } from '../utils/sync.js';
+import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { teamDisplayName, teamMatchesSearch, teamColor } from '../utils/teams.js';
 
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
 
   // Step 1 fields
   const [email, setEmail] = useState('');
@@ -57,10 +59,19 @@ export default function RegisterPage() {
     fetchInstitutions().then(setInstitutions);
   }, []);
 
+  const checkEmail = async () => {
+    const e = email.trim().toLowerCase();
+    if (!e || !e.includes('@')) { setEmailExists(false); return; }
+    const { data } = await supabase.from('profiles').select('id').eq('email', e).maybeSingle();
+    setEmailExists(!!data);
+    if (data) setError('');
+  };
+
   const validateStep1 = () => {
+    if (!email.trim() || !email.includes('@')) return 'Valid email is required';
+    if (emailExists) return 'This email is already registered. Use "Forgot password?" below.';
     if (!firstname.trim()) return 'First name is required';
     if (!lastname.trim()) return 'Last name is required';
-    if (!email.trim() || !email.includes('@')) return 'Valid email is required';
     if (password.length < 6) return 'Password must be at least 6 characters';
     if (password !== confirmPw) return 'Passwords do not match';
     return null;
@@ -205,11 +216,28 @@ export default function RegisterPage() {
           {step === 1 ? (
             // ── STEP 1: ACCOUNT ──
             <div style={{ width: '100%', maxWidth: 280 }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={labelStyle}>Email Address *</div>
+                <input value={email} onChange={e => { setEmail(e.target.value); setError(''); setEmailExists(false); }}
+                  onBlur={checkEmail}
+                  placeholder="your.email@school.co.za" type="email" autoCapitalize="none" autoFocus
+                  style={inputStyle(emailExists)} />
+                {emailExists && (
+                  <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: '#F59E0B11', border: '1px solid #F59E0B33' }}>
+                    <div style={{ fontSize: 11, color: '#F59E0B', marginBottom: 4 }}>This email is already registered.</div>
+                    <button onClick={() => { window.location.hash = '#/login?forgot=1'; }}
+                      style={{ background: 'none', border: 'none', color: '#3B82F6', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                      Forgot your password?
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <div style={{ flex: 1 }}>
                   <div style={labelStyle}>First Name *</div>
                   <input value={firstname} onChange={e => { setFirstname(e.target.value); setError(''); }}
-                    placeholder="John" autoFocus style={inputStyle()} />
+                    placeholder="John" style={inputStyle()} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={labelStyle}>Last Name *</div>
@@ -227,13 +255,6 @@ export default function RegisterPage() {
                   }}>{username}</div>
                 </div>
               )}
-
-              <div style={{ marginBottom: 12 }}>
-                <div style={labelStyle}>Email Address *</div>
-                <input value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
-                  placeholder="your.email@school.co.za" type="email" autoCapitalize="none"
-                  style={inputStyle()} />
-              </div>
 
               <div style={{ marginBottom: 12 }}>
                 <div style={labelStyle}>Password *</div>
@@ -282,7 +303,7 @@ export default function RegisterPage() {
                     { id: 'commentator', label: 'Commentator', icon: '🎙️', desc: 'Record live stats' },
                     { id: 'coach', label: 'Coach', icon: '📋', desc: 'Team analytics' },
                   ].map(r => (
-                    <button key={r.id} onClick={() => { setRegRole(r.id); setSelectedSport(''); setCoachTeamId(null); setCoachTeamSearch(''); }}
+                    <button key={r.id} onClick={() => { setRegRole(r.id); if (r.id === 'supporter') { setSelectedSport(''); setCoachTeamIds([]); setCoachTeamSearch(''); } }}
                       style={{
                         flex: 1, padding: '10px 4px', borderRadius: 10, cursor: 'pointer',
                         border: regRole === r.id ? '2px solid #F59E0B' : '1px solid #334155',
@@ -297,15 +318,18 @@ export default function RegisterPage() {
                     </button>
                   ))}
                 </div>
+                <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.5, marginTop: 8, padding: '8px 10px', background: '#1E293B', borderRadius: 8 }}>
+                  {regRole === 'supporter' && "Pick this if you want to follow the teams you support and get access to match schedules, live commentary and more. You can always apply to be a Commentator or Coach later."}
+                  {regRole === 'commentator' && "You will enjoy all Supporter access immediately, but will need to graduate to unlock Commentator features. Graduation involves some training and an online test. Relax, it's easy!"}
+                  {regRole === 'coach' && "You will enjoy all Supporter access immediately, but will need admin approval for Coach features. To also act as a Commentator, you'll need to complete the training and online test. Relax, it's easy!"}
+                </div>
               </div>
-
-              {/* Sport selection (commentator + coach) */}
               {(regRole === 'commentator' || regRole === 'coach') && (
                 <div style={{ marginBottom: 14 }}>
                   <div style={labelStyle}>Sport *</div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {SPORTS.map(s => (
-                      <button key={s.id} onClick={() => { if (s.id === 'hockey') { setSelectedSport(s.id); setCoachTeamId(null); setCoachTeamSearch(''); } }}
+                      <button key={s.id} onClick={() => { if (s.id === 'hockey') { setSelectedSport(s.id); } }}
                         style={{
                           flex: 1, padding: '10px 6px', borderRadius: 10, cursor: s.id === 'hockey' ? 'pointer' : 'not-allowed',
                           border: selectedSport === s.id ? '2px solid #F59E0B' : '1px solid #334155',
@@ -324,7 +348,7 @@ export default function RegisterPage() {
               )}
 
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 2 }}>
                   <div style={labelStyle}>Date of Birth</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <select value={dobDay} onChange={e => setDobDay(e.target.value)}
@@ -335,14 +359,14 @@ export default function RegisterPage() {
                       ))}
                     </select>
                     <select value={dobMonth} onChange={e => setDobMonth(e.target.value)}
-                      style={{ ...inputStyle(), flex: 1.3, appearance: 'auto', padding: '10px 4px' }}>
-                      <option value="">Month</option>
+                      style={{ ...inputStyle(), flex: 1.2, appearance: 'auto', padding: '10px 4px' }}>
+                      <option value="">Mon</option>
                       {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
                         <option key={m} value={String(i + 1)}>{m}</option>
                       ))}
                     </select>
                     <select value={dobYear} onChange={e => setDobYear(e.target.value)}
-                      style={{ ...inputStyle(), flex: 1.2, appearance: 'auto', padding: '10px 4px' }}>
+                      style={{ ...inputStyle(), flex: 1.5, appearance: 'auto', padding: '10px 4px' }}>
                       <option value="">Year</option>
                       {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map(y => (
                         <option key={y} value={String(y)}>{y}</option>
@@ -350,7 +374,7 @@ export default function RegisterPage() {
                     </select>
                   </div>
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 0.8 }}>
                   <div style={labelStyle}>Gender</div>
                   <select value={gender} onChange={e => setGender(e.target.value)}
                     style={{ ...inputStyle(), appearance: 'auto' }}>
