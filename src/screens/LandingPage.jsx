@@ -288,7 +288,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   // Search results from Supabase when filtering on results tab
   useEffect(() => {
     const q = search.trim().toLowerCase();
-    if (!q || activeTab !== 'results') {
+    if (!q || !(activeTab === 'scores' && scoresSub === 'results')) {
       setSearchResults(null);
       return;
     }
@@ -314,7 +314,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       setSearchResults(data || []);
     }, 300); // debounce
     return () => clearTimeout(timer);
-  }, [search, activeTab]);
+  }, [search, activeTab, scoresSub]);
 
   // Compute team records from ALL ended matches (exclude friendlies)
   const teamRecords = {};

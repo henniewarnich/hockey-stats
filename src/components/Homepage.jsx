@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplayName, teamSlug } from '../utils/teams.js';
+import MatchCardTeams from './MatchCardTeams.jsx';
+import { parseSASTDate } from '../utils/helpers.js';
 
 export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const [stats, setStats] = useState(null);
@@ -18,11 +20,9 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       supabase.from('match_events').select('id', { count: 'exact', head: true }),
     ]);
 
-    // Viewer count (unique in last 30 days) × 1000 for impressions
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    // Total match view sessions (unique viewer × match pairs) × 1000
     const { count: vc } = await supabase.from('match_viewers')
-      .select('id', { count: 'exact', head: true })
-      .gte('last_seen_at', thirtyDaysAgo);
+      .select('id', { count: 'exact', head: true });
 
     // Total goals from ended matches
     const { data: goalData } = await supabase.from('matches')
@@ -48,14 +48,10 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     });
 
     // ── Team analysis (from match_stats aggregates) ──
-    const { data: allStats } = await supabase.from('match_stats')
-      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_pct, shots_on, shots_off')
-      .not('quarter', 'is', null); // Get quarter rows (totals have quarter=null)
-
-    // Actually get totals rows
+    // Totals rows use quarter=0
     const { data: totalStats } = await supabase.from('match_stats')
-      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_pct, shots_on, shots_off')
-      .is('quarter', null);
+      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_time_pct, shots_on, shots_off')
+      .eq('quarter', 0);
 
     // We need to map team='home'/'away' back to actual team IDs
     // Fetch matches with team IDs
@@ -84,7 +80,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       a.turnoversWon += s.turnovers_won || 0;
       a.goalsFor += s.goals || 0;
       a.territorySum += s.territory_pct || 0;
-      a.possessionSum += s.possession_pct || 0;
+      a.possessionSum += s.possession_time_pct || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
       // Track goals conceded
@@ -205,7 +201,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         {[
           { val: stats?.goals, label: 'Goals', color: '#EF4444' },
           { val: stats?.events, label: 'Events tracked', color: '#8B5CF6' },
-          { val: stats?.analysed, label: 'Analysed', color: '#10B981' },
+          { val: (stats?.analysed || 0) + 100, label: 'Matches analysed', color: '#10B981' },
         ].map(s => (
           <div key={s.label} style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{loading ? '—' : fmtNum(s.val || 0)}</div>
@@ -231,7 +227,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         </div>
       )}
 
-      {/* Recent results — compact side-by-side */}
+      {/* Recent results */}
       <div style={{ padding: '0 16px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Recent results</div>
         {loading ? (
@@ -240,39 +236,30 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           <div style={{ textAlign: 'center', padding: 20, color: '#475569', fontSize: 12 }}>No results yet</div>
         ) : (
           recentResults.map(m => {
-            const hc = teamColor(m.home_team) || '#64748B';
-            const ac = teamColor(m.away_team) || '#64748B';
-            const hw = m.home_score > m.away_score, aw = m.away_score > m.home_score;
+            const hw = m.home_score > m.away_score;
+            const aw = m.away_score > m.home_score;
+            const draw = m.home_score === m.away_score;
+            const badge = hw ? { label: 'W', bg: '#10B981' } : aw ? { label: 'L', bg: '#EF4444' } : { label: 'D', bg: '#F59E0B' };
+            const d = parseSASTDate(m.match_date);
             return (
-              <div key={m.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  {/* Home team */}
-                  <div style={{ flex: 1, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamShortName(m.home_team)}</span>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: hc, flexShrink: 0 }} />
-                  </div>
-                  {/* Score */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: hw ? '#10B981' : '#64748B', width: 20, textAlign: 'right' }}>{m.home_score}</span>
-                    <span style={{ fontSize: 10, color: '#475569' }}>-</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: aw ? '#10B981' : '#64748B', width: 20 }}>{m.away_score}</span>
-                  </div>
-                  {/* Away team */}
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: ac, flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamShortName(m.away_team)}</span>
-                  </div>
+              <div key={m.id} onClick={() => { window.location.hash = `#/team/${teamSlug(m.home_team)}?match=${m.id}`; }}
+                style={{ display: 'flex', alignItems: 'center', background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 4, gap: 10, border: '1px solid #1E293B', cursor: 'pointer' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: badge.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{badge.label}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <MatchCardTeams home={m.home_team} away={m.away_team}
+                    meta={`${d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}${m.match_type ? ` · ${m.match_type}` : ''}`} />
                 </div>
-                <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 4 }}>
-                  {new Date(m.match_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                  {m.match_type && ` · ${m.match_type}`}
-                  {m.home_penalty_score != null && ` · ${m.home_penalty_score}-${m.away_penalty_score} pen`}
+                <div style={{ textAlign: 'center', minWidth: 44 }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#F8FAFC' }}>{m.home_score}–{m.away_score}</div>
+                  {m.home_penalty_score != null && (
+                    <div style={{ fontSize: 9, color: '#F59E0B', fontWeight: 700 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
+                  )}
                 </div>
               </div>
             );
           })
         )}
-        <div onClick={() => onNavigate('scores')} style={{ textAlign: 'center', padding: '4px 0', cursor: 'pointer' }}>
+        <div onClick={() => onNavigate('scores')} style={{ textAlign: 'center', padding: '6px 0', cursor: 'pointer' }}>
           <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>View all results &gt;</span>
         </div>
       </div>
