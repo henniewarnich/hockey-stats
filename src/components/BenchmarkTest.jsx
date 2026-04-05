@@ -10,7 +10,7 @@ const STORY = [
   { t:"Eagles attack", i:"Eagles win the free hit and push into the Lions' quarter. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z20" },
   { t:"Into the D!", i:"Eagles enter the Lions' circle. Tap the flashing D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Short corner!", i:"Umpire awards a short corner. Tap Short Corner from the popup.", a:"popup", target:"popup-sc", pc:B },
-  { t:"Take the short corner", i:"Eagles line up on the backline. Push the ball outside the D first. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z01", bzPos:"top:-20px" },
+  { t:"Take the short corner", i:"Eagles line up on the backline. Push the ball outside the D first. Tap the flashing zone.", a:"sc_setup", target:"z01", pc:B },
   { t:"Back into the D!", i:"Eagles push the ball back into the circle. Tap the D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Goal!!", i:"Eagles score from the short corner! Tap Goal from the popup.", a:"popup", target:"popup-goal", pc:B },
   { t:"Lions restart", i:"Lions take the centre pass and play an overhead into Eagles Quarter Right. Press and drag the ball to the flashing zone.", a:"overhead", target:"z32", pc:H, bz:"cb" },
@@ -113,6 +113,10 @@ export default function BenchmarkTest({ onPass, onBack }) {
       if (s.bz === 'cb') { const cb=$('cb');if(cb)cb.innerHTML=bl(s.pc); }
       else if (s.bz) pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       fl(s.target);
+    } else if (s.a === 'sc_setup') {
+      // Place ball on backline strip matching Live Pro: FieldRecorder.jsx line 351-357
+      const blt=$('bl-top');if(blt){const m=blt.children[2];if(m){const d=document.createElement('div');d.id='bw';d.style.cssText='position:absolute;left:calc(50% - 70px);bottom:-11px;transform:translateX(-50%);z-index:20';d.innerHTML=bl(s.pc);m.appendChild(d);}}
+      fl(s.target);
     } else if (s.a === 'turnover') {
       pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
     } else if (s.a === 'overhead') {
@@ -210,6 +214,7 @@ export default function BenchmarkTest({ onPass, onBack }) {
       if (sub === 1 && tid === 'pick-home') { showFlash('red'); return; }
     }
     if (s.a === 'tap') ok = (tid === s.target || !!t.closest('#' + s.target));
+    if (s.a === 'sc_setup') ok = (tid === s.target || !!t.closest('#' + s.target));
     if (s.a === 'turnover') ok = (tid === 'bw' || !!t.closest('#bw'));
     if (s.a === 'd_top') ok = (tid === 'dat' || tid === 'dats' || !!t.closest('#dat'));
     if (s.a === 'd_bot') ok = (tid === 'dab' || tid === 'dabs' || !!t.closest('#dab'));
