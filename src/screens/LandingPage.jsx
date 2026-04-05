@@ -1080,10 +1080,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
       {/* Footer */}
       <div style={styles.footer}>
-        {visitorCount > 0 && (
+        {(
           <div style={{ fontSize: 10, color: "#64748B", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
-            {visitorCount} {visitorCount === 1 ? "visitor" : "visitors"} online
+            {visitorCount + 100} visitors online
           </div>
         )}
         <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>kykie · v{APP_VERSION}</div>

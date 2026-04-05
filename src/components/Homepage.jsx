@@ -1,18 +1,76 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplayName, teamSlug } from '../utils/teams.js';
 import MatchCardTeams from './MatchCardTeams.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
+
+const CACHE_KEY = 'kykie-homepage-cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    if (Date.now() - c.ts > CACHE_TTL) return null;
+    return c.data;
+  } catch { return null; }
+}
+function saveCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+// SVG icons — clean, professional
+const Icon = ({ type }) => {
+  const s = { width: 20, height: 20, display: 'block' };
+  if (type === 'target') return (
+    <svg style={s} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="8" stroke="#EF4444" strokeWidth="1.5"/>
+      <circle cx="10" cy="10" r="4" stroke="#EF4444" strokeWidth="1.5"/>
+      <circle cx="10" cy="10" r="1.5" fill="#EF4444"/>
+    </svg>
+  );
+  if (type === 'bolt') return (
+    <svg style={s} viewBox="0 0 20 20" fill="none">
+      <path d="M11 2L5 11h4l-1 7 6-9h-4l1-7z" fill="#F59E0B"/>
+    </svg>
+  );
+  if (type === 'clock') return (
+    <svg style={s} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="8" stroke="#3B82F6" strokeWidth="1.5"/>
+      <path d="M10 5v5l3.5 2" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+  if (type === 'shield') return (
+    <svg style={s} viewBox="0 0 20 20" fill="none">
+      <path d="M10 2L3 6v4c0 4.4 3 7.5 7 9 4-1.5 7-4.6 7-9V6l-7-4z" stroke="#10B981" strokeWidth="1.5" fill="#10B98122"/>
+    </svg>
+  );
+  return null;
+};
 
 export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loaded = useRef(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    // Show cache immediately
+    const cached = loadCache();
+    if (cached) {
+      setStats(cached.stats);
+      setAnalysis(cached.analysis);
+      setRecentResults(cached.recentResults || []);
+      setLoading(false);
+    }
+    load(!!cached);
+  }, []);
 
-  const load = async () => {
+  const load = async (hasCache) => {
+    if (!hasCache) setLoading(true);
+
     // ── Platform stats ──
     const [{ count: matchCount }, { count: teamCount }, { count: eventCount }] = await Promise.all([
       supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'ended'),
@@ -20,41 +78,28 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       supabase.from('match_events').select('id', { count: 'exact', head: true }),
     ]);
 
-    // Total match view sessions (unique viewer × match pairs) × 1000
     const { count: vc } = await supabase.from('match_viewers')
       .select('id', { count: 'exact', head: true });
 
-    // Total goals from ended matches
     const { data: goalData } = await supabase.from('matches')
-      .select('home_score, away_score')
-      .eq('status', 'ended');
+      .select('home_score, away_score').eq('status', 'ended');
     const totalGoals = (goalData || []).reduce((s, m) => s + (m.home_score || 0) + (m.away_score || 0), 0);
 
-    // Matches analysed (have match_stats)
-    const { count: analysedCount } = await supabase.from('match_stats')
-      .select('match_id', { count: 'exact', head: true });
-    // Dedupe (multiple rows per match)
-    const { data: analysedMatches } = await supabase.from('match_stats')
-      .select('match_id');
+    const { data: analysedMatches } = await supabase.from('match_stats').select('match_id');
     const uniqueAnalysed = new Set((analysedMatches || []).map(r => r.match_id)).size;
 
-    setStats({
-      matches: matchCount || 0,
-      teams: teamCount || 0,
-      viewers: (vc || 0) * 1000,
-      goals: totalGoals,
-      events: eventCount || 0,
-      analysed: uniqueAnalysed,
-    });
+    const newStats = {
+      matches: matchCount || 0, teams: teamCount || 0,
+      viewers: (vc || 0) + 100, goals: totalGoals,
+      events: eventCount || 0, analysed: uniqueAnalysed,
+    };
+    setStats(newStats);
 
-    // ── Team analysis (from match_stats aggregates) ──
-    // Totals rows use quarter=0
+    // ── Team analysis ──
     const { data: totalStats } = await supabase.from('match_stats')
-      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_time_pct, shots_on, shots_off')
-      .eq('quarter', 0);
+      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_pct, shots_on, shots_off')
+      .is('quarter', null);
 
-    // We need to map team='home'/'away' back to actual team IDs
-    // Fetch matches with team IDs
     const statsMatchIds = [...new Set((totalStats || []).map(s => s.match_id))];
     let matchTeamMap = {};
     if (statsMatchIds.length > 0) {
@@ -64,13 +109,11 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       (sMatches || []).forEach(m => { matchTeamMap[m.id] = { home: m.home_team, away: m.away_team }; });
     }
 
-    // Aggregate per team
     const teamAgg = {};
     (totalStats || []).forEach(s => {
       const mt = matchTeamMap[s.match_id];
       if (!mt) return;
       const t = s.team === 'home' ? mt.home : mt.away;
-      const opp = s.team === 'home' ? mt.away : mt.home;
       if (!t?.id) return;
       if (!teamAgg[t.id]) teamAgg[t.id] = { team: t, matches: 0, dEntries: 0, possLost: 0, turnoversWon: 0, goalsFor: 0, goalsAgainst: 0, territorySum: 0, possessionSum: 0, shotsOn: 0, shotsOff: 0 };
       const a = teamAgg[t.id];
@@ -80,42 +123,25 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       a.turnoversWon += s.turnovers_won || 0;
       a.goalsFor += s.goals || 0;
       a.territorySum += s.territory_pct || 0;
-      a.possessionSum += s.possession_time_pct || 0;
+      a.possessionSum += s.possession_pct || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
-      // Track goals conceded
       const oppStats = (totalStats || []).find(os => os.match_id === s.match_id && os.team !== s.team);
       if (oppStats) a.goalsAgainst += oppStats.goals || 0;
     });
 
     const teamsWithData = Object.values(teamAgg).filter(a => a.matches >= 3);
-    if (teamsWithData.length >= 2) {
-      // Most Accurate: highest D entry rate (d_entries per match)
-      const mostAccurate = teamsWithData.reduce((best, t) => {
-        const rate = t.dEntries / t.matches;
-        return rate > (best._rate || 0) ? { ...t, _rate: rate } : best;
-      }, { _rate: 0 });
-
-      // Quickest: most shots + d_entries per match (proxy for tempo)
-      const quickest = teamsWithData.reduce((best, t) => {
-        const tempo = (t.shotsOn + t.shotsOff + t.dEntries) / t.matches;
-        return tempo > (best._rate || 0) ? { ...t, _rate: tempo } : best;
-      }, { _rate: 0 });
-
-      // Most Patient: highest avg possession %
-      const mostPatient = teamsWithData.reduce((best, t) => {
-        const poss = t.possessionSum / t.matches;
-        return poss > (best._rate || 0) ? { ...t, _rate: poss } : best;
-      }, { _rate: 0 });
-
-      // Strongest Defense: lowest goals conceded per match
-      const strongestDef = teamsWithData.reduce((best, t) => {
-        const gcpm = t.goalsAgainst / t.matches;
-        return (best._rate === undefined || gcpm < best._rate) ? { ...t, _rate: gcpm } : best;
-      }, { _rate: undefined });
-
-      setAnalysis({ mostAccurate, quickest, mostPatient, strongestDef });
+    let newAnalysis = null;
+    if (teamsWithData.length >= 3) {
+      const sorted = (fn) => [...teamsWithData].sort(fn).slice(0, 3);
+      newAnalysis = {
+        mostAccurate: sorted((a, b) => (b.dEntries / b.matches) - (a.dEntries / a.matches)),
+        quickest: sorted((a, b) => ((b.shotsOn + b.shotsOff + b.dEntries) / b.matches) - ((a.shotsOn + a.shotsOff + a.dEntries) / a.matches)),
+        mostPatient: sorted((a, b) => (b.possessionSum / b.matches) - (a.possessionSum / a.matches)),
+        strongestDef: sorted((a, b) => (a.goalsAgainst / a.matches) - (b.goalsAgainst / b.matches)),
+      };
     }
+    setAnalysis(newAnalysis);
 
     // ── Recent results ──
     const { data: recent } = await supabase.from('matches')
@@ -126,6 +152,9 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       .limit(3);
     setRecentResults(recent || []);
     setLoading(false);
+
+    // Cache (strip deep objects for serialisation)
+    saveCache({ stats: newStats, analysis: newAnalysis, recentResults: recent || [] });
   };
 
   const fmtNum = (n) => {
@@ -134,19 +163,32 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     return String(n);
   };
 
-  const AnalysisCard = ({ icon, label, team, stat }) => {
-    if (!team) return null;
-    const c = teamColor(team.team) || '#64748B';
+  const AnalysisCard = ({ icon, label, teams }) => {
+    if (!teams || teams.length === 0) return null;
     return (
-      <div onClick={() => { window.location.hash = `#/team/${teamSlug(team.team)}`; }}
-        style={{ background: '#1E293B', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, marginBottom: 2 }}>{icon}</div>
-        <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>{label}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{ width: 6, height: 6, borderRadius: 2, background: c, flexShrink: 0 }} />
-          <div style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamShortName(team.team)}</div>
+      <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <Icon type={icon} />
+          <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 700 }}>{label}</span>
         </div>
-        <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>{stat}</div>
+        {teams.map((t, i) => {
+          const c = teamColor(t.team) || '#64748B';
+          return (
+            <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                background: i === 0 ? '#F59E0B22' : '#0B0F1A', color: i === 0 ? '#F59E0B' : '#64748B',
+                border: i === 0 ? '1px solid #F59E0B44' : '1px solid #334155',
+              }}>{i + 1}</div>
+              <div style={{ width: 6, height: 6, borderRadius: 2, background: c, flexShrink: 0 }} />
+              <div style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {teamDisplayName(t.team)}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -182,7 +224,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         </div>
       )}
 
-      {/* Stats row 1: Platform reach */}
+      {/* Stats row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: '0 16px 6px' }}>
         {[
           { val: stats?.matches, label: 'Matches', color: '#F59E0B' },
@@ -190,13 +232,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           { val: stats?.viewers, label: 'Viewers', color: '#3B82F6' },
         ].map(s => (
           <div key={s.label} style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{loading ? '—' : fmtNum(s.val || 0)}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{!stats ? '—' : fmtNum(s.val || 0)}</div>
             <div style={{ fontSize: 10, color: '#64748B' }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Stats row 2: Data depth */}
+      {/* Stats row 2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: '0 16px 16px' }}>
         {[
           { val: stats?.goals, label: 'Goals', color: '#EF4444' },
@@ -204,25 +246,21 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           { val: (stats?.analysed || 0) + 100, label: 'Matches analysed', color: '#10B981' },
         ].map(s => (
           <div key={s.label} style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{loading ? '—' : fmtNum(s.val || 0)}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{!stats ? '—' : fmtNum(s.val || 0)}</div>
             <div style={{ fontSize: 10, color: '#64748B' }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Team analysis */}
+      {/* Team analysis — top 3 per metric */}
       {analysis && (
         <div style={{ padding: '0 16px 16px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Team analysis</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            <AnalysisCard icon="🎯" label="Most accurate" team={analysis.mostAccurate}
-              stat={`${analysis.mostAccurate._rate.toFixed(1)} D entries/match`} />
-            <AnalysisCard icon="⚡" label="Quickest" team={analysis.quickest}
-              stat={`${analysis.quickest._rate.toFixed(1)} actions/match`} />
-            <AnalysisCard icon="🧘" label="Most patient" team={analysis.mostPatient}
-              stat={`${analysis.mostPatient._rate.toFixed(0)}% possession`} />
-            <AnalysisCard icon="🛡️" label="Strongest defence" team={analysis.strongestDef}
-              stat={`${analysis.strongestDef._rate.toFixed(1)} goals conceded/match`} />
+            <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
+            <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
+            <AnalysisCard icon="clock" label="Most patient" teams={analysis.mostPatient} />
+            <AnalysisCard icon="shield" label="Strongest defence" teams={analysis.strongestDef} />
           </div>
         </div>
       )}
@@ -230,7 +268,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       {/* Recent results */}
       <div style={{ padding: '0 16px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Recent results</div>
-        {loading ? (
+        {!stats && loading ? (
           <div style={{ textAlign: 'center', padding: 20, color: '#475569' }}>Loading...</div>
         ) : recentResults.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 20, color: '#475569', fontSize: 12 }}>No results yet</div>
@@ -238,7 +276,6 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           recentResults.map(m => {
             const hw = m.home_score > m.away_score;
             const aw = m.away_score > m.home_score;
-            const draw = m.home_score === m.away_score;
             const badge = hw ? { label: 'W', bg: '#10B981' } : aw ? { label: 'L', bg: '#EF4444' } : { label: 'D', bg: '#F59E0B' };
             const d = parseSASTDate(m.match_date);
             return (
