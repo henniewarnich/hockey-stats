@@ -233,7 +233,7 @@ export default function BenchmarkTest({ onPass, onBack }) {
       <div style={{ fontSize: 13, color: '#F8FAFC', lineHeight: 1.6, marginBottom: 10 }}>{ch.inst}</div>
 
       {/* Possession bar */}
-      <div id="pb2" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '0 14px 4px' }} />
+      <div id="pb2" onClick={handleTap} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '0 14px 4px' }} />
 
       {/* Field */}
       <div id="fld" onClick={handleTap} style={{

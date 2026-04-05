@@ -143,8 +143,8 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
   if (activeMatch && liveMode === 'pro') {
     return (
       <LiveMatchScreen
-        config={activeMatch}
-        onSave={(game) => {
+        matchConfig={activeMatch}
+        onSaveGame={(game) => {
           if (activeMatch.isBenchmark) {
             handleBenchmarkEnd(game);
           } else {
@@ -152,14 +152,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
           }
           return game;
         }}
-        onEnd={() => {
-          if (activeMatch.isBenchmark) {
-            // Don't end without saving — let onSave handle it
-          } else {
-            handleDemoEnd();
-          }
-        }}
-        onBack={() => { setActiveMatch(null); setLiveMode(null); }}
+        onNavigate={() => { setActiveMatch(null); setLiveMode(null); }}
         currentUser={currentUser}
       />
     );
@@ -168,10 +161,8 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
   if (activeMatch && liveMode === 'lite') {
     return (
       <LiveLiteScreen
-        config={activeMatch}
-        onSave={() => { handleDemoEnd(); return activeMatch; }}
+        match={activeMatch}
         onEnd={handleDemoEnd}
-        onBack={() => { setActiveMatch(null); setLiveMode(null); }}
         currentUser={currentUser}
       />
     );
