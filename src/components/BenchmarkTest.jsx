@@ -2,27 +2,29 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const H = "#F59E0B", B = "#3B82F6", gA = "#2D8B4E", gB = "#258043";
 
+// Match narrative: DLI (amber) at top defends top, attacks down. DEA (blue) at bottom, attacks up.
 const CHALLENGES = [
-  { title: "Start the match", inst: "Tap the pulsing ball at the centre circle to begin.", a: "start" },
-  { title: "Pass the ball", inst: "Move the ball through the numbered zones: tap 1, then 2, then 3.", a: "pass" },
-  { title: "Switch possession", inst: "Tap the ball to trigger a turnover. Watch the colours change.", a: "turnover" },
-  { title: "Play an overhead", inst: "Tap the flashing target zone to complete the overhead pass.", a: "overhead" },
-  { title: "Ball out of play", inst: "Tap the flashing OUT strip where the ball went out.", a: "out" },
-  { title: "Dead ball", inst: "The ball crossed the backline off the attacker. Tap the flashing DEAD button.", a: "dead" },
-  { title: "Long corner", inst: "The ball crossed the backline off the defender. Tap the flashing LC button.", a: "lc" },
-  { title: "Enter the D", inst: "Tap the flashing D arc to record a circle entry.", a: "dentry" },
-  { title: "Select short corner", inst: "From the popup, tap Short Corner.", a: "sc" },
-  { title: "Record a card", inst: "Tap the flashing ⚡ button, then tap Yellow Card.", a: "actions" },
-  { title: "Pause the match", inst: "Tap the flashing Pause button below the field.", a: "pause" },
-  { title: "Undo last event", inst: "Tap the flashing Undo button to reverse your last action.", a: "undo" },
-  { title: "Rotate the field", inst: "Tap the flashing 🔄 button to swap ends.", a: "rotate" },
-  { title: "End the match", inst: "Tap the flashing End button to finish.", a: "end" },
+  { title: "Kick off", inst: "The umpire blows the whistle. Eagles win the toss and take the centre pass. Start the match.", a: "start" },
+  { title: "Eagles push forward", inst: "Eagles receive the ball and push through midfield into the Lions' half. Move the ball through zones 1 → 2 → 3.", a: "pass_fwd" },
+  { title: "Ball out!", inst: "A stray Eagles pass runs off the right sideline in midfield.", a: "out" },
+  { title: "Lions win it back", inst: "Lions take the free hit and immediately win the ball. Switch possession.", a: "turnover" },
+  { title: "Lions go long", inst: "Lions play a long overhead ball into their attacking quarter. Tap the target zone.", a: "overhead" },
+  { title: "Ball dead", inst: "Lions attack the Eagles' backline but the ball runs dead off a Lions player.", a: "dead" },
+  { title: "Long corner", inst: "Lions clear from their own quarter but the ball deflects off a Lions defender over the backline. Eagles are awarded a long corner.", a: "lc" },
+  { title: "Into the D!", inst: "Lions win the ball back and drive into the Eagles' circle!", a: "dentry" },
+  { title: "Short corner!", inst: "The umpire awards a short corner after a foot in the D. Select it from the popup.", a: "sc" },
+  { title: "Yellow card", inst: "An Eagles defender gets a yellow card for a deliberate stick tackle. Record the card.", a: "actions" },
+  { title: "Half time", inst: "The umpire blows for half time. Pause the match.", a: "pause" },
+  { title: "Swap ends", inst: "Teams swap ends during the break. Rotate the field.", a: "rotate" },
+  { title: "Second half", inst: "The umpire restarts play. Resume the match.", a: "resume" },
+  { title: "Mistake!", inst: "Wait — you accidentally recorded that last event wrong. Undo it.", a: "undo" },
+  { title: "Full time!", inst: "The final whistle blows. End the match.", a: "end" },
 ];
 
 export default function BenchmarkTest({ onPass, onBack }) {
   const [cur, setCur] = useState(0);
-  const [step, setStep] = useState(0); // sub-step within a challenge
-  const [flash, setFlash] = useState(null); // 'green' | 'red' | null
+  const [step, setStep] = useState(0);
+  const [flash, setFlash] = useState(null);
   const [passed, setPassed] = useState(false);
   const cRef = useRef(null);
   const flashTimer = useRef(null);
@@ -61,17 +63,16 @@ export default function BenchmarkTest({ onPass, onBack }) {
       h += `<div id="or${r}" style="width:26px;display:flex;align-items:center;justify-content:center;background:#334155;position:relative;opacity:0.6;cursor:pointer"><span style="font-size:7px;font-weight:800;color:#CBD5E1;writing-mode:vertical-rl;letter-spacing:0.05em;pointer-events:none">OUT</span></div></div>`;
     }
     h += mkBl(aw, 'bot');
-    h += `<div id="dat" style="position:absolute;left:50%;transform:translateX(-50%);top:28px;width:80px;height:22px;z-index:15;pointer-events:none"><div style="width:80px;height:22px;border-bottom-left-radius:40px;border-bottom-right-radius:40px;border:3px solid ${H};border-top:none;background:${H}55"></div></div>`;
+    h += `<div style="position:absolute;left:50%;transform:translateX(-50%);top:28px;width:80px;height:22px;z-index:15;pointer-events:none"><div style="width:80px;height:22px;border-bottom-left-radius:40px;border-bottom-right-radius:40px;border:3px solid ${H};border-top:none;background:${H}55"></div></div>`;
     h += `<div id="dab" style="position:absolute;left:50%;transform:translateX(-50%);bottom:28px;width:80px;height:22px;z-index:15;cursor:pointer"><div id="dabs" style="width:80px;height:22px;border-top-left-radius:40px;border-top-right-radius:40px;border:3px solid ${B};border-bottom:none;background:${B}55"></div></div>`;
     h += '<div id="ov" style="position:absolute;inset:0;z-index:16;pointer-events:none"></div>';
     fld.innerHTML = h;
-    setArrows(H, false);
   };
 
   const fl = (id) => { const e = $(id); if (e) e.style.animation = 'bm-bk 0.6s infinite'; };
   const badge = (id, num) => {
     const e = $(id); if (!e) return;
-    const d = document.createElement('div'); d.className = 'bm-badge'; d.id = 'badge-' + id;
+    const d = document.createElement('div'); d.id = 'badge-' + id;
     d.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#F59E0B;color:#0B0F1A;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:20;pointer-events:none';
     d.textContent = num; e.style.position = 'relative'; e.appendChild(d);
   };
@@ -86,46 +87,65 @@ export default function BenchmarkTest({ onPass, onBack }) {
 
   const setPoss = (c, n) => {
     const pb2 = $('pb2'); if (!pb2) return;
+    pb2.style.display = 'flex';
     pb2.innerHTML = `<div style="font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;color:${c};background:${c}22"><div style="width:6px;height:6px;border-radius:50%;background:${c}"></div>${n}</div><div id="fbtn" style="padding:3px 8px;border-radius:6px;border:1px solid #334155;background:#1E293B;color:#94A3B8;font-size:10px;font-weight:700;cursor:pointer">🔄</div>`;
     setArrows(c, c === B);
   };
 
   function setupChallenge() {
-    buildField();
-    setPoss(H, 'DLI');
-    setCtrl([[H,'#0B0F1A','cpa','⏸ Pause'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
-    setStep(0); setFlash(null);
+    buildField(); setStep(0); setFlash(null);
     const a = CHALLENGES[cur].a;
+
+    // Default: show controls and possession bar
+    setPoss(B, 'DEA');
+    setCtrl([[H,'#0B0F1A','cpa','⏸ Pause'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
 
     if (a === 'start') {
       const cb = $('cb'); if (cb) cb.innerHTML = startBall();
       const pb2 = $('pb2'); if (pb2) pb2.style.display = 'none';
       const ctl = $('ctl'); if (ctl) ctl.innerHTML = '';
     }
-    if (a === 'pass') {
-      pt('z21', ball(H), 'bw');
-      ['z11','z01','z31'].forEach((z, i) => { badge(z, i + 1); fl(z); });
+    if (a === 'pass_fwd') {
+      pt('z31', ball(B), 'bw');
+      ['z21','z11','z01'].forEach((z, i) => { badge(z, i + 1); fl(z); });
     }
-    if (a === 'turnover') { pt('z21', ball(H), 'bw'); }
-    if (a === 'overhead') { pt('z30', ball(H), 'bw'); fl('z10'); badge('z10', '↑'); }
-    if (a === 'out') { pt('z21', ball(H), 'bw'); fl('or2'); }
-    if (a === 'dead') { pt('z01', ball(H), 'bw'); fl('dd-top-l'); }
-    if (a === 'lc') { pt('z01', ball(H), 'bw'); fl('lc-top-r'); }
-    if (a === 'dentry') { pt('z31', ball(H), 'bw'); fl('dab'); const dabs = $('dabs'); if (dabs) dabs.style.animation = 'bm-bk 0.6s infinite'; }
+    if (a === 'out') { pt('z12', ball(B), 'bw'); fl('or1'); }
+    if (a === 'turnover') { setPoss(B, 'DEA'); pt('z12', ball(B), 'bw'); }
+    if (a === 'overhead') { setPoss(H, 'DLI'); pt('z10', ball(H), 'bw'); fl('z30'); badge('z30', '↑'); }
+    if (a === 'dead') { setPoss(H, 'DLI'); pt('z31', ball(H), 'bw'); fl('dd-bot-l'); }
+    if (a === 'lc') { setPoss(H, 'DLI'); pt('z01', ball(H), 'bw'); fl('lc-top-r'); }
+    if (a === 'dentry') { setPoss(H, 'DLI'); pt('z31', ball(H), 'bw'); fl('dab'); const dabs = $('dabs'); if (dabs) dabs.style.animation = 'bm-bk 0.6s infinite'; }
     if (a === 'sc') {
+      setPoss(H, 'DLI');
       ov(`<div style="position:absolute;z-index:22;background:#0F172Aee;border:1px solid #33415566;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:170px;left:50%;transform:translateX(-50%);bottom:58px;pointer-events:auto">${[['Goal!',H,'popup-goal'],['Short Corner','#8B5CF6','popup-sc'],['Shot on Goal','#10B981','popup-sog'],['Shot off Target','#6B7280','popup-sot'],['Penalty',H,'popup-pen'],['Long Corner',B,'popup-lc'],['Lost Possession','#EF4444','popup-lp'],['Dead Ball','#94A3B8','popup-db']].map(x => `<div id="${x[2]}" style="padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#F8FAFC;display:flex;align-items:center;gap:8px;border:1px solid ${x[1]}44;background:${x[1]}18;cursor:pointer${x[2]==='popup-sc'?';animation:bm-bk 0.6s infinite':''}">${x[0]}</div>`).join('')}</div>`);
     }
-    if (a === 'actions') { fl('act-bot'); }
-    if (a === 'pause') { fl('cpa'); }
-    if (a === 'undo') { fl('cun'); }
-    if (a === 'rotate') { fl('fbtn'); }
-    if (a === 'end') { fl('cend'); }
+    if (a === 'actions') { setPoss(H, 'DLI'); pt('z31', ball(H), 'bw'); fl('act-bot'); }
+    if (a === 'pause') { setPoss(H, 'DLI'); pt('z11', ball(H), 'bw'); fl('cpa'); }
+    if (a === 'rotate') {
+      setPoss(H, 'DLI'); pt('z11', ball(H), 'bw');
+      ov('<div style="position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);pointer-events:none"><div style="font-size:14px;font-weight:800;color:#F59E0B;text-transform:uppercase;letter-spacing:0.1em;background:rgba(15,23,42,0.85);padding:6px 20px;border-radius:10px;border:1px solid #F59E0B44">⏸ Paused</div></div>');
+      setCtrl([['#10B981','#FFF','cres','▶ Resume'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
+      fl('fbtn');
+    }
+    if (a === 'resume') {
+      setPoss(H, 'DLI'); pt('z11', ball(H), 'bw');
+      ov('<div style="position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);pointer-events:none"><div style="font-size:14px;font-weight:800;color:#F59E0B;text-transform:uppercase;letter-spacing:0.1em;background:rgba(15,23,42,0.85);padding:6px 20px;border-radius:10px;border:1px solid #F59E0B44">⏸ Paused</div></div>');
+      setCtrl([['#10B981','#FFF','cres','▶ Resume'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
+      fl('cres');
+    }
+    if (a === 'undo') { setPoss(H, 'DLI'); pt('z11', ball(H), 'bw'); fl('cun'); }
+    if (a === 'end') { setPoss(H, 'DLI'); pt('z21', ball(H), 'bw'); fl('cend'); }
   }
 
   function showFlash(color, cb) {
     setFlash(color);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => { setFlash(null); if (cb) cb(); }, 600);
+  }
+
+  function advance() {
+    if (cur < CHALLENGES.length - 1) setCur(c => c + 1);
+    else setPassed(true);
   }
 
   function handleTap(e) {
@@ -136,48 +156,34 @@ export default function BenchmarkTest({ onPass, onBack }) {
     const a = CHALLENGES[cur].a;
     let correct = false;
 
-    if (a === 'start') correct = (tid === 'cb' || target.closest('#cb'));
-    if (a === 'pass') {
-      const seq = ['z11','z01','z31'];
+    if (a === 'start') correct = (tid === 'cb' || !!target.closest('#cb'));
+    if (a === 'pass_fwd') {
+      const seq = ['z21','z11','z01'];
       if (tid === seq[step]) { rm('badge-' + tid); target.style.animation = ''; correct = true; }
     }
-    if (a === 'turnover') correct = (tid === 'bw' || target.closest('#bw'));
-    if (a === 'overhead') correct = (tid === 'z10' || target.closest('#z10'));
-    if (a === 'out') correct = (tid === 'or2');
-    if (a === 'dead') correct = (tid === 'dd-top-l');
+    if (a === 'turnover') correct = (tid === 'bw' || !!target.closest('#bw'));
+    if (a === 'overhead') correct = (tid === 'z30' || !!target.closest('#z30'));
+    if (a === 'out') correct = (tid === 'or1');
+    if (a === 'dead') correct = (tid === 'dd-bot-l');
     if (a === 'lc') correct = (tid === 'lc-top-r');
-    if (a === 'dentry') correct = (tid === 'dab' || tid === 'dabs' || target.closest('#dab'));
+    if (a === 'dentry') correct = (tid === 'dab' || tid === 'dabs' || !!target.closest('#dab'));
     if (a === 'sc') correct = (tid === 'popup-sc');
     if (a === 'actions') {
-      if (step === 0 && (tid === 'act-bot' || target.closest('#act-bot'))) {
-        // Show popup, advance to sub-step 1
+      if (step === 0 && (tid === 'act-bot' || !!target.closest('#act-bot'))) {
         ov(`<div style="position:absolute;z-index:22;background:#0F172Aee;border:1px solid #33415566;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:170px;left:50%;transform:translateX(-50%);bottom:34px;pointer-events:auto">${[['Green Card','#22C55E','act-green'],['Yellow Card','#F59E0B','act-yellow'],['Short Corner','#8B5CF6','act-sc'],['Penalty','#EF4444','act-pen']].map(x => `<div id="${x[2]}" style="padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#F8FAFC;display:flex;align-items:center;gap:8px;border:1px solid ${x[1]}44;background:${x[1]}18;cursor:pointer${x[2]==='act-yellow'?';animation:bm-bk 0.6s infinite':''}">${x[0]}</div>`).join('')}</div>`);
-        setStep(1);
-        showFlash('green');
-        return;
+        setStep(1); showFlash('green'); return;
       }
       if (step === 1) correct = (tid === 'act-yellow');
     }
     if (a === 'pause') correct = (tid === 'cpa');
+    if (a === 'resume') correct = (tid === 'cres');
     if (a === 'undo') correct = (tid === 'cun');
     if (a === 'rotate') correct = (tid === 'fbtn');
     if (a === 'end') correct = (tid === 'cend');
 
     if (correct) {
-      // Multi-step challenges (pass has 3 taps)
-      if (a === 'pass' && step < 2) {
-        setStep(s => s + 1);
-        showFlash('green');
-        return;
-      }
-      // Success — advance
-      showFlash('green', () => {
-        if (cur < CHALLENGES.length - 1) {
-          setCur(c => c + 1);
-        } else {
-          setPassed(true);
-        }
-      });
+      if (a === 'pass_fwd' && step < 2) { setStep(s => s + 1); showFlash('green'); return; }
+      showFlash('green', advance);
     } else {
       showFlash('red');
     }
@@ -190,7 +196,7 @@ export default function BenchmarkTest({ onPass, onBack }) {
         <div style={{ width: 80, height: 80, borderRadius: 40, border: '4px solid #10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>✓</div>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#10B981' }}>Test passed!</div>
         <div style={{ fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 1.6 }}>
-          You've demonstrated competence with the Live Pro recorder. You're now qualified to record live matches.
+          You've demonstrated competence with the Live Pro recorder. You're now a qualified commentator.
         </div>
         <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, width: '100%', marginTop: 8 }}>
           <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>What's next</div>
@@ -216,38 +222,31 @@ export default function BenchmarkTest({ onPass, onBack }) {
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       <style>{`@keyframes bm-hp{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}@keyframes bm-bk{0%,100%{opacity:1}50%{opacity:0.15}}@keyframes bm-pb{0%,100%{box-shadow:0 0 16px rgba(255,255,255,0.6),0 0 32px rgba(255,255,255,0.3);transform:scale(1)}50%{box-shadow:0 0 24px rgba(255,255,255,0.8),0 0 48px rgba(255,255,255,0.4);transform:scale(1.1)}}`}</style>
 
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 13, cursor: 'pointer', padding: 0 }}>← Quit</button>
         <span style={{ fontSize: 14, fontWeight: 700 }}>Benchmark test</span>
         <span style={{ fontSize: 12, color: '#64748B' }}>{cur + 1}/{CHALLENGES.length}</span>
       </div>
 
-      {/* Progress bar */}
       <div style={{ height: 4, background: '#1E293B', borderRadius: 2, marginBottom: 14, overflow: 'hidden' }}>
         <div style={{ width: `${(cur / CHALLENGES.length) * 100}%`, height: '100%', background: '#10B981', borderRadius: 2, transition: 'width 0.3s' }} />
       </div>
 
-      {/* Challenge title + instruction */}
       <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>{ch.title}</div>
       <div style={{ fontSize: 13, color: '#F8FAFC', lineHeight: 1.6, marginBottom: 10 }}>{ch.inst}</div>
 
-      {/* Possession bar */}
       <div id="pb2" onClick={handleTap} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '0 14px 4px' }} />
 
-      {/* Field */}
       <div id="fld" onClick={handleTap} style={{
         borderRadius: 10, overflow: 'hidden', border: `2px solid ${flash === 'green' ? '#10B981' : flash === 'red' ? '#EF4444' : '#1a5c32'}`,
         position: 'relative', userSelect: 'none', transition: 'border-color 0.2s',
       }} />
 
-      {/* Controls */}
       <div id="ctl" onClick={handleTap} style={{ display: 'flex', gap: 6, justifyContent: 'center', padding: '6px 14px 4px', flexWrap: 'wrap', marginBottom: 10 }} />
 
-      {/* Flash feedback */}
       {flash && (
         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: flash === 'green' ? '#10B981' : '#EF4444', marginTop: 4 }}>
-          {flash === 'green' ? '✓ Correct!' : '✗ Try again — tap the flashing element'}
+          {flash === 'green' ? '✓ Correct!' : '✗ Try again — look for the flashing element'}
         </div>
       )}
     </div>

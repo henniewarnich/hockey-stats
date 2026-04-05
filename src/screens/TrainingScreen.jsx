@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
-import { getBenchmarkConfig, getBenchmarkReferenceEvents, compareBenchmark, saveBenchmarkResult } from '../utils/benchmark.js';
+import { saveBenchmarkResult } from '../utils/benchmark.js';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
@@ -17,33 +17,19 @@ const DEMO_CONFIG = {
 };
 
 export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, onQualified }) {
-  const [view, setView] = useState('home'); // home | learn | benchmark_test | benchmark_result
+  const [view, setView] = useState('home'); // home | learn | benchmark_test
   const [viewedSteps, setViewedSteps] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kykie-training-steps') || '[]'); } catch { return []; }
   });
   const [practiceCount, setPracticeCount] = useState(() => {
     return parseInt(localStorage.getItem('kykie-training-practices') || '0', 10);
   });
-  const [benchmarkConfig, setBenchmarkConfig] = useState(null);
-  const [benchmarkLoading, setBenchmarkLoading] = useState(true);
-  const [benchmarkResult, setBenchmarkResult] = useState(null);
   const [saving, setSaving] = useState(false);
 
   // Live match state for demo/benchmark
   const [activeMatch, setActiveMatch] = useState(null);
   const [liveMode, setLiveMode] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
-
-  useEffect(() => {
-    loadBenchmark();
-  }, []);
-
-  const loadBenchmark = async () => {
-    setBenchmarkLoading(true);
-    const cfg = await getBenchmarkConfig();
-    setBenchmarkConfig(cfg);
-    setBenchmarkLoading(false);
-  };
 
   const handleStepView = (stepIndex) => {
     if (!viewedSteps.includes(stepIndex)) {
@@ -86,49 +72,6 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
     localStorage.setItem('kykie-training-practices', String(next));
   };
 
-  // ── Benchmark test handlers ──
-  const handleStartBenchmark = () => {
-    if (!benchmarkConfig?.refMatchId) return;
-    // Open video review mode with the benchmark video URL
-    // For now, launch as a regular live match with demo teams
-    // The trainee records against the video, then we compare
-    const config = {
-      home: { name: benchmarkConfig.homeTeam || 'Team A', color: '#1D4ED8', id: 'bench-home', short: 'TMA' },
-      away: { name: benchmarkConfig.awayTeam || 'Team B', color: '#DC2626', id: 'bench-away', short: 'TMB' },
-      matchLength: benchmarkConfig.matchLength || 60,
-      breakFormat: benchmarkConfig.breakFormat || 'quarters',
-      venue: 'Benchmark Test',
-      date: new Date().toISOString().slice(0, 10),
-      isBenchmark: true,
-      benchmarkRefMatchId: benchmarkConfig.refMatchId,
-      videoUrl: benchmarkConfig.videoUrl,
-    };
-    setActiveMatch(config);
-    setLiveMode('pro');
-    setPendingStart(null);
-  };
-
-  const handleBenchmarkEnd = async (game) => {
-    setActiveMatch(null);
-    setLiveMode(null);
-
-    if (!game || !benchmarkConfig?.refMatchId) return;
-
-    // Fetch reference events
-    const refEvents = await getBenchmarkReferenceEvents(benchmarkConfig.refMatchId);
-    const traineeEvents = game.events || [];
-
-    // Compare
-    const result = compareBenchmark(traineeEvents, refEvents);
-    setBenchmarkResult(result);
-    setView('benchmark_result');
-
-    // Save to profile
-    setSaving(true);
-    await saveBenchmarkResult(currentUser.id, result.overall, result.passed);
-    setSaving(false);
-  };
-
   // ── Rendering active match ──
   if (pendingStart) {
     return (
@@ -144,14 +87,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
     return (
       <LiveMatchScreen
         matchConfig={activeMatch}
-        onSaveGame={(game) => {
-          if (activeMatch.isBenchmark) {
-            handleBenchmarkEnd(game);
-          } else {
-            handleDemoEnd();
-          }
-          return game;
-        }}
+        onSaveGame={(game) => { handleDemoEnd(); return game; }}
         onNavigate={() => { handleDemoEnd(); }}
         currentUser={currentUser}
       />
@@ -190,73 +126,6 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
       background: 'none', border: 'none', color: '#64748B', fontSize: 13, cursor: 'pointer', padding: 0,
     },
   };
-
-  // ── Benchmark result view ──
-  if (view === 'benchmark_result' && benchmarkResult) {
-    const { metrics, overall, passed } = benchmarkResult;
-    const scoreColor = passed ? '#10B981' : overall >= 60 ? '#F59E0B' : '#EF4444';
-    return (
-      <div style={S.page}>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        <div style={S.header}>
-          <button onClick={() => setView('home')} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700 }}>Benchmark result</span>
-          <div style={{ width: 40 }} />
-        </div>
-
-        {/* Score circle */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{
-            width: 100, height: 100, borderRadius: 50, border: `4px solid ${scoreColor}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{ fontSize: 32, fontWeight: 900, color: scoreColor }}>{overall}%</div>
-            <div style={{ fontSize: 10, color: '#64748B' }}>{passed ? 'PASS' : 'FAIL'}</div>
-          </div>
-          <div style={{ fontSize: 12, color: scoreColor, fontWeight: 600, marginTop: 10 }}>
-            {passed ? 'Congratulations! You qualify.' : 'Keep practising — you\'re getting there!'}
-          </div>
-          <div style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>80% required to pass</div>
-        </div>
-
-        {/* Metrics */}
-        <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>Score breakdown</div>
-        {metrics.map(m => {
-          const c = m.score >= 80 ? '#10B981' : m.score >= 60 ? '#F59E0B' : '#EF4444';
-          return (
-            <div key={m.key} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontSize: 12 }}>{m.label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: c }}>{m.score}%</span>
-              </div>
-              <div style={{ height: 4, background: '#334155', borderRadius: 2 }}>
-                <div style={{ width: `${m.score}%`, height: '100%', background: c, borderRadius: 2, transition: 'width 0.5s' }} />
-              </div>
-              <div style={{ fontSize: 9, color: '#475569', marginTop: 4 }}>{m.detail}</div>
-            </div>
-          );
-        })}
-
-        {passed ? (
-          <button onClick={async () => {
-            // Reload profile to get updated status
-            if (onQualified) onQualified();
-            else window.location.reload();
-          }} style={{ ...S.btn('#10B981'), marginTop: 16 }}>
-            {saving ? 'Saving...' : 'Continue as qualified commentator →'}
-          </button>
-        ) : (
-          <button onClick={() => { setBenchmarkResult(null); setView('home'); }} style={{ ...S.btn('#F59E0B'), marginTop: 16 }}>
-            Back to training
-          </button>
-        )}
-
-        <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 8 }}>
-          You can retake the test anytime to improve your score
-        </div>
-      </div>
-    );
-  }
 
   // ── Learn view (animated wizard) ──
   if (view === 'learn') {
