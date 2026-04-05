@@ -40,7 +40,7 @@ import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
-import { checkDevice } from './utils/devices.js';
+import { checkDevice, getDeviceId } from './utils/devices.js';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -97,6 +97,30 @@ export default function App() {
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
   }, []);
+
+  // Device heartbeat — check if this device is still registered, sign out if removed
+  useEffect(() => {
+    if (!currentUser) return;
+    const deviceId = getDeviceId();
+    const interval = setInterval(async () => {
+      const { data } = await supabase.from('user_devices')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+      if (!data) {
+        // Device was removed — sign out
+        clearInterval(interval);
+        await signOut();
+        setCurrentUser(null);
+        sessionStorage.removeItem('kykie-active-role');
+        sessionStorage.removeItem('kykie-user-id');
+        alert('You have been logged out because another device was registered.');
+        window.location.hash = '#/login';
+      }
+    }, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
 
   // Check for existing session on mount
   useEffect(() => {

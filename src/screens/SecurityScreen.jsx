@@ -4,14 +4,24 @@ import { getUserDevices, removeDevice, getDeviceId } from '../utils/devices.js';
 
 export default function SecurityScreen({ currentUser, onBack }) {
   const [tab, setTab] = useState('password'); // password | devices
+  const [pwStep, setPwStep] = useState('request'); // request | otp | change
+  const [otp, setOtp] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState(null); // { type: 'ok'|'err', text }
+  const [msg, setMsg] = useState(null);
   const [devices, setDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
 
   const myDeviceId = getDeviceId();
+
+  const maskEmail = (email) => {
+    if (!email) return '***';
+    const [local, domain] = email.split('@');
+    if (!domain) return '***';
+    return local[0] + '****@' + domain;
+  };
+  const maskedEmail = maskEmail(currentUser?.email);
 
   useEffect(() => { loadDevices(); }, []);
 
@@ -22,9 +32,32 @@ export default function SecurityScreen({ currentUser, onBack }) {
     setLoadingDevices(false);
   };
 
+  const handleSendOtp = async () => {
+    setMsg(null); setSaving(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: currentUser.email,
+      options: { shouldCreateUser: false },
+    });
+    setSaving(false);
+    if (error) { setMsg({ type: 'err', text: error.message }); }
+    else { setPwStep('otp'); setMsg({ type: 'ok', text: `Verification code sent to ${maskedEmail}` }); }
+  };
+
+  const handleVerifyOtp = async () => {
+    setMsg(null); setSaving(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: currentUser.email,
+      token: otp.trim(),
+      type: 'email',
+    });
+    setSaving(false);
+    if (error) { setMsg({ type: 'err', text: 'Incorrect code. Please try again.' }); }
+    else { setPwStep('change'); setMsg(null); }
+  };
+
   const handleChangePassword = async () => {
     setMsg(null);
-    if (!newPw || newPw.length < 6) { setMsg({ type: 'err', text: 'Password must be at least 6 characters' }); return; }
+    if (!newPw || newPw.length < 8) { setMsg({ type: 'err', text: 'Password must be at least 8 characters' }); return; }
     if (newPw !== confirmPw) { setMsg({ type: 'err', text: 'Passwords do not match' }); return; }
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPw });
@@ -33,7 +66,8 @@ export default function SecurityScreen({ currentUser, onBack }) {
       setMsg({ type: 'err', text: error.message });
     } else {
       setMsg({ type: 'ok', text: 'Password changed successfully' });
-      setNewPw(''); setConfirmPw('');
+      setNewPw(''); setConfirmPw(''); setOtp('');
+      setPwStep('request');
     }
   };
 
@@ -42,13 +76,15 @@ export default function SecurityScreen({ currentUser, onBack }) {
     if (!confirm(`Log out ${d.device_name || 'this device'}?`)) return;
     await removeDevice(d.id);
     loadDevices();
-    setMsg({ type: 'ok', text: `${d.device_name || 'Device'} removed` });
+    setMsg({ type: 'ok', text: `${d.device_name || 'Device'} removed. That device will be signed out shortly.` });
   };
 
   const S = {
     page: { fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: '16px 16px 24px' },
     input: { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #334155', background: '#1E293B', color: '#F8FAFC', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10 },
-    btn: (bg) => ({ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: bg, color: bg === '#F59E0B' ? '#0B0F1A' : '#F8FAFC', fontSize: 13, fontWeight: 700, cursor: 'pointer' }),
+    otpInput: { width: '100%', padding: 12, borderRadius: 8, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 20, textAlign: 'center', outline: 'none', boxSizing: 'border-box', letterSpacing: 6, marginBottom: 10 },
+    btn: (bg, dis) => ({ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: dis ? '#334155' : bg, color: dis ? '#64748B' : bg === '#F59E0B' ? '#0B0F1A' : '#F8FAFC', fontSize: 13, fontWeight: 700, cursor: dis ? 'not-allowed' : 'pointer' }),
+    btnOutline: { width: '100%', padding: 10, borderRadius: 10, border: '1px solid #334155', background: 'none', color: '#64748B', fontSize: 12, cursor: 'pointer', marginTop: 8 },
   };
 
   return (
@@ -78,20 +114,52 @@ export default function SecurityScreen({ currentUser, onBack }) {
 
       {tab === 'password' && (
         <div>
-          <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 14, lineHeight: 1.6 }}>
-            Choose a strong password that you don't use on other sites. Minimum 6 characters.
-          </div>
+          {pwStep === 'request' && (
+            <>
+              <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 14, lineHeight: 1.6 }}>
+                To change your password, we first need to verify your identity by sending a code to your email.
+              </div>
+              <button onClick={handleSendOtp} disabled={saving} style={S.btn('#F59E0B', saving)}>
+                {saving ? 'Sending...' : 'Send verification code'}
+              </button>
+              <div style={{ fontSize: 10, color: '#64748B', textAlign: 'center', marginTop: 6 }}>Code will be sent to {maskedEmail}</div>
+            </>
+          )}
 
-          <label style={{ fontSize: 11, color: '#64748B', marginBottom: 4, display: 'block' }}>New password</label>
-          <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={S.input} placeholder="Enter new password" />
+          {pwStep === 'otp' && (
+            <>
+              <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 14, lineHeight: 1.6 }}>
+                Enter the verification code sent to {maskedEmail}
+              </div>
+              <input type="text" inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                style={S.otpInput} placeholder="00000000" autoFocus />
+              <button onClick={handleVerifyOtp} disabled={saving || otp.length < 6} style={S.btn('#10B981', saving || otp.length < 6)}>
+                {saving ? 'Verifying...' : 'Verify code'}
+              </button>
+              <button onClick={handleSendOtp} disabled={saving} style={S.btnOutline}>
+                {saving ? 'Resending...' : 'Resend code'}
+              </button>
+            </>
+          )}
 
-          <label style={{ fontSize: 11, color: '#64748B', marginBottom: 4, display: 'block' }}>Confirm password</label>
-          <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={S.input} placeholder="Confirm new password"
-            onKeyDown={e => { if (e.key === 'Enter') handleChangePassword(); }} />
+          {pwStep === 'change' && (
+            <>
+              <div style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 12, background: '#10B98118', border: '1px solid #10B98144' }}>
+                <div style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>Identity verified — you may now set a new password</div>
+              </div>
 
-          <button onClick={handleChangePassword} disabled={saving} style={S.btn('#10B981')}>
-            {saving ? 'Saving...' : 'Change password'}
-          </button>
+              <label style={{ fontSize: 11, color: '#64748B', marginBottom: 4, display: 'block' }}>New password (min 8 characters)</label>
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={S.input} placeholder="Enter new password" autoFocus />
+
+              <label style={{ fontSize: 11, color: '#64748B', marginBottom: 4, display: 'block' }}>Confirm password</label>
+              <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={S.input} placeholder="Confirm new password"
+                onKeyDown={e => { if (e.key === 'Enter') handleChangePassword(); }} />
+
+              <button onClick={handleChangePassword} disabled={saving} style={S.btn('#10B981', saving)}>
+                {saving ? 'Saving...' : 'Change password'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -139,7 +207,7 @@ export default function SecurityScreen({ currentUser, onBack }) {
           )}
 
           <div style={{ fontSize: 10, color: '#475569', marginTop: 12, lineHeight: 1.5 }}>
-            Removing a device will require that device to verify via OTP next time it logs in.
+            Removing a device will sign it out within 30 seconds.
           </div>
         </div>
       )}
