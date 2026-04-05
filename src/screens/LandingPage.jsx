@@ -19,6 +19,8 @@ import BottomNav from '../components/BottomNav.jsx';
 import Homepage from '../components/Homepage.jsx';
 import MoreMenu from '../components/MoreMenu.jsx';
 
+import PageHeader from '../components/PageHeader.jsx';
+
 export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -418,27 +420,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
       {/* Hero - scrolls away */}
       {/* Header */}
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "#0B0F1A", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1E293B" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="32" height="32" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
-            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
-            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-          <div style={styles.logo}>kykie</div>
-        </div>
-        {currentUser ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ fontSize: 11, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
-            {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
-            <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "#EF444411", border: "1px solid #EF444444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Sign out</button>
-          </div>
-        ) : (
-          <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
-        )}
-      </div>
+      <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch}
+        onBack={activeTab !== 'home' ? () => setActiveTab('home') : null} />
 
       <SponsorBanner tier="platform" size="lg" />
 

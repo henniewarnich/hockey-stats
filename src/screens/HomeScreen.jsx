@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
-import RoleSwitcher from '../components/RoleSwitcher.jsx';
-import PublicMatchesSection from '../components/PublicMatchesSection.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 
 export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
@@ -54,33 +53,9 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      <div style={{ padding: "16px 20px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="28" height="28" viewBox="0 0 56 56">
-              <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
-              <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
-              <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#F59E0B" }}>kykie</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {currentUser && (
-              <div style={{ fontSize: 10, color: theme.textDim, textAlign: "right" }}>
-                {currentUser.firstname}
-                {' '}<RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />
-              </div>
-            )}
-            {onLogout && (
-              <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Sign out</button>
-            )}
-          </div>
-        </div>
-      </div>
+      <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch}
+        onBack={() => { window.location.hash = ''; }} />
       <div style={{ padding: "0 16px 20px" }}>
-        <PublicMatchesSection />
         {(() => {
           const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';
           return <>
@@ -134,14 +109,6 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               🔄 Update
             </button>
           </div>
-          {lastSyncError && (
-            <div style={{ fontSize: 9, color: theme.accent, textAlign: "center", padding: "0 20px" }}>
-              {lastSyncError}
-            </div>
-          )}
-          <button onClick={() => { window.location.hash = ''; }} style={{
-            marginTop: 8, background: "none", border: "none", color: theme.textDim, fontSize: 10, cursor: "pointer", textDecoration: "underline",
-          }}>← Back to kykie</button>
         </div>
       </div>
     </div>
