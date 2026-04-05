@@ -10,7 +10,7 @@ const STORY = [
   { t:"Eagles attack", i:"Eagles win the free hit and push into the Lions' quarter. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z20" },
   { t:"Into the D!", i:"Eagles enter the Lions' circle. Tap the flashing D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Short corner!", i:"Umpire awards a short corner. Tap Short Corner from the popup.", a:"popup", target:"popup-sc", pc:B },
-  { t:"Take the short corner", i:"Eagles line up on the backline. Push the ball outside the D first. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z01" },
+  { t:"Take the short corner", i:"Eagles line up on the backline. Push the ball outside the D first. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z01", bzPos:"top:-20px" },
   { t:"Back into the D!", i:"Eagles push the ball back into the circle. Tap the D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Goal!!", i:"Eagles score from the short corner! Tap Goal from the popup.", a:"popup", target:"popup-goal", pc:B },
   { t:"Lions restart", i:"Lions take the centre pass and play an overhead into Eagles Quarter Right. Press and drag the ball to the flashing zone.", a:"overhead", target:"z32", pc:H, bz:"cb" },
@@ -18,7 +18,7 @@ const STORY = [
   { t:"Eagles build", i:"Eagles move into their own midfield right. Tap the flashing zone.", a:"tap", target:"z22", pc:B, bz:"z32" },
   { t:"Undo!", i:"Wrong zone — that should have been centre! Tap Undo.", a:"btn", target:"cun", pc:B, bz:"z22" },
   { t:"Long corner", i:"Ball deflects off an Eagles defender over the backline. Tap LC to award Lions a long corner.", a:"tap", target:"lc-bot-r", pc:B, bz:"z32" },
-  { t:"Lions enter the D", i:"Lions push into the Eagles' circle from the long corner. Tap the flashing D.", a:"d_bot", pc:H, bz:"z30" },
+  { t:"Lions enter the D", i:"Lions push into the Eagles' circle from the long corner. Tap the flashing D.", a:"d_bot", pc:H, bz:"z32", bzPos:"top:-4px" },
   { t:"Dead ball", i:"Ball crosses the backline. Tap Dead Ball from the popup.", a:"popup", target:"popup-db", pc:H },
   { t:"Eagles overhead", i:"Eagles restart with an overhead to Lions Midfield Centre. Press and drag the ball to the flashing zone.", a:"overhead", target:"z11", pc:B, bz:"z31" },
   { t:"Turnover", i:"Lions win the ball back. Tap the ball to switch possession.", a:"turnover", pc:B, bz:"z11" },
@@ -89,11 +89,11 @@ export default function BenchmarkTest({ onPass, onBack }) {
 
   const fl = (id) => { const e=$(id);if(e)e.style.animation='bm-bk 0.6s infinite'; };
   const badge = (id,txt) => { const e=$(id);if(!e)return;const d=document.createElement('div');d.id='badge-'+id;d.style.cssText='position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:#F59E0B;color:#0B0F1A;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:20;pointer-events:none';d.textContent=txt;e.style.position='relative';e.appendChild(d); };
-  const pt = (pid,h,id) => { const p=$(pid);if(!p)return;const d=document.createElement('div');if(id)d.id=id;d.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;';d.innerHTML=h;p.appendChild(d); };
+  const pt = (pid,h,id,ex) => { const p=$(pid);if(!p)return;const d=document.createElement('div');if(id)d.id=id;d.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;'+(ex||'');d.innerHTML=h;p.appendChild(d); };
   const ov = (h) => { const o=$('ov');if(o)o.innerHTML=h; };
 
   const setCtrl = (items) => { const ctl=$('ctl');if(!ctl)return;ctl.innerHTML=items.map(x=>`<div id="${x[2]}" style="padding:6px 14px;border-radius:8px;border:none;font-size:12px;font-weight:700;background:${x[0]};color:${x[1]};cursor:pointer">${x[3]}</div>`).join(''); };
-  const setPoss = (c,n) => { const pb2=$('pb2');if(!pb2)return;pb2.style.display='flex';pb2.innerHTML=`<div style="font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;color:${c};background:${c}22"><div style="width:6px;height:6px;border-radius:50%;background:${c}"></div>${n}</div><div id="fbtn" style="padding:3px 8px;border-radius:6px;border:1px solid #334155;background:#1E293B;color:#94A3B8;font-size:10px;font-weight:700;cursor:pointer">🔄</div>`;setA(c,c===B); };
+  const setPoss = (c,n,flip) => { const pb2=$('pb2');if(!pb2)return;pb2.style.display='flex';pb2.innerHTML=`<div style="font-size:9px;font-weight:700;padding:2px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;color:${c};background:${c}22"><div style="width:6px;height:6px;border-radius:50%;background:${c}"></div>${n}</div><div id="fbtn" style="padding:3px 8px;border-radius:6px;border:1px solid #334155;background:#1E293B;color:#94A3B8;font-size:10px;font-weight:700;cursor:pointer">🔄</div>`;setA(c,flip?c===H:c===B); };
   const stdCtrl = () => setCtrl([[H,'#0B0F1A','cpa','⏸ Pause'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
   const pauseCtrl = () => setCtrl([['#10B981','#FFF','cres','▶ Resume'],['#EF4444','#FFF','cend','⏹ End'],['#1E293B','#94A3B8','cun','↩ Undo']]);
 
@@ -103,7 +103,7 @@ export default function BenchmarkTest({ onPass, onBack }) {
     const s = STORY[cur]; if (!s) return;
     const flip = !!s.flip;
     buildF(flip); setSub(0); setFlash(null);
-    setPoss(s.pc || B, s.pc === H ? 'DLI' : 'DEA');
+    setPoss(s.pc || B, s.pc === H ? 'DLI' : 'DEA', flip);
     stdCtrl();
 
     if (s.a === 'start') {
@@ -111,28 +111,28 @@ export default function BenchmarkTest({ onPass, onBack }) {
       $('pb2').style.display='none';$('ctl').innerHTML='';
     } else if (s.a === 'tap') {
       if (s.bz === 'cb') { const cb=$('cb');if(cb)cb.innerHTML=bl(s.pc); }
-      else if (s.bz) pt(s.bz, bl(s.pc), 'bw');
+      else if (s.bz) pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       fl(s.target);
     } else if (s.a === 'turnover') {
-      pt(s.bz, bl(s.pc), 'bw');
+      pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
     } else if (s.a === 'overhead') {
       if (s.bz === 'cb') { const cb=$('cb');if(cb){cb.innerHTML=bl(s.pc);cb.style.touchAction='none';} }
-      else pt(s.bz, bl(s.pc), 'bw');
+      else pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       fl(s.target); badge(s.target, '↑');
     } else if (s.a === 'd_top') {
-      pt(s.bz, bl(s.pc), 'bw');
+      pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       fl('dat'); const dats=$('dats');if(dats)dats.style.animation='bm-bk 0.6s infinite';
     } else if (s.a === 'd_bot') {
-      pt(s.bz, bl(s.pc), 'bw');
+      pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       fl('dab'); const dabs=$('dabs');if(dabs)dabs.style.animation='bm-bk 0.6s infinite';
     } else if (s.a === 'popup') {
       ov(dpop);
       const t=$(s.target);if(t)t.style.animation='bm-bk 0.6s infinite';
     } else if (s.a === 'card') {
-      pt(s.bz, bl(s.pc), 'bw'); fl('act-bot');
+      pt(s.bz, bl(s.pc), 'bw', s.bzPos||''); fl('act-bot');
     } else if (s.a === 'btn') {
       if (s.bz === 'cb') { const cb=$('cb');if(cb)cb.innerHTML=bl(s.pc); }
-      else if (s.bz) pt(s.bz, bl(s.pc), 'bw');
+      else if (s.bz) pt(s.bz, bl(s.pc), 'bw', s.bzPos||'');
       if (s.target === 'cres') {
         pauseCtrl();
         ov('<div style="position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);pointer-events:none"><div style="font-size:14px;font-weight:800;color:#F59E0B;text-transform:uppercase;background:rgba(15,23,42,0.85);padding:6px 20px;border-radius:10px;border:1px solid #F59E0B44">⏸ Paused</div></div>');

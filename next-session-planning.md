@@ -45,6 +45,7 @@ Reactivate dormant `credits.js` with new credit values from commercialisation st
 7. Share-to-earn + WhatsApp share
 8. Sponsor integration with viewer metrics
 9. Kykie AI Scout (Premium) — research done, ready to build
+10. Device security + anti-gaming — device tracking, OTP on new device, velocity caps
 
 ## Other TODO (Parked)
 
@@ -58,6 +59,7 @@ Medium:
 2. Stats interpretation skill (MD) for Claude analysis
 3. Staging environment (test.kykie.net)
 4. Kykie AI Scout build: `computeTeamIntelligence()` → coach dashboard card → Claude API scouting report
+5. Device security: `user_devices` table, 2-device limit, OTP on 3rd device, concurrent session flags
 
 Low:
 1. Screen viewer (CT-style commentary feed)

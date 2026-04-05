@@ -384,7 +384,66 @@ More Live Pro coverage → richer data → better AI Scout reports → more coac
 
 ---
 
-## 9. Implementation Priority
+## 9. Device Security & Anti-Gaming
+
+### Problem
+Voucher incentives create risk of account sharing — two users share one account to pool credits and split vouchers. Need escalating friction that makes sharing not worth the effort for R100 vouchers.
+
+### Core: Device Management
+
+```sql
+CREATE TABLE user_devices (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) NOT NULL,
+  device_id TEXT NOT NULL,          -- UUID generated per browser, stored in localStorage
+  device_name TEXT,                 -- parsed from user-agent: "Chrome on iPhone", "Safari on Mac"
+  last_active_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, device_id)
+);
+```
+
+### Login/Register Flow
+1. On first visit, generate `kykie-device-id` UUID in localStorage (persists across sessions)
+2. On login/register, check `user_devices` for this user
+3. If device already registered → proceed normally, update `last_active_at`
+4. If <2 devices registered → register this device silently
+5. If already 2 devices → show warning: "You're logged in on 2 devices. Continuing will log out your oldest device and require OTP verification."
+6. User confirms → send OTP to email → verify → deactivate oldest device → register new one
+7. Logged-out device sees "Session ended — you logged in on another device" on next action
+
+### Additional Anti-Gaming Measures
+
+**Same-IP detection**: If two different accounts earn credits from the same IP within a short window, flag for admin review. Don't block (shared WiFi at schools is legitimate) but create an audit trail.
+
+**Credit velocity caps**: Max 5 live matches and 10 quick scores per day per user. Prevents bot-like patterns. Legitimate commentators won't hit this ceiling.
+
+**Voucher claim cooldown**: Minimum 14 days between voucher claims. Prevents rapid "earn → claim → earn → claim" cycling.
+
+**Device-bound credits**: Credits earned on device A can only be claimed as vouchers from device A or B (registered devices). If someone logs in on a friend's phone, the OTP + device swap friction makes it not worth the effort.
+
+**Concurrent session detection**: If two devices are both active (API calls within 60 seconds), flag the account. One person can't commentate on two devices at once.
+
+**Phone number for voucher claims**: Not required at registration, but required before first voucher claim. "To claim your voucher, verify your phone number." Harder to share than email, ties account to a real person.
+
+### Admin Dashboard Flags
+- "2+ devices active in last hour"
+- "3+ device swaps in 30 days"
+- "Same IP as [other user]"
+- "Credit velocity above threshold"
+- "Concurrent sessions detected"
+
+### Design Principle
+The goal isn't to make sharing impossible — it's to make it not worth the effort for R100 vouchers. Each measure adds friction. Combined, they create a system where legitimate users never notice the security, but gaming requires more effort than the reward justifies.
+
+### Implementation
+- Phase 1: Device tracking + 2-device limit + OTP on new device (implement with credit system)
+- Phase 2: Concurrent session detection + velocity caps (implement with voucher claims)
+- Phase 3: Admin flags + IP correlation (implement as dashboard grows)
+
+---
+
+## 10. Implementation Priority
 
 1. Registration revamp — Supporter / Commentator / Coach role selection with sport + team picker
 2. Commentator training material + benchmark test (qualification gate)
@@ -395,3 +454,4 @@ More Live Pro coverage → richer data → better AI Scout reports → more coac
 7. Share-to-earn + WhatsApp share
 8. Sponsor integration with viewer metrics
 9. **Kykie AI Scout** — team intelligence metrics + AI-generated scouting reports (Premium)
+10. **Device security + anti-gaming** — device tracking, OTP on new device, velocity caps
