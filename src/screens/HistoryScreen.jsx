@@ -153,12 +153,9 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
 
   return (
     <div style={S.app}>
-      <div style={{ padding: "12px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", fontWeight: 700, padding: 0, display: "flex", alignItems: "center", gap: 5 }}>
-          <svg width="16" height="16" viewBox="0 0 56 56"><circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="3"/><circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="3"/></svg>
-          ← kykie
-        </button>
-        <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? "..." : allGames.length} matches</div>
+      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? "Loading..." : `${allGames.length} matches`}</div>
+        <button onClick={() => { setLoadingCloud(true); fetchCloud(); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, color: "#94A3B8", fontSize: 10, cursor: "pointer", padding: "3px 10px", fontWeight: 600 }}>↻ Refresh</button>
       </div>
       <div style={S.page}>
         {/* Sync banner */}

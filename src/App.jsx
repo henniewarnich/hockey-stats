@@ -40,6 +40,7 @@ import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
+import PageHeader from './components/PageHeader.jsx';
 import { checkDevice, getDeviceId } from './utils/devices.js';
 
 function getHashRoute() {
@@ -620,6 +621,11 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     return `${window.location.origin}${window.location.pathname}#/team/${slug}`;
   };
 
+  // Screens that have their own full-screen UI (no standard header)
+  const fullScreenModes = ['home', 'choose_live_mode', 'live', 'live_lite', 'game_review', 'public_view', 'coach_view', 'match_edit'];
+  const needsHeader = !fullScreenModes.includes(screen);
+
+  const renderContent = () => {
   switch (screen) {
     case "home":
       return <HomeScreen teamCount={store.teams?.length || 0} gameCount={store.games?.length || 0}
@@ -715,4 +721,12 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     default:
       return <div style={S.app}><div style={S.empty}>Something went wrong. <button onClick={() => navigate("home")} style={S.btnSm("#F59E0B", "#0F172A")}>Go Home</button></div></div>;
   }
+  }; // end renderContent
+
+  return (
+    <>
+      {needsHeader && <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch} onBack={() => navigate("home")} />}
+      {renderContent()}
+    </>
+  );
 }

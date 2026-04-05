@@ -211,7 +211,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const AnalysisCard = ({ icon, label, teams }) => {
     if (!teams || teams.length === 0) return null;
     return (
-      <div style={{ background: '#1E293B', borderRadius: 8, padding: '8px 10px' }}>
+      <div style={{ background: '#1E293B', borderRadius: 8, padding: '8px 10px', minWidth: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
           <Icon type={icon} />
           <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 700 }}>{label}</span>
@@ -220,13 +220,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           const c = teamColor(t.team) || '#64748B';
           return (
             <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0', cursor: 'pointer' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0', cursor: 'pointer', minWidth: 0 }}>
               <div style={{
                 width: 16, height: 16, borderRadius: 3, fontSize: 9, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 background: c, color: '#fff', opacity: i === 0 ? 1 : 0.7,
               }}>{i + 1}</div>
-              <div style={{ fontSize: i === 0 ? 11 : 10, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: i === 0 ? 11 : 10, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                 {teamDisplayName(t.team)}
               </div>
             </div>
@@ -237,7 +237,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   };
 
   return (
-    <div style={{ padding: '0 0 20px' }}>
+    <div style={{ padding: '0 0 20px', overflow: 'hidden' }}>
       {/* Hero */}
       <div style={{ padding: '20px 16px 12px', textAlign: 'center' }}>
         <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.3, marginBottom: 6 }}>
@@ -301,7 +301,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       {analysis && (
         <div style={{ padding: '0 16px 16px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Kykie AI Scout — team analysis</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, overflow: 'hidden' }}>
             <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
             <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
             <AnalysisCard icon="clock" label="Most patient" teams={analysis.mostPatient} />
