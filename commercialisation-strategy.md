@@ -326,7 +326,65 @@ CREATE TABLE team_tiers (
 
 ---
 
-## 8. Implementation Priority
+## 8. Kykie AI Scout (Premium Feature)
+
+### Concept
+AI-generated tactical briefings for coaches, powered by match event data. Tap an upcoming opponent on the coach dashboard and get an auto-generated scouting report with playing style analysis, tactical advice, and training recommendations.
+
+### Three Core Metrics (Data-Validated)
+These metrics were derived from analysing 17 Live Pro matches and validated against actual match outcomes:
+
+| Metric | Definition | Match Prediction Rate |
+|---|---|---|
+| **Accuracy** | D entries per possession (%) | 92% (11/12 matches) |
+| **Speed** | Avg seconds between events during possession | 64% (7/11 matches) |
+| **Patience** | Own-half passes per attack zone entry (ratio) | Style indicator (not predictive) |
+
+**Accuracy** is the single strongest predictor of match outcome — the team with the higher D entry rate won 11 of 12 decisive Live Pro matches.
+
+### Playing Style Classification (from Patience metric)
+| Patience Ratio | Style | Description |
+|---|---|---|
+| 4.0+ | Builder | Heavy build-up from the back |
+| 3.0–3.9 | Structured | Patient, organised progression |
+| 2.0–2.9 | Balanced | Mix of build-up and direct play |
+| 1.5–1.9 | Direct | Purposeful, minimal build-up |
+| <1.5 | Counter | Bypass own half, attack immediately |
+
+### What the AI Scout Report Includes
+1. **Team profile** — playing style, form, strengths/weaknesses derived from metrics
+2. **Opposition scouting** — opponent's style, vulnerable quarters, conversion rates
+3. **Head-to-head** — previous results, what worked/didn't
+4. **Tactical recommendations** — match-specific game plan based on style matchup
+5. **Training priorities** — what to work on this week for the specific opponent
+6. **Quarter-by-quarter plan** — when to press, when to absorb, when to attack
+
+### How It Works
+- Coach taps upcoming match → "AI Scout Report" button
+- System gathers: team's own metrics, opponent's metrics, head-to-head history, quarter stats, form
+- Structured prompt sent to Claude API with all data
+- Returns a 3–5 paragraph tactical briefing + bullet-point training plan
+- Cached per match (regenerate if new data comes in)
+
+### Data Requirements
+- Minimum 1 Live Pro match for the team (for own style profile)
+- Minimum 1 Live Pro match for the opponent (for scouting)
+- Falls back to results-only analysis if no Live Pro data available
+- Quality improves with more Live Pro matches — direct incentive for coverage
+
+### Commercial Positioning
+- **Free**: no AI Scout
+- **Free Plus**: own team profile only (style + metrics)
+- **Premium**: full AI Scout with opponent scouting + tactical briefings
+
+A human analyst producing this level of match-specific tactical preparation would cost R5,000+ per report. Premium tier at R5,000/team/year gives unlimited reports — compelling value proposition.
+
+### Revenue Flywheel
+More Live Pro coverage → richer data → better AI Scout reports → more coach subscriptions → more revenue → more commentator vouchers → more coverage
+
+---
+
+## 9. Implementation Priority
 
 1. Registration revamp — Supporter / Commentator / Coach role selection with sport + team picker
 2. Commentator training material + benchmark test (qualification gate)
@@ -336,3 +394,4 @@ CREATE TABLE team_tiers (
 6. Feature gating (Free / Free Plus / Premium)
 7. Share-to-earn + WhatsApp share
 8. Sponsor integration with viewer metrics
+9. **Kykie AI Scout** — team intelligence metrics + AI-generated scouting reports (Premium)

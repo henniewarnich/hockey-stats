@@ -206,3 +206,24 @@ upgrade-scripts/v7.13.0/         — Training benchmark columns (benchmark_score
 - Personal credit system + voucher management
 - Wire credits to match completion events (live/video/score)
 - Reactivate dormant `credits.js` with new credit values from strategy doc
+
+### OTP Registration (v7.13.2+)
+- Replaced email confirmation link with 6/8-digit OTP code input
+- `verifyOtp()` + `resend()` on RegisterPage success screen
+- Supabase email template needs `{{ .Token }}` to show the code
+
+### Kykie AI Scout (Research — not yet built)
+**Data-validated metrics** from 17 Live Pro matches (12 decisive):
+- **Accuracy** (D entries / possession): 92% match prediction rate — strongest single predictor
+- **Speed** (seconds between events): 64% prediction rate — measures decision-making tempo
+- **Patience** (own-half passes / attack entries): playing style indicator, not outcome predictor
+  - Builder (4.0+), Structured (3.0-3.9), Balanced (2.0-2.9), Direct (1.5-1.9), Counter (<1.5)
+
+**Key findings:**
+- Winners average 35% D entry rate vs losers 14% — the gap is massive
+- Winners average 4.5s between events vs losers 5.0s
+- Territory (83% predictive) already exists in stats; AI Scout adds accuracy + speed + patience
+- Auto-generated scouting reports tested for Paarl Girls, Oranje, Paarl Gim, Bloemhof, Rhenish — highly accurate tactical narratives
+
+**Implementation:** Premium feature — Claude API call with structured match data → tactical briefing. See `commercialisation-strategy.md` Section 8 for full spec.
+
