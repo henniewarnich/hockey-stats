@@ -430,6 +430,20 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
         matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId} />
 
+      {/* Speed control — admin only, video review or demo */}
+      {(isVideoReview || isDemo) && currentUser && ['admin', 'commentator_admin'].includes(currentUser.role) && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, padding: '4px 0' }}>
+          {[1, 1.5, 2].map(s => (
+            <button key={s} onClick={() => timer.setSpeed(s)} style={{
+              padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+              border: timer.speed === s ? '1px solid #F59E0B44' : '1px solid #334155',
+              background: timer.speed === s ? '#F59E0B22' : '#1E293B',
+              color: timer.speed === s ? '#F59E0B' : '#64748B',
+            }}>{s}x</button>
+          ))}
+        </div>
+      )}
+
       {/* Viewer count */}
       {matchViewers > 0 && (
         <div style={{ textAlign: "center", padding: "2px 0 4px" }}>

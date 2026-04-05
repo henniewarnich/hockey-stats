@@ -4,16 +4,18 @@ export function useMatchTimer() {
   const [matchTime, setMatchTime] = useState(0);
   const [running, setRunning] = useState(false);
   const [matchState, setMatchState] = useState("idle"); // idle | running | paused | ended
+  const [speed, setSpeed] = useState(1); // 1 | 1.5 | 2
   const intervalRef = useRef(null);
 
   useEffect(() => {
     if (running) {
-      intervalRef.current = setInterval(() => setMatchTime(t => t + 1), 1000);
+      const ms = Math.round(1000 / speed);
+      intervalRef.current = setInterval(() => setMatchTime(t => t + 1), ms);
     } else {
       clearInterval(intervalRef.current);
     }
     return () => clearInterval(intervalRef.current);
-  }, [running]);
+  }, [running, speed]);
 
   const start = useCallback(() => {
     setRunning(true);
@@ -39,12 +41,14 @@ export function useMatchTimer() {
     setRunning(false);
     setMatchState("idle");
     setMatchTime(0);
+    setSpeed(1);
   }, []);
 
   return {
     matchTime,
     running,
     matchState,
+    speed,
     start,
     pause,
     resume,
@@ -53,5 +57,6 @@ export function useMatchTimer() {
     setMatchTime,
     setMatchState,
     setRunning,
+    setSpeed,
   };
 }
