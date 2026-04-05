@@ -133,9 +133,9 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
   if (pendingStart) {
     return (
       <LiveModeChooser
-        matchConfig={DEMO_CONFIG}
-        onChoose={handleModeChosen}
-        onCancel={() => setPendingStart(null)}
+        show={true}
+        onSelect={handleModeChosen}
+        onClose={() => setPendingStart(null)}
       />
     );
   }
