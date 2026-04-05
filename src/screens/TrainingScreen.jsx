@@ -152,7 +152,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
           }
           return game;
         }}
-        onNavigate={() => { setActiveMatch(null); setLiveMode(null); }}
+        onNavigate={() => { handleDemoEnd(); }}
         currentUser={currentUser}
       />
     );
