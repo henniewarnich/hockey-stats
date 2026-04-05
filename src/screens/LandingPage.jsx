@@ -1167,7 +1167,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       )}
 
       {/* Bottom Navigation */}
-      <BottomNav active={activeTab} onChange={setActiveTab} liveBadge={liveMatches.length} />
+      <BottomNav active={activeTab} onChange={(tab) => { window.location.hash = ''; setActiveTab(tab); }} liveBadge={liveMatches.length} />
     </div>
   );
 }

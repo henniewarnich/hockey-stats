@@ -1,5 +1,11 @@
 import { APP_VERSION } from '../utils/constants.js';
 
+// Navigate to admin screen — hash is always '' when on LandingPage (bottom nav clears it)
+function goAdmin(screen) {
+  sessionStorage.setItem('kykie-admin-screen', screen || 'home');
+  window.location.hash = '#/admin';
+}
+
 const MenuItem = ({ icon, title, sub, onClick }) => (
   <div onClick={onClick} style={{
     background: '#1E293B', borderRadius: 10, padding: '12px 14px', marginBottom: 6,
@@ -28,7 +34,7 @@ export default function MoreMenu({ currentUser, onLogout }) {
 
       {/* Role-specific dashboard */}
       {isComm && (
-        <div onClick={() => { window.location.hash = '#/admin'; }} style={{
+        <div onClick={() => goAdmin('home')} style={{
           background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
           padding: '12px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
         }}>
@@ -45,11 +51,11 @@ export default function MoreMenu({ currentUser, onLogout }) {
         <>
           <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Commentator</div>
           <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live"
-            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'match_schedule'); window.location.hash = '#/admin'; }} />
+            onClick={() => goAdmin('match_schedule')} />
           <MenuItem icon="📊" title="Game history" sub="Past matches and stats"
-            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'history'); window.location.hash = '#/admin'; }} />
+            onClick={() => goAdmin('history')} />
           <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers"
-            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'credits'); window.location.hash = '#/admin'; }} />
+            onClick={() => goAdmin('credits')} />
         </>
       )}
       {isCoach && !isComm && (
@@ -82,9 +88,9 @@ export default function MoreMenu({ currentUser, onLogout }) {
               <MenuItem icon="📋" title="Pending approvals"
                 sub="Review submissions" onClick={() => { window.location.hash = '#/pending'; }} />
               <MenuItem icon="🏫" title="Manage teams"
-                sub="Institutions and teams" onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'teams'); window.location.hash = '#/admin'; }} />
+                sub="Institutions and teams" onClick={() => goAdmin('teams')} />
               <MenuItem icon="👥" title="Manage users"
-                sub="Roles and assignments" onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'users'); window.location.hash = '#/admin'; }} />
+                sub="Roles and assignments" onClick={() => goAdmin('users')} />
               <MenuItem icon="🩺" title="System health"
                 sub="Database and activity" onClick={() => { window.location.hash = '#/health'; }} />
             </>

@@ -98,6 +98,17 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
+  // Deep-link to specific admin screen via sessionStorage (set by MoreMenu/Homepage)
+  useEffect(() => {
+    if (route.type === 'admin') {
+      const target = sessionStorage.getItem('kykie-admin-screen');
+      if (target) {
+        sessionStorage.removeItem('kykie-admin-screen');
+        setScreen(target);
+      }
+    }
+  }, [route]);
+
   // Device heartbeat — check if this device is still registered, sign out if removed
   useEffect(() => {
     if (!currentUser) return;
@@ -459,12 +470,6 @@ export default function App() {
     if (currentUser.role === 'commentator' && currentUser.commentator_status === 'trainee') {
       window.location.hash = '#/training';
       return null;
-    }
-    // Deep-link to specific screen via sessionStorage
-    const targetScreen = sessionStorage.getItem('kykie-admin-screen');
-    if (targetScreen) {
-      sessionStorage.removeItem('kykie-admin-screen');
-      if (screen !== targetScreen) setScreen(targetScreen);
     }
     return (
       <AppContent
