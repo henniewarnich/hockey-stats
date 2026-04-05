@@ -4,7 +4,7 @@ import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplay
 import MatchCardTeams from './MatchCardTeams.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
 
-const CACHE_KEY = 'kykie-homepage-cache';
+const CACHE_KEY = 'kykie-homepage-v2';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function loadCache() {
@@ -97,8 +97,8 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
 
     // ── Team analysis ──
     const { data: totalStats } = await supabase.from('match_stats')
-      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_pct, shots_on, shots_off')
-      .is('quarter', null);
+      .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_time_pct, shots_on, shots_off')
+      .eq('quarter', 0);
 
     const statsMatchIds = [...new Set((totalStats || []).map(s => s.match_id))];
     let matchTeamMap = {};
@@ -123,7 +123,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       a.turnoversWon += s.turnovers_won || 0;
       a.goalsFor += s.goals || 0;
       a.territorySum += s.territory_pct || 0;
-      a.possessionSum += s.possession_pct || 0;
+      a.possessionSum += s.possession_time_pct || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
       const oppStats = (totalStats || []).find(os => os.match_id === s.match_id && os.team !== s.team);
