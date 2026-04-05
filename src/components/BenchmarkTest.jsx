@@ -242,12 +242,12 @@ export default function BenchmarkTest({ onPass, onBack }) {
         <div style={{background:'#1E293B',borderRadius:10,padding:14,width:'100%',marginTop:8}}>
           <div style={{fontSize:11,color:'#64748B',marginBottom:8,fontWeight:600}}>What's next</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {['Complete 1 Live and 1 Recorded match to remove the limitation on matches you can commentate','After 5 matches, you will qualify as a full Commentator and be eligible to start earning credits','Credits can be redeemed for Takealot vouchers — R100 per 100 credits'].map((t,i)=>(
+            {['Complete 1 Live and 1 Recorded match to remove the limitation on matches you can commentate','After 5 matches, you will qualify as a full Commentator and be eligible to start earning credits','Credits can be redeemed for vouchers!'].map((t,i)=>(
               <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:11,color:'#94A3B8'}}><span style={{color:'#10B981',marginTop:2}}>●</span><span>{t}</span></div>
             ))}
           </div>
         </div>
-        <button onClick={onPass} style={{width:'100%',padding:12,borderRadius:10,border:'none',background:'#10B981',color:'#F8FAFC',fontSize:13,fontWeight:700,cursor:'pointer',marginTop:8}}>Continue as qualified commentator →</button>
+        <button onClick={onPass} style={{width:'100%',padding:12,borderRadius:10,border:'none',background:'#10B981',color:'#F8FAFC',fontSize:13,fontWeight:700,cursor:'pointer',marginTop:8}}>Continue as Apprentice Commentator →</button>
       </div>
     );
   }

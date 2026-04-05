@@ -518,7 +518,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
                   <AdminDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
                 )}
                 {(role === 'commentator') && (
-                  <CommDashboardPanel onNavigate={onNavigate} />
+                  <CommDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
                 )}
                 {(role === 'coach') && (
                   <CoachDashboardPanel currentUser={currentUser} />
