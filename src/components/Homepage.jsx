@@ -372,8 +372,8 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         </div>
       )}
 
-      {/* Logged-in quick actions */}
-      {currentUser && (() => {
+      {/* Logged-in quick actions (not for admin — they use More menu) */}
+      {currentUser && !['admin', 'commentator_admin'].includes(currentUser.role) && (() => {
         const role = currentUser.role;
         const isComm = ['admin', 'commentator_admin', 'commentator'].includes(role);
         const isAdmin = ['admin', 'commentator_admin'].includes(role);

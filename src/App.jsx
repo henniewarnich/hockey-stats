@@ -509,6 +509,10 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       window.location.hash = '';
       return;
     }
+    // Clear hash sub-path so deep-link useEffect doesn't override
+    if (window.location.hash.startsWith('#/admin/')) {
+      window.history.replaceState(null, '', '#/admin');
+    }
     if (["game_review", "public_view", "coach_view", "match_edit"].includes(target) && data) {
       setReviewGame(data);
     }
@@ -618,7 +622,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
   switch (screen) {
     case "home":
-      return <LandingPage currentUser={currentUser} onLogout={onLogout} onNavigate={navigate} onRoleSwitch={onRoleSwitch} initialTab="dashboard" />;
+      return <HomeScreen teamCount={store.teams?.length || 0} gameCount={store.games?.length || 0}
+        onNavigate={navigate} syncing={store.syncing} lastSyncError={store.lastSyncError}
+        currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch} />;
 
     case "users":
       return <UserManagementScreen currentUser={currentUser} onBack={() => navigate("home")} />;
