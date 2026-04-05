@@ -4,7 +4,7 @@ import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplay
 import MatchCardTeams from './MatchCardTeams.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
 
-const CACHE_KEY = 'kykie-homepage-v2';
+const CACHE_KEY = 'kykie-homepage-v4';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function loadCache() {
@@ -95,7 +95,30 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     };
     setStats(newStats);
 
-    // ── Team analysis ──
+    // ── Team analysis (hybrid: all matches for record + Live Pro for AI Scout) ──
+
+    // 1. Overall record from ALL ended matches
+    const { data: allMatches } = await supabase.from('matches')
+      .select(`id, home_team_id, away_team_id, home_score, away_score, duration, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+      .eq('status', 'ended');
+
+    const overallRecord = {};
+    (allMatches || []).forEach(m => {
+      ['home', 'away'].forEach(side => {
+        const tid = m[`${side}_team_id`];
+        const opp = side === 'home' ? 'away' : 'home';
+        const gf = m[`${side}_score`] || 0;
+        const ga = m[`${opp}_score`] || 0;
+        const team = side === 'home' ? m.home_team : m.away_team;
+        if (!overallRecord[tid]) overallRecord[tid] = { team, total: 0, w: 0, l: 0, d: 0, gf: 0, ga: 0 };
+        const r = overallRecord[tid];
+        if (team) r.team = team; // keep latest team object
+        r.total++; r.gf += gf; r.ga += ga;
+        if (gf > ga) r.w++; else if (gf < ga) r.l++; else r.d++;
+      });
+    });
+
+    // 2. AI Scout data from Live Pro matches (match_stats quarter=0)
     const { data: totalStats } = await supabase.from('match_stats')
       .select('match_id, team, goals, d_entries, turnovers_won, poss_lost, territory_pct, possession_time_pct, shots_on, shots_off')
       .eq('quarter', 0);
@@ -104,41 +127,63 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     let matchTeamMap = {};
     if (statsMatchIds.length > 0) {
       const { data: sMatches } = await supabase.from('matches')
-        .select(`id, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+        .select(`id, duration, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
         .in('id', statsMatchIds);
-      (sMatches || []).forEach(m => { matchTeamMap[m.id] = { home: m.home_team, away: m.away_team }; });
+      (sMatches || []).forEach(m => { matchTeamMap[m.id] = { home: m.home_team, away: m.away_team, duration: m.duration || 0 }; });
     }
 
-    const teamAgg = {};
+    const scoutAgg = {};
     (totalStats || []).forEach(s => {
       const mt = matchTeamMap[s.match_id];
       if (!mt) return;
       const t = s.team === 'home' ? mt.home : mt.away;
       if (!t?.id) return;
-      if (!teamAgg[t.id]) teamAgg[t.id] = { team: t, matches: 0, dEntries: 0, possLost: 0, turnoversWon: 0, goalsFor: 0, goalsAgainst: 0, territorySum: 0, possessionSum: 0, shotsOn: 0, shotsOff: 0 };
-      const a = teamAgg[t.id];
-      a.matches++;
+      if (!scoutAgg[t.id]) scoutAgg[t.id] = { team: t, lpMatches: 0, dEntries: 0, possLost: 0, turnoversWon: 0, possessionSum: 0, shotsOn: 0, shotsOff: 0, durationSec: 0 };
+      const a = scoutAgg[t.id];
+      a.lpMatches++;
       a.dEntries += s.d_entries || 0;
       a.possLost += s.poss_lost || 0;
       a.turnoversWon += s.turnovers_won || 0;
-      a.goalsFor += s.goals || 0;
-      a.territorySum += s.territory_pct || 0;
       a.possessionSum += s.possession_time_pct || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
-      const oppStats = (totalStats || []).find(os => os.match_id === s.match_id && os.team !== s.team);
-      if (oppStats) a.goalsAgainst += oppStats.goals || 0;
+      a.durationSec += mt.duration;
     });
 
-    const teamsWithData = Object.values(teamAgg).filter(a => a.matches >= 3);
+    // 3. Build analysis — qualify with positive GD from ALL matches
+    const qualifiedOverall = Object.entries(overallRecord).filter(([, r]) => r.total >= 10 && (r.gf - r.ga) > 0);
+    const qualifiedScout = Object.entries(scoutAgg).filter(([tid, a]) => {
+      const rec = overallRecord[tid];
+      return a.lpMatches >= 3 && rec && rec.total >= 5 && (rec.gf - rec.ga) > 0;
+    });
+
     let newAnalysis = null;
-    if (teamsWithData.length >= 3) {
-      const sorted = (fn) => [...teamsWithData].sort(fn).slice(0, 3);
+    if (qualifiedScout.length >= 3 || qualifiedOverall.length >= 3) {
+      const sortScout = (fn) => [...qualifiedScout].sort(fn).slice(0, 3).map(([, a]) => a);
+      const sortOverall = (fn) => [...qualifiedOverall].sort(fn).slice(0, 3).map(([, r]) => r);
+
       newAnalysis = {
-        mostAccurate: sorted((a, b) => (b.dEntries / b.matches) - (a.dEntries / a.matches)),
-        quickest: sorted((a, b) => ((b.shotsOn + b.shotsOff + b.dEntries) / b.matches) - ((a.shotsOn + a.shotsOff + a.dEntries) / a.matches)),
-        mostPatient: sorted((a, b) => (b.possessionSum / b.matches) - (a.possessionSum / a.matches)),
-        strongestDef: sorted((a, b) => (a.goalsAgainst / a.matches) - (b.goalsAgainst / b.matches)),
+        // AI Scout: Accuracy = D entries / (D entries + poss_lost)
+        mostAccurate: qualifiedScout.length >= 3 ? sortScout((a, b) => {
+          const ra = a[1].dEntries / (a[1].dEntries + a[1].possLost + 0.01);
+          const rb = b[1].dEntries / (b[1].dEntries + b[1].possLost + 0.01);
+          return rb - ra;
+        }) : null,
+        // AI Scout: Speed = actions per minute
+        quickest: qualifiedScout.length >= 3 ? sortScout((a, b) => {
+          const ma = a[1].durationSec / 60 || 1;
+          const mb = b[1].durationSec / 60 || 1;
+          return ((b[1].dEntries + b[1].shotsOn + b[1].shotsOff + b[1].turnoversWon) / mb) -
+                 ((a[1].dEntries + a[1].shotsOn + a[1].shotsOff + a[1].turnoversWon) / ma);
+        }) : null,
+        // AI Scout: Patience = avg possession %
+        mostPatient: qualifiedScout.length >= 3 ? sortScout((a, b) =>
+          (b[1].possessionSum / b[1].lpMatches) - (a[1].possessionSum / a[1].lpMatches)
+        ) : null,
+        // ALL matches: Defence = lowest GA/match
+        strongestDef: qualifiedOverall.length >= 3 ? sortOverall((a, b) =>
+          (a[1].ga / a[1].total) - (b[1].ga / b[1].total)
+        ) : null,
       };
     }
     setAnalysis(newAnalysis);
@@ -166,8 +211,8 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const AnalysisCard = ({ icon, label, teams }) => {
     if (!teams || teams.length === 0) return null;
     return (
-      <div style={{ background: '#1E293B', borderRadius: 10, padding: '10px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      <div style={{ background: '#1E293B', borderRadius: 8, padding: '8px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
           <Icon type={icon} />
           <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 700 }}>{label}</span>
         </div>
@@ -175,15 +220,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           const c = teamColor(t.team) || '#64748B';
           return (
             <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0', cursor: 'pointer' }}>
               <div style={{
-                width: 18, height: 18, borderRadius: 4, fontSize: 10, fontWeight: 800,
+                width: 16, height: 16, borderRadius: 3, fontSize: 9, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                background: i === 0 ? '#F59E0B22' : '#0B0F1A', color: i === 0 ? '#F59E0B' : '#64748B',
-                border: i === 0 ? '1px solid #F59E0B44' : '1px solid #334155',
+                background: c, color: '#fff', opacity: i === 0 ? 1 : 0.7,
               }}>{i + 1}</div>
-              <div style={{ width: 6, height: 6, borderRadius: 2, background: c, flexShrink: 0 }} />
-              <div style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: i === 0 ? 11 : 10, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {teamDisplayName(t.team)}
               </div>
             </div>
@@ -227,11 +270,12 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       {/* Stats row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: '0 16px 6px' }}>
         {[
-          { val: stats?.matches, label: 'Matches', color: '#F59E0B' },
-          { val: stats?.teams, label: 'Teams', color: '#10B981' },
-          { val: stats?.viewers, label: 'Viewers', color: '#3B82F6' },
+          { val: stats?.matches, label: 'Matches', color: '#F59E0B', link: 'scores' },
+          { val: stats?.teams, label: 'Teams', color: '#10B981', link: 'teams' },
+          { val: stats?.viewers, label: 'Viewers', color: '#3B82F6', link: 'supporters' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
+          <div key={s.label} onClick={() => { if (s.link === 'scores' || s.link === 'teams') onNavigate(s.link); else window.location.hash = `#/${s.link}`; }}
+            style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center', cursor: 'pointer' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{!stats ? '—' : fmtNum(s.val || 0)}</div>
             <div style={{ fontSize: 10, color: '#64748B' }}>{s.label}</div>
           </div>
@@ -241,11 +285,12 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       {/* Stats row 2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, padding: '0 16px 16px' }}>
         {[
-          { val: stats?.goals, label: 'Goals', color: '#EF4444' },
-          { val: stats?.events, label: 'Events tracked', color: '#8B5CF6' },
-          { val: (stats?.analysed || 0) + 100, label: 'Matches analysed', color: '#10B981' },
+          { val: stats?.goals, label: 'Goals', color: '#EF4444', link: 'stats-overview' },
+          { val: stats?.events, label: 'Stats collected', color: '#8B5CF6', link: 'stats-overview' },
+          { val: (stats?.analysed || 0) + 100, label: 'Matches analysed', color: '#10B981', link: 'stats-overview' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center' }}>
+          <div key={s.label} onClick={() => { window.location.hash = `#/${s.link}`; }}
+            style={{ background: '#1E293B', borderRadius: 8, padding: '8px 4px', textAlign: 'center', cursor: 'pointer' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{!stats ? '—' : fmtNum(s.val || 0)}</div>
             <div style={{ fontSize: 10, color: '#64748B' }}>{s.label}</div>
           </div>
@@ -255,7 +300,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       {/* Team analysis — top 3 per metric */}
       {analysis && (
         <div style={{ padding: '0 16px 16px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Team analysis</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Kykie AI Scout — team analysis</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
             <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
