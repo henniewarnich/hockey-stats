@@ -4,7 +4,7 @@ import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplay
 import MatchCardTeams from './MatchCardTeams.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
 
-const CACHE_KEY = 'kykie-homepage-v4';
+const CACHE_KEY = 'kykie-homepage-v5';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function loadCache() {
@@ -151,10 +151,10 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     });
 
     // 3. Build analysis — qualify with positive GD from ALL matches
-    const qualifiedOverall = Object.entries(overallRecord).filter(([, r]) => r.total >= 10 && (r.gf - r.ga) > 0);
+    const qualifiedOverall = Object.entries(overallRecord).filter(([, r]) => r.total >= 10 && (r.gf - r.ga) > 0 && r.w / r.total >= 0.4);
     const qualifiedScout = Object.entries(scoutAgg).filter(([tid, a]) => {
       const rec = overallRecord[tid];
-      return a.lpMatches >= 3 && rec && rec.total >= 5 && (rec.gf - rec.ga) > 0;
+      return a.lpMatches >= 1 && rec && rec.total >= 10 && (rec.gf - rec.ga) > 0 && rec.w / rec.total >= 0.4;
     });
 
     let newAnalysis = null;
@@ -379,22 +379,32 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
             <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 8 }}>
               Welcome back, {currentUser.alias_nickname || currentUser.firstname}
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
               {['admin', 'commentator_admin', 'commentator'].includes(currentUser.role) && (
-                <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#F59E0B11', border: '1px solid #F59E0B44', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 18 }}>🎙️</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', marginTop: 2 }}>Dashboard</div>
-                </div>
+                <>
+                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#F59E0B11', border: '1px solid #F59E0B44', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 16 }}>🎙️</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#F59E0B', marginTop: 2 }}>Dashboard</div>
+                  </div>
+                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 16 }}>📅</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>Schedule</div>
+                  </div>
+                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 16 }}>📊</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>History</div>
+                  </div>
+                </>
               )}
               {currentUser.role === 'coach' && (
                 <div onClick={() => { window.location.hash = '#/coach'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#3B82F611', border: '1px solid #3B82F644', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 18 }}>📊</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>Coach</div>
+                  <div style={{ fontSize: 16 }}>📊</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>Coach</div>
                 </div>
               )}
               <div onClick={() => { window.location.hash = '#/submit?mode=result'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ fontSize: 18 }}>📝</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>Submit</div>
+                <div style={{ fontSize: 16 }}>📝</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>Submit</div>
               </div>
             </div>
           </div>

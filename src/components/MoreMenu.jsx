@@ -52,11 +52,25 @@ export default function MoreMenu({ currentUser, onLogout }) {
         </div>
       )}
 
+      {/* Commentator/Admin workflow items */}
+      {isComm && (
+        <>
+          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Commentator</div>
+          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live"
+            onClick={() => { window.location.hash = '#/admin'; }} />
+          <MenuItem icon="📊" title="Game history" sub="Past matches and stats"
+            onClick={() => { window.location.hash = '#/admin'; }} />
+          <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers"
+            onClick={() => { window.location.hash = '#/admin'; }} />
+        </>
+      )}
+
       {/* Public items */}
-      <MenuItem icon="📅" title="Upcoming matches" sub="See what's coming up"
-        onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} />
+      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: isComm ? 10 : 4, marginBottom: 6 }}>Contribute</div>
       <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
         onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
+      <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
+        onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} />
       <MenuItem icon="🏫" title="Suggest a team" sub="Add a school not yet listed"
         onClick={() => { window.location.hash = '#/submit?mode=team'; }} />
       <MenuItem icon="⚠️" title="Report a mistake" sub="Flag incorrect data"

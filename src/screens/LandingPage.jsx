@@ -430,7 +430,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           <div style={styles.logo}>kykie</div>
         </div>
         {currentUser ? (
-          <div style={{ fontSize: 11, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: 11, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+            {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
+          </div>
         ) : (
           <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
         )}
