@@ -373,43 +373,37 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       )}
 
       {/* Logged-in quick actions */}
-      {currentUser && (
-        <div style={{ padding: '16px 16px 0' }}>
-          <div style={{ background: '#1E293B', borderRadius: 10, padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 8 }}>
-              Welcome back, {currentUser.alias_nickname || currentUser.firstname}
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-              {['admin', 'commentator_admin', 'commentator'].includes(currentUser.role) && (
-                <>
-                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#F59E0B11', border: '1px solid #F59E0B44', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 16 }}>🎙️</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#F59E0B', marginTop: 2 }}>Dashboard</div>
-                  </div>
-                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 16 }}>📅</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>Schedule</div>
-                  </div>
-                  <div onClick={() => { window.location.hash = '#/admin'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 16 }}>📊</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>History</div>
-                  </div>
-                </>
-              )}
-              {currentUser.role === 'coach' && (
-                <div onClick={() => { window.location.hash = '#/coach'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#3B82F611', border: '1px solid #3B82F644', textAlign: 'center', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 16 }}>📊</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>Coach</div>
-                </div>
-              )}
-              <div onClick={() => { window.location.hash = '#/submit?mode=result'; }} style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', border: '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ fontSize: 16 }}>📝</div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>Submit</div>
+      {currentUser && (() => {
+        const role = currentUser.role;
+        const isComm = ['admin', 'commentator_admin', 'commentator'].includes(role);
+        const isAdmin = ['admin', 'commentator_admin'].includes(role);
+        const isApprentice = currentUser.commentator_status === 'apprentice';
+        const goAdmin = (scr) => { sessionStorage.setItem('kykie-admin-screen', scr); window.location.hash = '#/admin'; };
+        const Btn = ({ icon, label, color, bg, border, onClick }) => (
+          <div onClick={onClick} style={{ flex: 1, padding: 8, borderRadius: 8, background: bg || '#0B0F1A', border: border || '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>
+            <div style={{ fontSize: 16 }}>{icon}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: color || '#94A3B8', marginTop: 2 }}>{label}</div>
+          </div>
+        );
+        return (
+          <div style={{ padding: '16px 16px 0' }}>
+            <div style={{ background: '#1E293B', borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8', marginBottom: 8 }}>
+                Welcome back, {currentUser.alias_nickname || currentUser.firstname}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {isComm && <Btn icon="🎙️" label="Dashboard" color="#F59E0B" bg="#F59E0B11" border="1px solid #F59E0B44" onClick={() => goAdmin('home')} />}
+                {isComm && !isApprentice && <Btn icon="📅" label="Schedule" onClick={() => goAdmin('match_schedule')} />}
+                {isComm && <Btn icon="📊" label="History" onClick={() => goAdmin('history')} />}
+                {isComm && <Btn icon="💰" label="Credits" onClick={() => goAdmin('credits')} />}
+                {role === 'coach' && <Btn icon="📊" label="Coach" color="#3B82F6" bg="#3B82F611" border="1px solid #3B82F644" onClick={() => { window.location.hash = '#/coach'; }} />}
+                {isAdmin && <Btn icon="📋" label="Pending" onClick={() => { window.location.hash = '#/pending'; }} />}
+                <Btn icon="📝" label="Submit" onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

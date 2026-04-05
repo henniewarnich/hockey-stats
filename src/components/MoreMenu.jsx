@@ -39,34 +39,29 @@ export default function MoreMenu({ currentUser, onLogout }) {
           </div>
         </div>
       )}
-      {isCoach && (
-        <div onClick={() => { window.location.hash = '#/coach'; }} style={{
-          background: '#3B82F611', border: '1px solid #3B82F644', borderRadius: 10,
-          padding: '12px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-        }}>
-          <span style={{ fontSize: 20 }}>📊</span>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#3B82F6' }}>Coach dashboard</div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>Team analytics and trends</div>
-          </div>
-        </div>
-      )}
 
       {/* Commentator/Admin workflow items */}
       {isComm && (
         <>
           <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Commentator</div>
           <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live"
-            onClick={() => { window.location.hash = '#/admin'; }} />
+            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'match_schedule'); window.location.hash = '#/admin'; }} />
           <MenuItem icon="📊" title="Game history" sub="Past matches and stats"
-            onClick={() => { window.location.hash = '#/admin'; }} />
+            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'history'); window.location.hash = '#/admin'; }} />
           <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers"
-            onClick={() => { window.location.hash = '#/admin'; }} />
+            onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'credits'); window.location.hash = '#/admin'; }} />
+        </>
+      )}
+      {isCoach && !isComm && (
+        <>
+          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Coach</div>
+          <MenuItem icon="📊" title="Coach dashboard" sub="Team analytics and trends"
+            onClick={() => { window.location.hash = '#/coach'; }} />
         </>
       )}
 
       {/* Public items */}
-      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: isComm ? 10 : 4, marginBottom: 6 }}>Contribute</div>
+      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: isComm || isCoach ? 10 : 4, marginBottom: 6 }}>Contribute</div>
       <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
         onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
       <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
@@ -86,6 +81,10 @@ export default function MoreMenu({ currentUser, onLogout }) {
               <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 10, marginBottom: 6 }}>Admin</div>
               <MenuItem icon="📋" title="Pending approvals"
                 sub="Review submissions" onClick={() => { window.location.hash = '#/pending'; }} />
+              <MenuItem icon="🏫" title="Manage teams"
+                sub="Institutions and teams" onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'teams'); window.location.hash = '#/admin'; }} />
+              <MenuItem icon="👥" title="Manage users"
+                sub="Roles and assignments" onClick={() => { sessionStorage.setItem('kykie-admin-screen', 'users'); window.location.hash = '#/admin'; }} />
               <MenuItem icon="🩺" title="System health"
                 sub="Database and activity" onClick={() => { window.location.hash = '#/health'; }} />
             </>

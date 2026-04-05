@@ -460,6 +460,12 @@ export default function App() {
       window.location.hash = '#/training';
       return null;
     }
+    // Deep-link to specific screen via sessionStorage
+    const targetScreen = sessionStorage.getItem('kykie-admin-screen');
+    if (targetScreen) {
+      sessionStorage.removeItem('kykie-admin-screen');
+      if (screen !== targetScreen) setScreen(targetScreen);
+    }
     return (
       <AppContent
         store={store} screen={screen} setScreen={setScreen}
