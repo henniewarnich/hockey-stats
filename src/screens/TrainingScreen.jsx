@@ -7,6 +7,7 @@ import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
 import TrainingWizard, { STEPS as WIZARD_STEPS } from '../components/TrainingWizard.jsx';
+import BenchmarkTest from '../components/BenchmarkTest.jsx';
 
 const DEMO_CONFIG = {
   home: { name: 'Demo Lions', color: '#1D4ED8', id: 'demo-home', short: 'DLI' },
@@ -16,7 +17,7 @@ const DEMO_CONFIG = {
 };
 
 export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, onQualified }) {
-  const [view, setView] = useState('home'); // home | learn | benchmark_intro | benchmark_result
+  const [view, setView] = useState('home'); // home | learn | benchmark_test | benchmark_result
   const [viewedSteps, setViewedSteps] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kykie-training-steps') || '[]'); } catch { return []; }
   });
@@ -286,94 +287,21 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
     );
   }
 
-  // ── Benchmark intro view ──
-  if (view === 'benchmark_intro') {
-    const available = benchmarkConfig?.enabled && benchmarkConfig?.refMatchId;
+  // ── Benchmark test (interactive) ──
+  if (view === 'benchmark_test') {
     return (
-      <div style={S.page}>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        <div style={S.header}>
-          <button onClick={() => setView('home')} style={S.backBtn}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 700 }}>Benchmark test</span>
-          <div style={{ width: 40 }} />
-        </div>
-
-        {available ? (
-          <>
-            <div style={{ fontSize: 12, color: '#94A3B8', lineHeight: 1.6, marginBottom: 16 }}>
-              You'll record a real hockey match from a YouTube video. Your recording will be compared against an expert's recording of the same match.
-            </div>
-
-            <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>How it works</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  'Open the YouTube video in a separate window/tab',
-                  'Start recording on Kykie as you watch',
-                  'Record all events you see — goals, D entries, short corners, etc.',
-                  'End the match when the video ends',
-                  'Your recording is auto-graded against the expert benchmark',
-                ].map((step, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11, color: '#94A3B8' }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: 9, background: '#F59E0B22', color: '#F59E0B',
-                      fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>{i + 1}</div>
-                    {step}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>Pass criteria</div>
-              <div style={{ fontSize: 12, color: '#F59E0B', fontWeight: 700 }}>80% overall accuracy</div>
-              <div style={{ fontSize: 10, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
-                Scored on: Goals (25%), D Entries (20%), Short Corners (15%), Shots (15%), Zone Accuracy (15%), Turnovers (10%)
-              </div>
-            </div>
-
-            {benchmarkConfig.videoUrl && (
-              <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>Match video</div>
-                <a href={benchmarkConfig.videoUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#3B82F6', wordBreak: 'break-all' }}>
-                  {benchmarkConfig.videoUrl}
-                </a>
-                <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>
-                  Open this in a separate tab before starting the test.
-                </div>
-              </div>
-            )}
-
-            {currentUser?.benchmark_score && (
-              <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 12, borderLeft: '3px solid #F59E0B' }}>
-                <div style={{ fontSize: 11, color: '#64748B' }}>Previous best</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#F59E0B' }}>{currentUser.benchmark_score}%</div>
-              </div>
-            )}
-
-            <button onClick={handleStartBenchmark} style={S.btn('#F59E0B')}>
-              Start benchmark test →
-            </button>
-            <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 8 }}>
-              Unlimited retakes allowed
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{
-              background: '#1E293B', borderRadius: 10, padding: 20, textAlign: 'center', marginTop: 20,
-            }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🔒</div>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Benchmark test coming soon</div>
-              <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.6 }}>
-                The benchmark test is being prepared. In the meantime, keep practising with demo matches to get comfortable with the field recorder.
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+      <BenchmarkTest
+        onPass={async () => {
+          setSaving(true);
+          try {
+            await saveBenchmarkResult(currentUser.id, 100, true);
+          } catch (e) { console.error('Save benchmark error:', e); }
+          setSaving(false);
+          if (onQualified) onQualified();
+          else window.location.reload();
+        }}
+        onBack={() => setView('home')}
+      />
     );
   }
 
@@ -499,7 +427,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
             }}>3</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: canTest ? '#F8FAFC' : '#64748B' }}>Benchmark test</div>
-              <div style={{ fontSize: 10, color: '#475569' }}>Score a real match, 80% to pass</div>
+              <div style={{ fontSize: 10, color: '#475569' }}>Interactive test — complete all 14 challenges</div>
             </div>
           </div>
           {!canTest && <div style={{ fontSize: 9, color: '#475569' }}>
@@ -507,8 +435,8 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
           </div>}
         </div>
         {canTest && (
-          <button onClick={() => setView('benchmark_intro')} style={{ ...S.btn('#F59E0B'), marginTop: 10 }}>
-            {benchmarkLoading ? 'Loading...' : 'Start benchmark test →'}
+          <button onClick={() => setView('benchmark_test')} style={{ ...S.btn('#F59E0B'), marginTop: 10 }}>
+            Start benchmark test →
           </button>
         )}
       </div>
