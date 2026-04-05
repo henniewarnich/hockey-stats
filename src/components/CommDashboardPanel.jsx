@@ -94,6 +94,49 @@ export default function CommDashboardPanel({ currentUser, onNavigate }) {
         </div>
       </div>
 
+      {/* Contribute section */}
+      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 10, marginBottom: 4 }}>Contribute (1 credit each when approved)</div>
+
+      <div onClick={() => { window.location.hash = '#/submit?mode=result'; }} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+      }}>
+        <div style={{ fontSize: 24 }}>📝</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Submit a Result</div>
+          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>Enter a score for a match that has been played</div>
+        </div>
+      </div>
+
+      <div onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+      }}>
+        <div style={{ fontSize: 24 }}>📅</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Add Upcoming Match</div>
+          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>Add a match that hasn't been played yet</div>
+        </div>
+      </div>
+
+      <div onClick={() => { window.location.hash = '#/submit?mode=team'; }} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+      }}>
+        <div style={{ fontSize: 24 }}>🏫</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Suggest a Team</div>
+          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>Add a school or team not yet in the system</div>
+        </div>
+      </div>
+
+      <div onClick={() => { window.location.hash = '#/issues'; }} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+      }}>
+        <div style={{ fontSize: 24 }}>⚠️</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Report a Mistake</div>
+          <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>Flag an incorrect score or missing data</div>
+        </div>
+      </div>
+
       {/* Demo Match */}
       <div onClick={() => { sessionStorage.setItem('kykie-start-demo', '1'); window.location.hash = '#/record'; }} style={{
         ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',

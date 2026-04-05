@@ -315,17 +315,12 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
 
           {/* Sport */}
           <div style={{ marginBottom: 12 }}>
-            <div style={labelStyle}>Sport *</div>
+            <div style={labelStyle}>Sport</div>
             <div style={{ display: 'flex', gap: 4 }}>
-              {['Hockey', 'Rugby', 'Netball', 'Cricket'].map(s => (
-                <div key={s} style={{
-                  padding: '7px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-                  border: s === 'Hockey' ? '2px solid #F59E0B' : '1px solid #334155',
-                  background: s === 'Hockey' ? '#F59E0B22' : '#0B0F1A',
-                  color: s === 'Hockey' ? '#F8FAFC' : '#334155',
-                  opacity: s === 'Hockey' ? 1 : 0.4,
-                }}>{s}</div>
-              ))}
+              <div style={{
+                padding: '7px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                border: '2px solid #F59E0B', background: '#F59E0B22', color: '#F8FAFC',
+              }}>🏑 Hockey</div>
             </div>
           </div>
 

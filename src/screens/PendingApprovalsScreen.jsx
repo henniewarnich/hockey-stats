@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { fetchPending, approvePendingMatch, rejectPendingMatch, approvePendingTeam, rejectPendingTeam } from '../utils/sync.js';
-import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLiveMatchRejected } from '../utils/credits.js';
+import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLiveMatchRejected, awardSubmissionCredits } from '../utils/credits.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { teamColor, teamDisplayName, teamShortName } from '../utils/teams.js';
@@ -43,11 +43,11 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
   const handleApproveMatch = async (match, asUpcoming) => {
     setActionLoading(match.id);
     await approvePendingMatch(match.id, currentUser.id, asUpcoming ? 'upcoming' : 'ended');
-    // Award credits if crowd submission
-    if (match.submitted_by && match.submitted_type === 'supporter') {
+    // Award credits to submitter
+    if (match.submitted_by) {
       const isLive = match.duration && match.duration > 0;
       if (isLive) await onLiveMatchApproved(match.submitted_by, match.id);
-      else await onQuickScoreApproved(match.submitted_by, match.id);
+      else await awardSubmissionCredits(match.submitted_by, match.id, 'result_approved').catch(() => {});
     }
     setPendingMatches(prev => prev.filter(m => m.id !== match.id));
     setActionLoading(null);
@@ -57,8 +57,8 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
     if (!confirm('Reject this submission?')) return;
     setActionLoading(match.id);
     await rejectPendingMatch(match.id, currentUser.id);
-    // Deduct credits if crowd submission
-    if (match.submitted_by && match.submitted_type === 'supporter') {
+    // Deduct credits from submitter
+    if (match.submitted_by) {
       const isLive = match.duration && match.duration > 0;
       if (isLive) await onLiveMatchRejected(match.submitted_by, match.id);
       else await onQuickScoreRejected(match.submitted_by, match.id);
@@ -67,9 +67,10 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
     setActionLoading(null);
   };
 
-  const handleApproveTeam = async (teamId) => {
+  const handleApproveTeam = async (teamId, suggestedBy) => {
     setActionLoading(teamId);
     await approvePendingTeam(teamId, currentUser.id);
+    if (suggestedBy) awardSubmissionCredits(suggestedBy, null, 'team_approved').catch(() => {});
     setPendingTeams(prev => prev.filter(t => t.id !== teamId));
     setActionLoading(null);
   };
@@ -286,7 +287,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
                       Suggested by {submitterName(t.suggester)}
                     </div>
                   </div>
-                  <button onClick={() => handleApproveTeam(t.id)} disabled={actionLoading === t.id}
+                  <button onClick={() => handleApproveTeam(t.id, t.suggested_by)} disabled={actionLoading === t.id}
                     style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: '#10B981', color: '#F8FAFC', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                     {actionLoading === t.id ? '...' : '✓'}
                   </button>

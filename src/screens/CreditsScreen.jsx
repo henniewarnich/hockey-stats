@@ -2,14 +2,29 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName } from '../utils/teams.js';
-import { getCreditLedger } from '../utils/credits.js';
+import { getCreditLedger, getContributorStats, CREDIT_VALUES as CV, VOUCHER_THRESHOLD } from '../utils/credits.js';
 
-const CREDIT_VALUES = {
-  match_start_live: { label: 'Live Pro', icon: '🔴', credits: 50 },
-  video_review_start: { label: 'Video review', icon: '📹', credits: 20 },
-  match_end_live_lite: { label: 'Live Basic', icon: '📡', credits: 10 },
-  quick_score: { label: 'Quick score', icon: '💾', credits: 1 },
-  schedule_match: { label: 'Scheduled', icon: '📅', credits: 1 },
+const AUDIT_MAP = {
+  match_start_live: { label: 'Live Pro', icon: '🔴', credits: CV.live_pro },
+  video_review_start: { label: 'Video review', icon: '📹', credits: CV.video_older },
+  match_end_live_lite: { label: 'Live Basic', icon: '📡', credits: CV.live_lite },
+  quick_score_save: { label: 'Quick score', icon: '💾', credits: CV.quick_score },
+  schedule_match: { label: 'Scheduled', icon: '📅', credits: CV.schedule },
+};
+
+const LEDGER_MAP = {
+  live_pro: { label: 'Live Pro', icon: '🔴' },
+  live_lite: { label: 'Live Basic', icon: '📡' },
+  video_same_day: { label: 'Video (same day)', icon: '📹' },
+  video_older: { label: 'Video review', icon: '📹' },
+  quick_score: { label: 'Quick score', icon: '💾' },
+  schedule: { label: 'Scheduled', icon: '📅' },
+  result_approved: { label: 'Result approved', icon: '📝' },
+  team_approved: { label: 'Team suggestion approved', icon: '🏫' },
+  issue_confirmed: { label: 'Issue confirmed', icon: '⚠️' },
+  submission: { label: 'Submission approved', icon: '📝' },
+  penalty: { label: 'Penalty', icon: '⚠️' },
+  voucher_claim: { label: 'Voucher claimed', icon: '🎁' },
 };
 
 export default function CreditsScreen({ currentUser, onBack }) {
@@ -17,6 +32,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
   const [matchHistory, setMatchHistory] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [progress, setProgress] = useState({ live: 0, recorded: 0, total: 0 });
+  const [stats, setStats] = useState(null); // contributor_stats row
 
   const isApprentice = currentUser?.commentator_status === 'apprentice';
   const isEarning = !isApprentice && progress.total >= 5;
@@ -28,7 +44,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
   const load = async () => {
     setLoading(true);
 
-    // Fetch audit entries for this user's match activity
+    // Fetch audit entries for match counts + history (non-earning view)
     const { data: audits } = await supabase.from('audit_log')
       .select('action, target_id, created_at, details')
       .eq('user_id', currentUser.id)
@@ -40,7 +56,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
     const recordCount = (audits || []).filter(a => a.action === 'video_review_start').length;
     setProgress({ live: liveCount, recorded: recordCount, total: liveCount + recordCount });
 
-    // Fetch match details for each audit entry
+    // Fetch match details for audit history
     const matchIds = [...new Set((audits || []).map(a => a.target_id).filter(Boolean))];
     let matchMap = {};
     if (matchIds.length > 0) {
@@ -50,10 +66,10 @@ export default function CreditsScreen({ currentUser, onBack }) {
       (matches || []).forEach(m => { matchMap[m.id] = m; });
     }
 
-    // Build history with match details
+    // Build audit-based history (for non-earning / "would be" view)
     const hist = (audits || []).map(a => {
       const m = matchMap[a.target_id];
-      const cv = CREDIT_VALUES[a.action];
+      const cv = AUDIT_MAP[a.action];
       return {
         id: a.created_at + a.action,
         date: new Date(a.created_at),
@@ -62,24 +78,39 @@ export default function CreditsScreen({ currentUser, onBack }) {
         icon: cv?.icon || '📋',
         credits: cv?.credits || 0,
         matchName: m ? `${teamShortName(m.home_team)} vs ${teamShortName(m.away_team)}` : (a.details?.home ? `${a.details.home} vs ${a.details.away}` : 'Unknown match'),
-        matchDate: m?.match_date,
       };
     });
     setMatchHistory(hist);
 
-    // Fetch actual credit ledger (for when credits are active)
-    const led = await getCreditLedger(currentUser.id);
-    setLedger(led);
+    // Fetch real credit data
+    const [led, cs] = await Promise.all([
+      getCreditLedger(currentUser.id),
+      getContributorStats(currentUser.id),
+    ]);
 
+    // Enrich ledger with match names
+    const ledgerMatchIds = [...new Set((led || []).map(l => l.match_id).filter(Boolean))];
+    if (ledgerMatchIds.length > 0) {
+      const { data: lm } = await supabase.from('matches')
+        .select(`id, match_date, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+        .in('id', ledgerMatchIds);
+      const lmMap = {}; (lm || []).forEach(m => { lmMap[m.id] = m; });
+      led.forEach(l => {
+        const m = lmMap[l.match_id];
+        l._matchName = m ? `${teamShortName(m.home_team)} vs ${teamShortName(m.away_team)}` : null;
+      });
+    }
+
+    setLedger(led);
+    setStats(cs);
     setLoading(false);
   };
 
   // Calculate totals
   const wouldBeTotal = matchHistory.reduce((s, h) => s + h.credits, 0);
-  const actualTotal = ledger.reduce((s, l) => s + (l.credits || 0), 0);
-  const balance = isEarning ? actualTotal : 0;
-  const vouchersEarned = Math.floor(balance > 0 ? 0 : 0); // TODO: from contributor_stats
-  const toNextVoucher = isEarning ? 100 - (balance % 100) : 100;
+  const balance = isEarning ? (stats?.credits || 0) : 0;
+  const vouchersEarned = stats?.vouchers_earned || 0;
+  const toNextVoucher = isEarning ? VOUCHER_THRESHOLD - (Math.max(0, balance) % VOUCHER_THRESHOLD) : VOUCHER_THRESHOLD;
 
   const statusColor = isApprentice ? '#F59E0B' : !isEarning ? '#3B82F6' : '#10B981';
   const statusLabel = isApprentice ? 'Apprentice Commentator' : !isEarning ? 'Commentator (qualifying)' : 'Commentator';
@@ -143,7 +174,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
                 </div>
                 <div style={{ flex: 1, background: '#1E293B', borderRadius: 8, padding: 10, textAlign: 'center' }}>
                   <div style={{ fontSize: 10, color: '#64748B' }}>Earned</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#F8FAFC' }}>{wouldBeTotal}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#F8FAFC' }}>{ledger.filter(l => l.credits > 0).reduce((s, l) => s + l.credits, 0)}</div>
                   <div style={{ fontSize: 10, color: '#64748B' }}>all time</div>
                 </div>
                 <div style={{ flex: 1, background: '#1E293B', borderRadius: 8, padding: 10, textAlign: 'center' }}>
@@ -172,11 +203,46 @@ export default function CreditsScreen({ currentUser, onBack }) {
           </div>
 
           {/* Match history */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Match history</div>
-          {matchHistory.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 30, color: '#64748B', fontSize: 12 }}>No matches recorded yet. Start with the Match Schedule.</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>
+            {isEarning ? 'Credit history' : 'Match history'}
+          </div>
+
+          {isEarning ? (
+            // Earning: show real credit ledger
+            ledger.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 30, color: '#64748B', fontSize: 12 }}>No credit entries yet.</div>
+            ) : ledger.map((l, i) => {
+              const lm = LEDGER_MAP[l.action] || { label: l.action.replace(/_/g, ' '), icon: '📋' };
+              const isVoucher = l.action === 'voucher_claim';
+              const isPenalty = l.action === 'penalty';
+              return (
+                <div key={i} style={{
+                  background: '#1E293B', borderRadius: isVoucher ? 0 : 8, padding: '10px 12px', marginBottom: 6,
+                  ...(isVoucher ? { borderLeft: '3px solid #F59E0B' } : {}),
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isVoucher ? '#F59E0B' : isPenalty ? '#EF4444' : '#F8FAFC' }}>
+                        {l._matchName || lm.label}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                        {new Date(l.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {' '}{lm.icon} {lm.label}
+                        {isVoucher && ' R100 Takealot'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: l.credits > 0 ? '#10B981' : isVoucher ? '#F59E0B' : '#EF4444' }}>
+                      {l.credits > 0 ? '+' : ''}{l.credits}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : (
-            matchHistory.map(h => (
+            // Not earning: show audit-based history with "would be" amounts
+            matchHistory.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 30, color: '#64748B', fontSize: 12 }}>No matches recorded yet. Start with the Match Schedule.</div>
+            ) : matchHistory.map(h => (
               <div key={h.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -187,48 +253,12 @@ export default function CreditsScreen({ currentUser, onBack }) {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    {isEarning ? (
-                      <div style={{ fontSize: 14, fontWeight: 700, color: h.credits >= 0 ? '#10B981' : '#EF4444' }}>
-                        {h.credits >= 0 ? '+' : ''}{h.credits}
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#334155' }}>+0</div>
-                        <div style={{ fontSize: 10, color: '#64748B' }}>would be +{h.credits}</div>
-                      </>
-                    )}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#334155' }}>+0</div>
+                    <div style={{ fontSize: 10, color: '#64748B' }}>would be +{h.credits}</div>
                   </div>
                 </div>
               </div>
             ))
-          )}
-
-          {/* Credit ledger entries (penalties, vouchers) — only when earning */}
-          {isEarning && ledger.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8, marginTop: 14 }}>Credit ledger</div>
-              {ledger.map((l, i) => (
-                <div key={i} style={{
-                  background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6,
-                  ...(l.action === 'voucher_claim' ? { borderLeft: '3px solid #F59E0B', borderRadius: 0 } : {}),
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: l.action === 'voucher_claim' ? '#F59E0B' : '#F8FAFC' }}>
-                        {l.action === 'voucher_claim' ? 'Voucher claimed' : l.action.replace(/_/g, ' ')}
-                      </div>
-                      <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
-                        {new Date(l.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        {l.action === 'voucher_claim' && ' 🎁 R100 Takealot'}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: l.credits >= 0 ? '#10B981' : l.action === 'voucher_claim' ? '#F59E0B' : '#EF4444' }}>
-                      {l.credits >= 0 ? '+' : ''}{l.credits}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
           )}
 
           {/* Footer */}

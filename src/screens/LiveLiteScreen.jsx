@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { updateLiveScore, pushLiveEvent, endLiveMatch, lockMatch, updateScheduledMatch, snapshotRankings } from '../utils/sync.js';
+import { awardLiveMatchCredits } from '../utils/credits.js';
 import { logAudit } from '../utils/audit.js';
 import { fmt } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
@@ -141,6 +142,7 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
       ? { homePenalty: endPenHome, awayPenalty: endPenAway } : {};
     if (matchId && !isDemo) {
       await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime, penOpts);
+      if (currentUser?.id) awardLiveMatchCredits(currentUser.id, matchId, 'lite').catch(() => {});
     }
     if (onEnd) onEnd({ matchId, homeScore, awayScore, duration: timer.matchTime });
   };

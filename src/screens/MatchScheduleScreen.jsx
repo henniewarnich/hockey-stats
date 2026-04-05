@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
+import { awardQuickScoreCredits, awardScheduleCredits } from '../utils/credits.js';
 import { listUsersByRole } from '../utils/auth.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
@@ -128,13 +129,14 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       });
       await assignCommentators(editMatch.id, selectedComms);
     } else {
-      await scheduleMatch({
+      const scheduled = await scheduleMatch({
         homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
         matchDate, scheduledTime: scheduledTime || null,
         matchLength: ml, breakFormat, matchType,
         venue: venue.trim() || null, commentatorIds: selectedComms,
         createdBy: currentUser?.id,
       });
+      if (scheduled?.id && currentUser?.id) awardScheduleCredits(currentUser.id, scheduled.id).catch(() => {});
     }
     setSaving(false);
     resetForm();
@@ -245,6 +247,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     }
     await updateScheduledMatch(quickScoreMatch.id, { home_score: homeScore, away_score: awayScore, status: 'ended', duration: 0, locked_by: currentUser.id });
     await snapshotRankings(quickScoreMatch.id);
+    if (currentUser?.id) awardQuickScoreCredits(currentUser.id, quickScoreMatch.id).catch(() => {});
     setQuickSaving(false); setQuickScoreMatch(null); load();
   };
 

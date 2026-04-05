@@ -5,6 +5,7 @@ import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
 import { createLiveMatch, pushLiveEvent, updateLiveScore, endLiveMatch, endVideoReview } from '../utils/sync.js';
+import { awardLiveMatchCredits, awardVideoReviewCredits } from '../utils/credits.js';
 import { supabase } from '../utils/supabase.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import FieldRecorder from '../components/FieldRecorder.jsx';
@@ -355,6 +356,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       const penOpts = (score.home === score.away && endPenHome != null && endPenAway != null)
         ? { homePenalty: endPenHome, awayPenalty: endPenAway } : {};
       endLiveMatch(liveMatchId, score.home, score.away, timer.matchTime, penOpts).catch(() => {});
+      if (currentUser?.id && !isDemo) awardLiveMatchCredits(currentUser.id, liveMatchId, 'pro').catch(() => {});
     }
     const saved = onSaveGame(game);
     setLastSavedGame(saved || game);
@@ -386,6 +388,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       await supabase.from('matches').update({ home_score: score.home, away_score: score.away }).eq('id', videoReviewMatchId);
     }
     await endVideoReview(videoReviewMatchId, score.home, score.away, timer.matchTime);
+    if (currentUser?.id) awardVideoReviewCredits(currentUser.id, videoReviewMatchId).catch(() => {});
     setShowVideoReviewEnd(true);
   };
 

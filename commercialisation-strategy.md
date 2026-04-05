@@ -455,3 +455,35 @@ The goal isn't to make sharing impossible — it's to make it not worth the effo
 8. Sponsor integration with viewer metrics
 9. **Kykie AI Scout** — team intelligence metrics + AI-generated scouting reports (Premium)
 10. **Device security + anti-gaming** — device tracking, OTP on new device, velocity caps
+
+---
+
+## 11. Expansion Strategy — Hockey First
+
+### Principle
+Go deep in hockey before going wide across sports. Build dominant coverage, prove the model, then expand.
+
+### Phase 1 — Hockey Age Groups (Priority)
+Expand from 1st team only to U14, U16, 2nd team. Same events, field recorder, stats — just filtered. Immediate value for schools that have multiple teams.
+- Data model already supports: `age_group` on teams + matches
+- FilterBar already has age group cycling (1st / U16 / U14)
+- Rankings are per age group
+- Minimal effort, high value
+
+### Phase 2 — Hockey Gender Expansion
+Add boys hockey. Identical sport, same events/UI. Separate rankings per gender + age group.
+- Gender field already exists on teams
+- FilterBar already has gender cycling (Girls / Boys)
+- Trivial once Phase 1 done
+
+### Phase 3 — Other Sports (Future)
+Only after hockey is fully covered and commercially proven. Each new sport requires a sport-specific field recorder, event types, and stats engine. Architecture supports this via sport configs — door is open.
+- Registration keeps `sport_interest[]` to gauge demand
+- UI currently fixed to Hockey — no sport switching exposed
+- Other sports greyed in admin team editor only (for data integrity)
+
+### Revenue Before Expansion
+Target: 100+ schools covered in hockey across 3 age groups before considering a second sport.
+- R1.8M+ potential at R2,000/team/year × 900 coaches (3 sports × 3 age groups)
+- Hockey alone (3 age groups): R450K at R500/yr or R1.8M at R2,000/yr
+- Prove unit economics with hockey, then replicate the playbook for rugby/netball

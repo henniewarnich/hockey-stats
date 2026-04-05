@@ -48,7 +48,7 @@ export default function RegisterPage() {
 
   // Role selection
   const [regRole, setRegRole] = useState('supporter'); // 'supporter' | 'commentator' | 'coach'
-  const [selectedSport, setSelectedSport] = useState(''); // single sport for commentator/coach
+  const [selectedSport, setSelectedSport] = useState('hockey'); // fixed to hockey for now
   const [coachTeamIds, setCoachTeamIds] = useState([]); // multiple teams
 
   // Notifications & T&C
@@ -399,24 +399,19 @@ export default function RegisterPage() {
               </div>
               {(regRole === 'commentator' || regRole === 'coach') && (
                 <div style={{ marginBottom: 14 }}>
-                  <div style={labelStyle}>Sport *</div>
+                  <div style={labelStyle}>Sport</div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {SPORTS.map(s => (
-                      <button key={s.id} onClick={() => { if (s.id === 'hockey') { setSelectedSport(s.id); } }}
-                        style={{
-                          flex: 1, padding: '10px 6px', borderRadius: 10, cursor: s.id === 'hockey' ? 'pointer' : 'not-allowed',
-                          border: selectedSport === s.id ? '2px solid #F59E0B' : '1px solid #334155',
-                          background: selectedSport === s.id ? '#F59E0B11' : '#1E293B',
-                          color: selectedSport === s.id ? '#F59E0B' : s.id === 'hockey' ? '#94A3B8' : '#334155',
-                          opacity: s.id === 'hockey' ? 1 : 0.4,
-                          fontSize: 12, fontWeight: selectedSport === s.id ? 700 : 500,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                        }}>
-                        <span style={{ fontSize: 18 }}>{s.emoji}</span>
-                        {s.label}
-                      </button>
-                    ))}
+                    <div style={{
+                      flex: 1, padding: '10px 6px', borderRadius: 10,
+                      border: '2px solid #F59E0B', background: '#F59E0B11', color: '#F59E0B',
+                      fontSize: 12, fontWeight: 700,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    }}>
+                      <span style={{ fontSize: 18 }}>🏑</span>
+                      Hockey
+                    </div>
                   </div>
+                  <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>More sports coming soon</div>
                 </div>
               )}
 

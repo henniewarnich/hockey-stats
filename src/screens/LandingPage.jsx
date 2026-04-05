@@ -15,6 +15,9 @@ import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug, teamColor, teamDerivedName, TEAM_SELECT, MATCH_HOME_TEAM, MATCH_AWAY_TEAM } from '../utils/teams.js';
 import FilterBar, { matchPassesFilter, teamPassesFilter } from '../components/FilterBar.jsx';
+import BottomNav from '../components/BottomNav.jsx';
+import Homepage from '../components/Homepage.jsx';
+import MoreMenu from '../components/MoreMenu.jsx';
 
 export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
   const [teams, setTeams] = useState([]);
@@ -25,7 +28,8 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
   const [loading, setLoading] = useState(true);
   const [visitorCount, setVisitorCount] = useState(0);
   const [liveMatchViewers, setLiveMatchViewers] = useState({});
-  const [activeTab, setActiveTab] = useState(initialTab || "live"); // dashboard | live | upcoming | results | teams
+  const [activeTab, setActiveTab] = useState(initialTab === 'dashboard' ? 'more' : 'home');
+  const [scoresSub, setScoresSub] = useState('live'); // live | upcoming | results
   const [filters, setFilters] = useState({ sport: 'Hockey', gender: null, age: null });
   const [latestRankings, setLatestRankings] = useState({});
   const [showUpcoming, setShowUpcoming] = useState(20);
@@ -238,12 +242,10 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           }
         })();
 
-        // Auto-select best tab (only if not directed to a specific tab)
-        if (!initialTab) {
-          if (live && live.length > 0) setActiveTab("live");
-          else if (upcoming && upcoming.length > 0) setActiveTab("upcoming");
-          else setActiveTab("results");
-        }
+        // Auto-select best scores sub-tab
+        if (live && live.length > 0) setScoresSub("live");
+        else if (upcoming && upcoming.length > 0) setScoresSub("upcoming");
+        else setScoresSub("results");
       } catch (err) { console.error('Landing load error:', err); }
       setLoading(false);
     };
@@ -415,37 +417,31 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
       {/* Hero - scrolls away */}
-      <div style={styles.hero}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="44" height="44" viewBox="0 0 56 56">
-              <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
-              <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
-              <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-            <div style={styles.logo}>kykie</div>
-          </div>
-          {currentUser ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ fontSize: 10, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
-              {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
-              <button onClick={() => { window.location.hash = '#/security'; }} style={{ fontSize: 10, color: "#94A3B8", background: "#1E293B", border: "1px solid #334155", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontWeight: 700 }}>🔒</button>
-              <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "#EF444411", border: "1px solid #EF444444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Sign out</button>
-            </div>
-          ) : (
-            <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
-          )}
+      {/* Header */}
+      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1E293B" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <svg width="32" height="32" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
+            <circle cx="28" cy="28" r="8" fill="none" stroke="#F59E0B" strokeWidth="2"/>
+            <line x1="34" y1="22" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="40" y1="12" x2="44" y2="12" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+            <line x1="44" y1="12" x2="44" y2="16" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+          <div style={styles.logo}>kykie</div>
         </div>
-        <div style={{ ...styles.tagline, textAlign: "center" }}>Live stats & analysis for <span style={{ color: "#F59E0B", fontWeight: 700 }}>school sports</span></div>
-        <SponsorBanner tier="platform" size="lg" />
+        {currentUser ? (
+          <div style={{ fontSize: 11, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+        ) : (
+          <button onClick={() => { window.location.hash = "#/login"; }} style={{ fontSize: 11, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontWeight: 700 }}>Sign in</button>
+        )}
       </div>
+
+      <SponsorBanner tier="platform" size="lg" />
 
       {/* Email confirmation banner */}
       {emailConfirmed && (
         <div style={{
-          margin: "0 16px 8px", padding: "12px 16px", borderRadius: 10,
+          margin: "8px 16px", padding: "12px 16px", borderRadius: 10,
           background: "#10B98122", border: "1px solid #10B98144",
           display: "flex", alignItems: "center", gap: 8,
         }}>
@@ -457,45 +453,39 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         </div>
       )}
 
-      {/* Sticky tabs + search */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
-        {/* Tabs */}
-        <div style={{ padding: "0 16px 6px" }}>
-          <div style={{ display: "flex", gap: 0, justifyContent: "center", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", maxWidth: 360, margin: "0 auto" }}>
+      {/* Search + filters (for scores and teams tabs) */}
+      {(activeTab === "scores" || activeTab === "teams") && (
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A", padding: "8px 16px" }}>
+        {activeTab === "scores" && (
+          <div style={{ display: "flex", gap: 0, justifyContent: "center", borderRadius: 8, overflow: "hidden", border: "1px solid #334155", marginBottom: 8 }}>
             {[
-              ...(currentUser ? [{ id: "dashboard", label: "Home" }] : []),
               { id: "live", label: "Live", count: allInProgress.length, dot: liveMatches.length > 0 },
               { id: "upcoming", label: "Upcoming", count: upcomingMatches.length - inProgressUpcoming.length },
               { id: "results", label: "Results", count: resultsCount },
-              { id: "teams", label: "Teams", count: teams.length },
             ].map(t => (
-              <button key={t.id} onClick={() => { setActiveTab(t.id); }} style={{
-                flex: 1, padding: "6px 0", textAlign: "center", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
-                background: activeTab === t.id ? "#10B98122" : "#1E293B",
-                color: activeTab === t.id ? "#10B981" : "#64748B",
+              <button key={t.id} onClick={() => setScoresSub(t.id)} style={{
+                flex: 1, padding: "7px 0", textAlign: "center", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
+                background: scoresSub === t.id ? "#10B98122" : "#1E293B",
+                color: scoresSub === t.id ? "#10B981" : "#64748B",
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10B981", display: "inline-block", animation: "pulse 2s infinite" }} />}
+                  {t.dot && t.count > 0 && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />}
                   {t.label}
                 </div>
                 {t.count > 0 && <div style={{ fontSize: 9, opacity: 0.7 }}>({t.count})</div>}
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Search + filters (hidden on dashboard tab) */}
-        {activeTab !== "dashboard" && (
-        <div style={{ padding: "0 16px 8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
-            <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
-            <input
-              style={styles.searchInput}
-              value={search}
-              onChange={e => { setSearch(e.target.value); setShowUpcoming(20); setShowResults(20); }}
-              placeholder="Search..."
-            />
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1E293B", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
+          <span style={{ color: "#475569", fontSize: 13 }}>🔍</span>
+          <input
+            style={styles.searchInput}
+            value={search}
+            onChange={e => { setSearch(e.target.value); setShowUpcoming(20); setShowResults(20); }}
+            placeholder="Search..."
+          />
             {search && (
               <button onClick={() => { setSearch(""); setShowUpcoming(20); setShowResults(20); }} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", fontSize: 14 }}>✕</button>
             )}
@@ -503,36 +493,66 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           <FilterBar sport={filters.sport} gender={filters.gender} age={filters.age} onChange={setFilters} />
         </div>
         )}
-      </div>
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
       ) : (
         <>
 
-          {/* ═══ DASHBOARD TAB ═══ */}
-          {activeTab === "dashboard" && currentUser && (() => {
-            const role = currentUser.role;
+          {/* ═══ HOME TAB ═══ */}
+          {activeTab === "home" && (
+            <Homepage currentUser={currentUser} liveMatches={liveMatches} onNavigate={(tab) => { setActiveTab(tab); }} />
+          )}
+
+          {/* ═══ MORE TAB ═══ */}
+          {activeTab === "more" && (
+            <MoreMenu currentUser={currentUser} onLogout={onLogout} />
+          )}
+
+          {/* ═══ RANKINGS TAB ═══ */}
+          {activeTab === "rankings" && (() => {
+            const ranked = Object.entries(latestRankings)
+              .filter(([,r]) => r.rank)
+              .sort((a, b) => a[1].rank - b[1].rank);
+            const teamMap = {};
+            teams.forEach(t => { teamMap[t.id] = t; });
             return (
-              <div>
-                {(role === 'admin' || role === 'commentator_admin') && (
-                  <AdminDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
-                )}
-                {(role === 'commentator') && (
-                  <CommDashboardPanel currentUser={currentUser} onNavigate={onNavigate} />
-                )}
-                {(role === 'coach') && (
-                  <CoachDashboardPanel currentUser={currentUser} />
-                )}
-                {(role === 'supporter') && (
-                  <CrowdDashboardPanel currentUser={currentUser} />
-                )}
+              <div style={styles.section}>
+                <div style={styles.sectionTitle}>Rankings</div>
+                <FilterBar sport={filters.sport} gender={filters.gender} age={filters.age} onChange={setFilters} />
+                <div style={{ marginTop: 8 }}>
+                  {ranked.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>No rankings yet</div>
+                  ) : ranked.map(([teamId, r]) => {
+                    const t = teamMap[teamId];
+                    if (!t) return null;
+                    if (!teamPassesFilter(t, filters)) return null;
+                    const c = teamColor(t) || '#64748B';
+                    return (
+                      <div key={teamId} onClick={() => { window.location.hash = `#/team/${teamSlug(t)}`; }}
+                        style={{ ...styles.teamRow, cursor: 'pointer' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 7, background: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff' }}>
+                          {r.rank}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={styles.teamName}>{teamDisplayName(t)}</div>
+                          <div style={styles.teamRecord}>{teamDerivedName(t)}</div>
+                        </div>
+                        {r.prevRank && r.prevRank !== r.rank && (
+                          <div style={{ fontSize: 10, color: r.rank < r.prevRank ? '#10B981' : '#EF4444', fontWeight: 700 }}>
+                            {r.rank < r.prevRank ? '▲' : '▼'}{Math.abs(r.rank - r.prevRank)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })()}
 
           {/* ═══ IN PROGRESS TAB ═══ */}
-          {activeTab === "live" && (() => {
+          {activeTab === "scores" && scoresSub === "live" && (() => {
             const q = search.trim().toLowerCase();
             const filtered = allInProgress.filter(m =>
               matchPassesFilter(m, filters) &&
@@ -636,7 +656,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           })()}
 
           {/* ═══ UPCOMING TAB ═══ */}
-          {activeTab === "upcoming" && (() => {
+          {activeTab === "scores" && scoresSub === "upcoming" && (() => {
             const inProgressIds = new Set(inProgressUpcoming.map(m => m.id));
             const notStarted = upcomingMatches.filter(m => !inProgressIds.has(m.id));
             const q = search.trim().toLowerCase();
@@ -873,7 +893,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           })()}
 
           {/* ═══ RESULTS TAB ═══ */}
-          {activeTab === "results" && (() => {
+          {activeTab === "scores" && scoresSub === "results" && (() => {
             const q = search.trim().toLowerCase();
             const base = q ? (searchResults || []) : matches;
             const filtered = base.filter(m => matchPassesFilter(m, filters));
@@ -1142,12 +1162,15 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
           </div>
         </div>
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNav active={activeTab} onChange={setActiveTab} liveBadge={liveMatches.length} />
     </div>
   );
 }
 
 const styles = {
-  page: { fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none" },
+  page: { fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 600, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", userSelect: "none", paddingBottom: 60 },
   hero: { padding: "18px 20px 16px", textAlign: "center" },
   logo: { fontSize: 38, fontWeight: 900, letterSpacing: -1, color: "#F59E0B" },
   tagline: { fontSize: 13, color: "#94A3B8", fontWeight: 500, marginTop: 5 },

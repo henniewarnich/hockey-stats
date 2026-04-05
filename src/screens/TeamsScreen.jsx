@@ -263,9 +263,8 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
           <NavLogo />
         </div>
         <div style={S.page}>
-          <Pill label="Sport" options={SPORTS} value={editTeam.sport || null}
-            onChange={v => setEditTeam(p => ({ ...p, sport: v }))}
-            disabledOptions={['Rugby', 'Netball', 'Cricket']} />
+          <Pill label="Sport" options={['Hockey']} value={editTeam.sport || 'Hockey'}
+            onChange={v => setEditTeam(p => ({ ...p, sport: v }))} />
           <Pill label="Gender" options={GENDERS} value={editTeam.gender || null}
             onChange={v => setEditTeam(p => ({ ...p, gender: v }))} />
           <Pill label="Age group" options={AGE_GROUPS} value={editTeam.age_group || null}
