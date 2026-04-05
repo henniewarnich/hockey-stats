@@ -4,19 +4,21 @@ const H = "#F59E0B", B = "#3B82F6", gA = "#2D8B4E", gB = "#258043";
 
 const STORY = [
   { t:"Kick off", i:"Eagles win the toss. Tap the ball, then select Eagles from the popup.", a:"start" },
-  { t:"Eagles push forward", i:"Eagles receive and push into midfield. Tap the flashing zone.", a:"tap", target:"z21", pc:B, bz:"cb" },
-  { t:"Turnover!", i:"A Lions defender intercepts. Tap the ball to switch possession.", a:"turnover", pc:B, bz:"z21" },
-  { t:"Ball out", i:"Lions pass runs off the left sideline. Tap the flashing OUT strip.", a:"tap", target:"ol2", pc:H, bz:"z21" },
-  { t:"Eagles attack", i:"Eagles win the free hit and push into the Lions' quarter. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z22" },
+  { t:"Eagles push forward", i:"Eagles receive and push into the Lions' midfield. Tap the flashing zone.", a:"tap", target:"z11", pc:B, bz:"cb" },
+  { t:"Turnover!", i:"A Lions defender intercepts. Tap the ball to switch possession.", a:"turnover", pc:B, bz:"z11" },
+  { t:"Ball out", i:"Lions pass runs off the left sideline. Tap the flashing OUT strip.", a:"tap", target:"ol2", pc:H, bz:"z11" },
+  { t:"Eagles attack", i:"Eagles win the free hit and push into the Lions' quarter. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z20" },
   { t:"Into the D!", i:"Eagles enter the Lions' circle. Tap the flashing D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Short corner!", i:"Umpire awards a short corner. Tap Short Corner from the popup.", a:"popup", target:"popup-sc", pc:B },
+  { t:"Take the short corner", i:"Eagles line up on the backline. Push the ball outside the D first. Tap the flashing zone.", a:"tap", target:"z01", pc:B, bz:"z01" },
+  { t:"Back into the D!", i:"Eagles push the ball back into the circle. Tap the D.", a:"d_top", pc:B, bz:"z01" },
   { t:"Goal!!", i:"Eagles score from the short corner! Tap Goal from the popup.", a:"popup", target:"popup-goal", pc:B },
   { t:"Lions restart", i:"Lions take the centre pass and play an overhead into Eagles Quarter Right. Press and drag the ball to the flashing zone.", a:"overhead", target:"z32", pc:H, bz:"cb" },
   { t:"Eagles intercept", i:"Eagles win the ball back. Tap the ball to switch possession.", a:"turnover", pc:H, bz:"z32" },
   { t:"Eagles build", i:"Eagles move into their own midfield right. Tap the flashing zone.", a:"tap", target:"z22", pc:B, bz:"z32" },
   { t:"Undo!", i:"Wrong zone — that should have been centre! Tap Undo.", a:"btn", target:"cun", pc:B, bz:"z22" },
   { t:"Long corner", i:"Ball deflects off an Eagles defender over the backline. Tap LC to award Lions a long corner.", a:"tap", target:"lc-bot-r", pc:B, bz:"z32" },
-  { t:"Lions enter the D", i:"Lions push into the Eagles' circle. Tap the flashing D.", a:"d_bot", pc:H, bz:"z31" },
+  { t:"Lions enter the D", i:"Lions push into the Eagles' circle from the long corner. Tap the flashing D.", a:"d_bot", pc:H, bz:"z30" },
   { t:"Dead ball", i:"Ball crosses the backline. Tap Dead Ball from the popup.", a:"popup", target:"popup-db", pc:H },
   { t:"Eagles overhead", i:"Eagles restart with an overhead to Lions Midfield Centre. Press and drag the ball to the flashing zone.", a:"overhead", target:"z11", pc:B, bz:"z31" },
   { t:"Turnover", i:"Lions win the ball back. Tap the ball to switch possession.", a:"turnover", pc:B, bz:"z11" },
@@ -26,7 +28,7 @@ const STORY = [
   { t:"Ball dead", i:"Ball crosses the Lions' backline off the Eagles. Tap the flashing DEAD button.", a:"tap", target:"dd-top-r", pc:B, bz:"z02" },
   { t:"Half time", i:"The umpire blows for half time. Tap Pause.", a:"btn", target:"cpa", pc:H, bz:"z01" },
   { t:"Swap ends", i:"Teams swap ends for the second half. Tap 🔄.", a:"btn", target:"fbtn", pc:H, bz:"z01" },
-  { t:"Second half", i:"The umpire restarts play. Tap Resume.", a:"btn", target:"cres", pc:H, bz:"z01" },
+  { t:"Second half", i:"The umpire restarts play. Tap Resume.", a:"btn", target:"cres", pc:H, bz:"z01", flip:true },
   { t:"Lions push forward", i:"Lions take the centre pass and push right through the middle. Tap the flashing zone.", a:"tap", target:"z11", pc:H, bz:"cb", flip:true },
   { t:"Lions continue", i:"Lions push into the Eagles' quarter. Tap the flashing zone.", a:"tap", target:"z01", pc:H, bz:"z11", flip:true },
   { t:"Into the D!", i:"Lions enter the Eagles' circle. Tap the flashing D.", a:"d_top", pc:H, bz:"z01", flip:true },
@@ -235,8 +237,8 @@ export default function BenchmarkTest({ onPass, onBack }) {
         <div style={{background:'#1E293B',borderRadius:10,padding:14,width:'100%',marginTop:8}}>
           <div style={{fontSize:11,color:'#64748B',marginBottom:8,fontWeight:600}}>What's next</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {['Start with lower-ranked matches to build experience','Complete at least 2 live matches before high-profile games','Your first 5 matches will be reviewed for quality'].map((t,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:11,color:'#94A3B8'}}><span style={{color:'#10B981'}}>●</span>{t}</div>
+            {['You now have access to limited matches to either Live Commentate or Record from video','Complete at least one Live Match and one Recorded match to remove the limitation','Once you have done 5 matches (at least 2 Live), you will be eligible to start earning credits and ultimately some vouchers!'].map((t,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:11,color:'#94A3B8'}}><span style={{color:'#10B981',marginTop:2}}>●</span><span>{t}</span></div>
             ))}
           </div>
         </div>
