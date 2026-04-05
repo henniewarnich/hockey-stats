@@ -52,8 +52,10 @@ const Icon = ({ type }) => {
 export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [spotlight, setSpotlight] = useState(null);
   const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scoutPage, setScoutPage] = useState(0);
   const loaded = useRef(false);
 
   useEffect(() => {
@@ -62,11 +64,22 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     if (cached) {
       setStats(cached.stats);
       setAnalysis(cached.analysis);
+      setSpotlight(cached.spotlight || null);
       setRecentResults(cached.recentResults || []);
       setLoading(false);
     }
     load(!!cached);
   }, []);
+
+  // Auto-rotate AI Scout carousel
+  useEffect(() => {
+    if (!analysis && !spotlight) return;
+    const spotPages = spotlight ? Math.ceil(spotlight.length / 3) : 0;
+    const totalPages = (analysis ? 1 : 0) + spotPages;
+    if (totalPages <= 1) return;
+    const timer = setInterval(() => setScoutPage(p => (p + 1) % totalPages), 8000);
+    return () => clearInterval(timer);
+  }, [analysis, spotlight]);
 
   const load = async (hasCache) => {
     if (!hasCache) setLoading(true);
@@ -138,13 +151,15 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       if (!mt) return;
       const t = s.team === 'home' ? mt.home : mt.away;
       if (!t?.id) return;
-      if (!scoutAgg[t.id]) scoutAgg[t.id] = { team: t, lpMatches: 0, dEntries: 0, possLost: 0, turnoversWon: 0, possessionSum: 0, shotsOn: 0, shotsOff: 0, durationSec: 0 };
+      if (!scoutAgg[t.id]) scoutAgg[t.id] = { team: t, lpMatches: 0, dEntries: 0, possLost: 0, turnoversWon: 0, possessionSum: 0, shotsOn: 0, shotsOff: 0, durationSec: 0, territorySum: 0, goals: 0 };
       const a = scoutAgg[t.id];
       a.lpMatches++;
       a.dEntries += s.d_entries || 0;
       a.possLost += s.poss_lost || 0;
       a.turnoversWon += s.turnovers_won || 0;
       a.possessionSum += s.possession_time_pct || 0;
+      a.territorySum += s.territory_pct || 0;
+      a.goals += s.goals || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
       a.durationSec += mt.duration;
@@ -188,6 +203,45 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     }
     setAnalysis(newAnalysis);
 
+    // ── Spotlight: team summaries with traits ──
+    const spotTeams = [];
+    Object.entries(scoutAgg).forEach(([tid, a]) => {
+      const rec = overallRecord[tid];
+      if (!rec || a.lpMatches < 1 || rec.total < 5) return;
+      const accuracy = a.dEntries / (a.dEntries + a.possLost + 0.01);
+      const avgTerr = a.territorySum / a.lpMatches;
+      const mins = a.durationSec / 60 || 1;
+      const tempo = (a.dEntries + a.shotsOn + a.shotsOff + a.turnoversWon) / mins;
+      const conv = a.goals / (a.dEntries || 1);
+      const gaPerM = rec.ga / rec.total;
+      const wr = rec.w / rec.total;
+      const gd = rec.gf - rec.ga;
+      const traits = [];
+      if (accuracy >= 0.55) traits.push({ label: 'efficient', bg: '#10B98122', color: '#10B981' });
+      if (avgTerr >= 55) traits.push({ label: 'territorial', bg: '#8B5CF622', color: '#8B5CF6' });
+      if (tempo >= 1.2) traits.push({ label: 'high-tempo', bg: '#3B82F622', color: '#3B82F6' });
+      if (gaPerM <= 0.5) traits.push({ label: 'solid defence', bg: '#F59E0B22', color: '#F59E0B' });
+      if (conv >= 0.15) traits.push({ label: 'clinical', bg: '#10B98122', color: '#10B981' });
+      if (accuracy < 0.35) traits.push({ label: 'turnover-prone', bg: '#EF444422', color: '#EF4444' });
+      if (conv < 0.05 && a.dEntries > 5) traits.push({ label: 'needs conversion', bg: '#EF444422', color: '#EF4444' });
+      let summary;
+      if (accuracy >= 0.55 && avgTerr >= 55 && gaPerM <= 0.5) summary = 'Dominant force. Controls territory, efficient in possession, barely concedes.';
+      else if (accuracy >= 0.55 && tempo >= 1.2 && gaPerM <= 0.5) summary = 'Efficient and relentless. Keeps the ball well at a punishing pace.';
+      else if (avgTerr >= 55 && gaPerM <= 0.5) summary = 'Territorial and defensively rock-solid. Owns the opposition half.';
+      else if (tempo >= 1.2 && accuracy < 0.35) summary = 'Energetic but loose. High tempo offset by frequent turnovers.';
+      else if (gaPerM <= 0.5) summary = 'Defensively disciplined. Hard to break down and gives away very little.';
+      else if (conv >= 0.15) summary = 'Clinical finishers. Makes the most of every chance in the circle.';
+      else if (accuracy >= 0.55) summary = 'Composed in possession. Rarely wastes the ball, builds patiently.';
+      else if (tempo >= 1.2) summary = 'High-energy side. Plays at pace and generates constant pressure.';
+      else if (avgTerr >= 55) summary = 'Territorially dominant. Spends most of the game in the opposition half.';
+      else if (conv < 0.05 && a.dEntries > 5) summary = 'Creates chances but struggles to convert. The final touch needs work.';
+      else summary = 'Balanced profile across all metrics. A solid all-round side.';
+      spotTeams.push({ team: a.team, record: `P${rec.total} W${rec.w} D${rec.d} L${rec.l}`, gd: gd >= 0 ? `+${gd}` : `${gd}`, wr: Math.round(wr * 100), lpMatches: a.lpMatches, traits: traits.slice(0, 4), summary });
+    });
+    spotTeams.sort((a, b) => b.wr - a.wr);
+    const newSpotlight = spotTeams.length >= 3 ? spotTeams : null;
+    setSpotlight(newSpotlight);
+
     // ── Recent results ──
     const { data: recent } = await supabase.from('matches')
       .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
@@ -199,7 +253,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     setLoading(false);
 
     // Cache (strip deep objects for serialisation)
-    saveCache({ stats: newStats, analysis: newAnalysis, recentResults: recent || [] });
+    saveCache({ stats: newStats, analysis: newAnalysis, spotlight: newSpotlight, recentResults: recent || [] });
   };
 
   const fmtNum = (n) => {
@@ -297,18 +351,71 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         ))}
       </div>
 
-      {/* Team analysis — top 3 per metric */}
-      {analysis && (
-        <div style={{ padding: '0 16px 16px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Kykie AI Scout — team analysis</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, overflow: 'hidden' }}>
-            <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
-            <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
-            <AnalysisCard icon="clock" label="Most patient" teams={analysis.mostPatient} />
-            <AnalysisCard icon="shield" label="Strongest defence" teams={analysis.strongestDef} />
+      {/* AI Scout carousel — metrics + team spotlight */}
+      {(analysis || spotlight) && (() => {
+        const spotPages = spotlight ? [] : [];
+        if (spotlight) {
+          for (let i = 0; i < spotlight.length; i += 3) {
+            spotPages.push(spotlight.slice(i, i + 3));
+          }
+        }
+        const totalPages = (analysis ? 1 : 0) + spotPages.length;
+        const page = totalPages > 0 ? scoutPage % totalPages : 0;
+        return (
+          <div style={{ padding: '0 16px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>
+                Kykie AI Scout — {page === 0 && analysis ? 'team analysis' : 'team spotlight'}
+              </div>
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <div key={i} onClick={() => setScoutPage(i)} style={{
+                      width: 7, height: 7, borderRadius: '50%', cursor: 'pointer',
+                      background: i === page ? '#F59E0B' : '#334155',
+                    }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            {page === 0 && analysis ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, overflow: 'hidden' }}>
+                <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
+                <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
+                <AnalysisCard icon="clock" label="Most patient" teams={analysis.mostPatient} />
+                <AnalysisCard icon="shield" label="Strongest defence" teams={analysis.strongestDef} />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(spotPages[analysis ? page - 1 : page] || []).map(t => {
+                  const c = teamColor(t.team) || '#64748B';
+                  const initials = teamDisplayName(t.team)?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                  return (
+                    <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
+                      style={{ background: '#1E293B', borderRadius: 10, padding: 12, cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamDisplayName(t.team)}</div>
+                          <div style={{ fontSize: 9, color: '#64748B' }}>{t.record} · GD {t.gd} · {t.wr}% WR</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5, marginBottom: t.traits.length ? 6 : 0 }}>{t.summary}</div>
+                      {t.traits.length > 0 && (
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          {t.traits.map(tr => (
+                            <span key={tr.label} style={{ fontSize: 9, padding: '2px 8px', borderRadius: 10, background: tr.bg, color: tr.color, fontWeight: 600 }}>{tr.label}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Recent results */}
       <div style={{ padding: '0 16px' }}>
