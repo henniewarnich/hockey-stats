@@ -1,6 +1,5 @@
 import { APP_VERSION } from '../utils/constants.js';
 
-// Navigate to admin screen — hash is always '' when on LandingPage (bottom nav clears it)
 function goAdmin(screen) {
   sessionStorage.setItem('kykie-admin-screen', screen || 'home');
   window.location.hash = '#/admin';
@@ -14,15 +13,19 @@ const MenuItem = ({ icon, title, sub, onClick }) => (
     <span style={{ fontSize: 20 }}>{icon}</span>
     <div>
       <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
-      <div style={{ fontSize: 11, color: '#64748B' }}>{sub}</div>
+      {sub && <div style={{ fontSize: 11, color: '#64748B' }}>{sub}</div>}
     </div>
   </div>
 );
 
+const SectionLabel = ({ children }) => (
+  <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 10, marginBottom: 6 }}>{children}</div>
+);
+
 export default function MoreMenu({ currentUser, onLogout }) {
   const isComm = currentUser && ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role);
-  const isCoach = currentUser?.role === 'coach';
   const isAdmin = currentUser && ['admin', 'commentator_admin'].includes(currentUser.role);
+  const isCoach = currentUser?.role === 'coach';
 
   return (
     <div style={{ padding: '16px 16px 20px' }}>
@@ -32,42 +35,62 @@ export default function MoreMenu({ currentUser, onLogout }) {
         </div>
       )}
 
-      {/* Role-specific dashboard */}
-      {isComm && (
-        <div onClick={() => goAdmin('home')} style={{
-          background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
-          padding: '12px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-        }}>
-          <span style={{ fontSize: 20 }}>🎙️</span>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>Commentator dashboard</div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>Match schedule, recording, credits</div>
-          </div>
-        </div>
-      )}
-
-      {/* Commentator/Admin workflow items */}
-      {isComm && (
+      {/* ── ADMIN / COMM ADMIN ── */}
+      {isAdmin && (
         <>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Commentator</div>
-          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live"
-            onClick={() => goAdmin('match_schedule')} />
-          <MenuItem icon="📊" title="Game history" sub="Past matches and stats"
-            onClick={() => goAdmin('history')} />
-          <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers"
-            onClick={() => goAdmin('credits')} />
+          <div onClick={() => goAdmin('home')} style={{
+            background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
+            padding: '12px 14px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+          }}>
+            <span style={{ fontSize: 20 }}>🎙️</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>Commentator dashboard</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>Home screen with all options</div>
+            </div>
+          </div>
+
+          <SectionLabel>Manage</SectionLabel>
+          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
+          <MenuItem icon="📊" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
+          <MenuItem icon="🏫" title="Institutions & Teams" sub="Schools and team setup" onClick={() => goAdmin('teams')} />
+          <MenuItem icon="👥" title="Users" sub="Roles and assignments" onClick={() => goAdmin('users')} />
+          <MenuItem icon="📋" title="Pending approvals" sub="Review submissions" onClick={() => goAdmin('pending')} />
+          <MenuItem icon="🩺" title="System health" sub="Database and activity" onClick={() => goAdmin('health')} />
+          <MenuItem icon="💰" title="Credits" sub="Credit statement and vouchers" onClick={() => goAdmin('credits')} />
         </>
       )}
+
+      {/* ── COMMENTATOR (non-admin) ── */}
+      {isComm && !isAdmin && (
+        <>
+          <div onClick={() => goAdmin('home')} style={{
+            background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
+            padding: '12px 14px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+          }}>
+            <span style={{ fontSize: 20 }}>🎙️</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>Commentator dashboard</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>Match schedule, recording, credits</div>
+            </div>
+          </div>
+
+          <SectionLabel>Quick access</SectionLabel>
+          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
+          <MenuItem icon="📊" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
+          <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers" onClick={() => goAdmin('credits')} />
+        </>
+      )}
+
+      {/* ── COACH ── */}
       {isCoach && !isComm && (
         <>
-          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 4, marginBottom: 6 }}>Coach</div>
           <MenuItem icon="📊" title="Coach dashboard" sub="Team analytics and trends"
             onClick={() => { window.location.hash = '#/coach'; }} />
         </>
       )}
 
-      {/* Public items */}
-      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: isComm || isCoach ? 10 : 4, marginBottom: 6 }}>Contribute</div>
+      {/* ── CONTRIBUTE (all users) ── */}
+      <SectionLabel>Contribute</SectionLabel>
       <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
         onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
       <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
@@ -77,25 +100,12 @@ export default function MoreMenu({ currentUser, onLogout }) {
       <MenuItem icon="⚠️" title="Report a mistake" sub="Flag incorrect data"
         onClick={() => { window.location.hash = '#/issues'; }} />
 
+      {/* ── ACCOUNT ── */}
       {currentUser && (
         <>
+          <SectionLabel>Account</SectionLabel>
           <MenuItem icon="🔒" title="Security" sub="Password and devices"
             onClick={() => { window.location.hash = '#/security'; }} />
-
-          {isAdmin && (
-            <>
-              <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginTop: 10, marginBottom: 6 }}>Admin</div>
-              <MenuItem icon="📋" title="Pending approvals"
-                sub="Review submissions" onClick={() => { window.location.hash = '#/pending'; }} />
-              <MenuItem icon="🏫" title="Manage teams"
-                sub="Institutions and teams" onClick={() => goAdmin('teams')} />
-              <MenuItem icon="👥" title="Manage users"
-                sub="Roles and assignments" onClick={() => goAdmin('users')} />
-              <MenuItem icon="🩺" title="System health"
-                sub="Database and activity" onClick={() => { window.location.hash = '#/health'; }} />
-            </>
-          )}
-
           <div style={{ textAlign: 'center', marginTop: 16 }}>
             <span onClick={onLogout} style={{ fontSize: 12, color: '#EF4444', fontWeight: 600, cursor: 'pointer' }}>Sign out</span>
           </div>
