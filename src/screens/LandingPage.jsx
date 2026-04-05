@@ -431,6 +431,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ fontSize: 10, color: "#94A3B8" }}>{currentUser.alias_nickname || currentUser.firstname}</div>
               {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
+              <button onClick={() => { window.location.hash = '#/security'; }} style={{ fontSize: 10, color: "#94A3B8", background: "#1E293B", border: "1px solid #334155", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontWeight: 700 }}>🔒</button>
               <button onClick={onLogout} style={{ fontSize: 10, color: "#EF4444", background: "#EF444411", border: "1px solid #EF444444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>Sign out</button>
             </div>
           ) : (

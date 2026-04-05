@@ -20,31 +20,37 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   const fetchCloud = async () => {
     const { data } = await supabase
       .from('matches')
-      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}, match_commentators(commentator_id, commentator:profiles!commentator_id(firstname, lastname, alias_nickname))`)
       .in('status', ['ended', 'abandoned'])
       .order('match_date', { ascending: false });
     if (data) {
-      const mapped = data.map(m => ({
-        id: m.id,
-        supabase_id: m.id,
-        date: m.match_date,
-        teams: {
-          home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
-          away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
-        },
-        homeScore: m.home_score,
-        awayScore: m.away_score,
-        duration: m.duration || 0,
-        matchLength: m.match_length || 60,
-        breakFormat: m.break_format || "quarters",
-        venue: m.venue,
-        matchType: m.match_type,
-        quickScore: !m.duration || m.duration === 0,
-        cloudOnly: true,
-        status: m.status,
-        homePenalty: m.home_penalty_score,
-        awayPenalty: m.away_penalty_score,
-      }));
+      const mapped = data.map(m => {
+        const comms = m.match_commentators || [];
+        const recorder = comms[0]?.commentator;
+        const recorderName = recorder?.alias_nickname || recorder?.firstname || null;
+        return {
+          id: m.id,
+          supabase_id: m.id,
+          date: m.match_date,
+          teams: {
+            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
+            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
+          },
+          homeScore: m.home_score,
+          awayScore: m.away_score,
+          duration: m.duration || 0,
+          matchLength: m.match_length || 60,
+          breakFormat: m.break_format || "quarters",
+          venue: m.venue,
+          matchType: m.match_type,
+          quickScore: !m.duration || m.duration === 0,
+          cloudOnly: true,
+          status: m.status,
+          homePenalty: m.home_penalty_score,
+          awayPenalty: m.away_penalty_score,
+          recorderName,
+        };
+      });
       setCloudMatches(mapped);
     }
     setLoadingCloud(false);
@@ -221,7 +227,15 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
             const isSynced = !!g.supabase_id;
             const hasEvents = g.events && g.events.length > 0;
             const hasZones = hasEvents && g.events.some(e => e.zone);
-            const matchType = !hasEvents ? null : hasZones ? 'LIVE PRO' : 'LIVE';
+            const isLivePro = !hasEvents ? false : hasZones;
+            const isLive = !hasEvents ? false : !hasZones;
+            const recName = g.recorderName;
+            const matchLabel = isLivePro
+              ? (recName ? `Recorded Live by ${recName}` : 'LIVE PRO')
+              : isLive
+                ? (recName ? `Recorded from video by ${recName}` : 'LIVE')
+                : null;
+            const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
             return (
               <div key={g.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", opacity: g.status === 'abandoned' ? 0.5 : 1 }}>
                 {/* Video Stats button */}
@@ -262,7 +276,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                   <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>
                     {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                     {g.venue && ` · ${g.venue}`}
-                    {matchType && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#10B981", background: "#10B98118", padding: "1px 5px", borderRadius: 3 }}>{matchType}</span>}
+                    {matchLabel && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#10B981", background: "#10B98118", padding: "1px 5px", borderRadius: 3 }}>{matchLabel}</span>}
                     {g.status === 'abandoned' && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#64748B", background: "#64748B22", padding: "1px 5px", borderRadius: 3 }}>ABANDONED</span>}
                   </div>
                 </div>
@@ -275,13 +289,13 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                   )}
                   <div style={{ height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', marginTop: 4 }}>
-                    {isSynced && g.homeScore === g.awayScore && g.status !== 'abandoned' && (
+                    {isSynced && g.homeScore === g.awayScore && g.status !== 'abandoned' && !isApprentice && (
                       <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0, homeName: g.teams?.home?.name || 'Home', awayName: g.teams?.away?.name || 'Away' }); }}
                         style={{ fontSize: 8, color: '#F59E0B', cursor: 'pointer', fontWeight: 700, border: '1px solid #F59E0B44', borderRadius: 4, padding: '2px 6px', background: '#F59E0B11' }}>
                         {g.homePenalty != null ? '✏ pen' : '+ pen'}
                       </span>
                     )}
-                    {isSynced && (
+                    {isSynced && isAdmin && (
                       <span onClick={(e) => { e.stopPropagation(); toggleAbandoned(g); }}
                         style={{ fontSize: 8, color: '#64748B', cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}>
                         {g.status === 'abandoned' ? '↩ restore' : '⚡ abandon'}

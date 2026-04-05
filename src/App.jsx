@@ -38,6 +38,9 @@ import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
 import WhatIfScreen from './components/WhatIfScreen.jsx';
 import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
+import SecurityScreen from './screens/SecurityScreen.jsx';
+import DeviceVerification from './components/DeviceVerification.jsx';
+import { checkDevice } from './utils/devices.js';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -60,6 +63,7 @@ function getHashRoute() {
   if (hash === 'issues') return { type: 'issues' };
   if (hash === 'health') return { type: 'health' };
   if (hash === 'training') return { type: 'training' };
+  if (hash === 'security') return { type: 'security' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
   return { type: 'landing' };
@@ -77,6 +81,7 @@ export default function App() {
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintDoor, setMaintDoor] = useState({ taps: 0, show: false, email: '', password: '', error: '', loading: false });
+  const [deviceBlock, setDeviceBlock] = useState(null); // { user, deviceInfo } when 3rd device detected
   const store = useMatchStore();
 
   // Check maintenance mode on load
@@ -112,6 +117,12 @@ export default function App() {
           setCurrentUser(profile);
           sessionStorage.setItem('kykie-user-id', profile.id);
 
+          // Check device registration
+          const devResult = await checkDevice(profile.id);
+          if (devResult.status === 'blocked') {
+            setDeviceBlock({ user: profile, deviceInfo: devResult });
+          }
+
           if (isEmailConfirmation) {
             setEmailConfirmed(true);
             // Clean the hash to remove tokens
@@ -136,9 +147,17 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (profile) => {
+  const handleLogin = async (profile) => {
     setCurrentUser(profile);
     sessionStorage.setItem('kykie-user-id', profile.id);
+
+    // Check device registration
+    const devResult = await checkDevice(profile.id);
+    if (devResult.status === 'blocked') {
+      setDeviceBlock({ user: profile, deviceInfo: devResult });
+      return; // Don't navigate — show device verification
+    }
+
     if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
       // Trainee commentators go to training, qualified go to admin
       if (profile.role === 'commentator' && profile.commentator_status === 'trainee') {
@@ -180,6 +199,36 @@ export default function App() {
       setCurrentUser(null);
       window.location.hash = '#/login';
     }} />;
+  }
+
+  // ── DEVICE VERIFICATION ──
+  if (deviceBlock) {
+    return (
+      <DeviceVerification
+        currentUser={deviceBlock.user}
+        deviceInfo={deviceBlock.deviceInfo}
+        onVerified={() => {
+          setDeviceBlock(null);
+          // Continue to normal destination
+          const profile = deviceBlock.user;
+          if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
+            if (profile.role === 'commentator' && profile.commentator_status === 'trainee') {
+              window.location.hash = '#/training';
+            } else {
+              window.location.hash = '#/admin';
+            }
+          } else {
+            window.location.hash = '';
+          }
+        }}
+        onCancel={async () => {
+          setDeviceBlock(null);
+          await signOut();
+          setCurrentUser(null);
+          window.location.hash = '#/login';
+        }}
+      />
+    );
   }
 
   // ── MAINTENANCE MODE ──
@@ -312,6 +361,14 @@ export default function App() {
       return <LoginPage onLogin={handleLogin} />;
     }
     return <IssuesScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
+  }
+
+  // Security (any authenticated user)
+  if (route.type === 'security') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <SecurityScreen currentUser={currentUser} onBack={() => { window.history.back(); }} />;
   }
 
   // Commentator training (trainee commentators)
