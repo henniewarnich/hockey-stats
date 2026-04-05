@@ -37,6 +37,7 @@ import RankingsScreen from './screens/RankingsScreen.jsx';
 import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
 import WhatIfScreen from './components/WhatIfScreen.jsx';
 import TrainingScreen from './screens/TrainingScreen.jsx';
+import CreditsScreen from './screens/CreditsScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -537,6 +538,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "sponsors":
       return <SponsorManagementScreen onBack={() => navigate("home")} />;
+
+    case "credits":
+      return <CreditsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

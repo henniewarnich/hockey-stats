@@ -48,6 +48,7 @@ export default function BenchmarkTest({ onPass, onBack }) {
   const [flash, setFlash] = useState(null);
   const [passed, setPassed] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [bdoor, setBdoor] = useState({ show: false, code: '', err: '' });
   const cRef = useRef(null);
   const flashT = useRef(null);
   const dragRef = useRef({ active: false, startX: 0, startY: 0 });
@@ -261,9 +262,29 @@ export default function BenchmarkTest({ onPass, onBack }) {
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <button onClick={onBack} style={{background:'none',border:'none',color:'#64748B',fontSize:13,cursor:'pointer',padding:0}}>← Quit</button>
-        <span style={{fontSize:14,fontWeight:700}}>Benchmark test</span>
+        <span style={{fontSize:14,fontWeight:700,cursor:'default'}} onDoubleClick={() => setBdoor({ show: true, code: '', err: '' })}>Benchmark test</span>
         <span style={{fontSize:12,color:'#64748B'}}>{cur+1}/{STORY.length}</span>
       </div>
+
+      {bdoor.show && (
+        <div style={{position:'fixed',inset:0,zIndex:999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setBdoor({ show: false, code: '', err: '' })}>
+          <div style={{background:'#1E293B',borderRadius:12,padding:20,width:260}} onClick={e => e.stopPropagation()}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Enter bypass code</div>
+            <input type="number" value={bdoor.code} onChange={e => setBdoor(b => ({ ...b, code: e.target.value, err: '' }))}
+              style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #334155',background:'#0B0F1A',color:'#F8FAFC',fontSize:16,textAlign:'center',outline:'none',boxSizing:'border-box'}}
+              autoFocus />
+            {bdoor.err && <div style={{fontSize:11,color:'#EF4444',marginTop:6,textAlign:'center'}}>{bdoor.err}</div>}
+            <button onClick={() => {
+              if (parseInt(bdoor.code, 10) === new Date().getDate()) {
+                setBdoor({ show: false, code: '', err: '' });
+                setPassed(true);
+              } else {
+                setBdoor(b => ({ ...b, err: 'Incorrect code' }));
+              }
+            }} style={{width:'100%',marginTop:10,padding:10,borderRadius:8,border:'none',background:'#F59E0B',color:'#0B0F1A',fontSize:13,fontWeight:700,cursor:'pointer'}}>Submit</button>
+          </div>
+        </div>
+      )}
       <div style={{height:4,background:'#1E293B',borderRadius:2,marginBottom:14,overflow:'hidden'}}>
         <div style={{width:`${(cur/STORY.length)*100}%`,height:'100%',background:'#10B981',borderRadius:2,transition:'width 0.3s'}}/>
       </div>

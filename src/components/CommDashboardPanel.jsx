@@ -79,9 +79,9 @@ export default function CommDashboardPanel({ currentUser, onNavigate }) {
         </div>
       )}
 
-      {/* My Credits — always visible, shows zero for apprentice */}
-      <div style={{
-        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'default',
+      {/* My Credits */}
+      <div onClick={() => onNavigate && onNavigate('credits')} style={{
+        ...S.card, display: 'flex', alignItems: 'center', gap: 14, cursor: onNavigate ? 'pointer' : 'default',
       }}>
         <div style={{ fontSize: 24 }}>💰</div>
         <div>
