@@ -418,7 +418,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
 
       {/* Hero - scrolls away */}
       {/* Header */}
-      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1E293B" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "#0B0F1A", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #1E293B" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <svg width="32" height="32" viewBox="0 0 56 56">
             <circle cx="28" cy="28" r="20" fill="none" stroke="#10B981" strokeWidth="2"/>
