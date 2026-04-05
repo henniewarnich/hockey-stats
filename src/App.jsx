@@ -65,7 +65,10 @@ function getHashRoute() {
   if (hash === 'training') return { type: 'training' };
   if (hash === 'security') return { type: 'security' };
   if (hash === 'coach') return { type: 'coach' };
-  if (hash === 'admin' || hash.startsWith('admin')) return { type: 'admin' };
+  if (hash === 'admin' || hash.startsWith('admin/') || hash.startsWith('admin?')) {
+    const sub = hash.includes('/') ? hash.split('/')[1] : null;
+    return { type: 'admin', screen: sub || null };
+  }
   return { type: 'landing' };
 }
 
@@ -98,16 +101,12 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
-  // Deep-link to specific admin screen via sessionStorage (set by MoreMenu/Homepage)
+  // Deep-link to admin screens via hash (e.g. #/admin/match_schedule)
   useEffect(() => {
-    if (route.type === 'admin') {
-      const target = sessionStorage.getItem('kykie-admin-screen');
-      if (target) {
-        sessionStorage.removeItem('kykie-admin-screen');
-        setScreen(target);
-      }
+    if (route.type === 'admin' && route.screen) {
+      setScreen(route.screen);
     }
-  }, [route]);
+  }, [route.type, route.screen]);
 
   // Device heartbeat — check if this device is still registered, sign out if removed
   useEffect(() => {
@@ -481,15 +480,10 @@ export default function App() {
     );
   }
 
-  // Default landing — redirect admin to #/admin, pass onRoleSwitch for logged-in users
+  // Trainee commentators go to training
   const activeRole = sessionStorage.getItem('kykie-active-role') || currentUser?.role;
-  if (currentUser && ['admin', 'commentator_admin', 'commentator'].includes(activeRole)) {
-    // Trainee commentators go to training
-    if (activeRole === 'commentator' && currentUser.commentator_status === 'trainee') {
-      window.location.hash = '#/training';
-    } else {
-      window.location.hash = '#/admin';
-    }
+  if (currentUser && activeRole === 'commentator' && currentUser.commentator_status === 'trainee') {
+    window.location.hash = '#/training';
     return null;
   }
 
@@ -506,7 +500,7 @@ export default function App() {
   };
   return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
     onNavigate={currentUser ? defaultNavigate : null}
-    onRoleSwitch={handleRoleSwitch} initialTab={currentUser ? "dashboard" : null} />;
+    onRoleSwitch={handleRoleSwitch} />;
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {

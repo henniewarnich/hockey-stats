@@ -379,8 +379,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         const isAdmin = ['admin', 'commentator_admin'].includes(role);
         const isApprentice = currentUser.commentator_status === 'apprentice';
         const goAdmin = (scr) => { 
-          sessionStorage.setItem('kykie-admin-screen', scr); 
-          window.location.hash = '#/admin'; 
+          window.location.hash = scr ? `#/admin/${scr}` : '#/admin'; 
         };
         const Btn = ({ icon, label, color, bg, border, onClick }) => (
           <div onClick={onClick} style={{ flex: 1, padding: 8, borderRadius: 8, background: bg || '#0B0F1A', border: border || '1px solid #33415566', textAlign: 'center', cursor: 'pointer' }}>

@@ -1,8 +1,7 @@
 import { APP_VERSION } from '../utils/constants.js';
 
 function goAdmin(screen) {
-  sessionStorage.setItem('kykie-admin-screen', screen || 'home');
-  window.location.hash = '#/admin';
+  window.location.hash = screen ? `#/admin/${screen}` : '#/admin';
 }
 
 const MenuItem = ({ icon, title, sub, onClick }) => (
@@ -29,26 +28,10 @@ export default function MoreMenu({ currentUser, onLogout }) {
 
   return (
     <div style={{ padding: '16px 16px 20px' }}>
-      {currentUser && (
-        <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 12 }}>
-          Signed in as {currentUser.alias_nickname || currentUser.firstname} ({currentUser.role})
-        </div>
-      )}
 
-      {/* ── ADMIN / COMM ADMIN ── */}
+      {/* ── ADMIN / COMM ADMIN — clean manage-only menu ── */}
       {isAdmin && (
         <>
-          <div onClick={() => goAdmin('home')} style={{
-            background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
-            padding: '12px 14px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-          }}>
-            <span style={{ fontSize: 20 }}>🎙️</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>Commentator dashboard</div>
-              <div style={{ fontSize: 11, color: '#94A3B8' }}>Home screen with all options</div>
-            </div>
-          </div>
-
           <SectionLabel>Manage</SectionLabel>
           <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
           <MenuItem icon="📊" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
@@ -56,7 +39,6 @@ export default function MoreMenu({ currentUser, onLogout }) {
           <MenuItem icon="👥" title="Users" sub="Roles and assignments" onClick={() => goAdmin('users')} />
           <MenuItem icon="📋" title="Pending approvals" sub="Review submissions" onClick={() => goAdmin('pending')} />
           <MenuItem icon="🩺" title="System health" sub="Database and activity" onClick={() => goAdmin('health')} />
-          <MenuItem icon="💰" title="Credits" sub="Credit statement and vouchers" onClick={() => goAdmin('credits')} />
         </>
       )}
 
@@ -89,16 +71,20 @@ export default function MoreMenu({ currentUser, onLogout }) {
         </>
       )}
 
-      {/* ── CONTRIBUTE (all users) ── */}
-      <SectionLabel>Contribute</SectionLabel>
-      <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
-        onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
-      <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
-        onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} />
-      <MenuItem icon="🏫" title="Suggest a team" sub="Add a school not yet listed"
-        onClick={() => { window.location.hash = '#/submit?mode=team'; }} />
-      <MenuItem icon="⚠️" title="Report a mistake" sub="Flag incorrect data"
-        onClick={() => { window.location.hash = '#/issues'; }} />
+      {/* ── CONTRIBUTE (non-admin users) ── */}
+      {!isAdmin && (
+        <>
+          <SectionLabel>Contribute</SectionLabel>
+          <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
+            onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
+          <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
+            onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} />
+          <MenuItem icon="🏫" title="Suggest a team" sub="Add a school not yet listed"
+            onClick={() => { window.location.hash = '#/submit?mode=team'; }} />
+          <MenuItem icon="⚠️" title="Report a mistake" sub="Flag incorrect data"
+            onClick={() => { window.location.hash = '#/issues'; }} />
+        </>
+      )}
 
       {/* ── ACCOUNT ── */}
       {currentUser && (
