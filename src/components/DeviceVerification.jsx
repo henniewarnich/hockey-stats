@@ -12,6 +12,15 @@ export default function DeviceVerification({ currentUser, deviceInfo, onVerified
   const oldest = deviceInfo.devices?.[0];
   const otherDevice = deviceInfo.devices?.[1];
 
+  // Mask email: h****@gmail.com
+  const maskEmail = (email) => {
+    if (!email) return '***';
+    const [local, domain] = email.split('@');
+    if (!domain) return '***';
+    return local[0] + '****@' + domain;
+  };
+  const maskedEmail = maskEmail(currentUser.email);
+
   const handleSendOtp = async () => {
     setSending(true);
     setError('');
@@ -101,7 +110,7 @@ export default function DeviceVerification({ currentUser, deviceInfo, onVerified
             {sending ? 'Sending code...' : 'Send verification code to my email'}
           </button>
           <div style={{ fontSize: 10, color: '#64748B', textAlign: 'center', marginTop: 6 }}>
-            Code will be sent to {currentUser.email}
+            Code will be sent to {maskedEmail}
           </div>
           <button onClick={onCancel} style={{ ...S.btn('transparent'), border: '1px solid #334155', color: '#64748B', marginTop: 8 }}>
             Cancel — stay on previous device
@@ -112,7 +121,7 @@ export default function DeviceVerification({ currentUser, deviceInfo, onVerified
       {step === 'otp' && (
         <div style={{ width: '100%' }}>
           <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 10 }}>
-            Enter the code sent to {currentUser.email}
+            Enter the code sent to {maskedEmail}
           </div>
           <input type="text" inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
             style={S.input} placeholder="00000000" autoFocus />

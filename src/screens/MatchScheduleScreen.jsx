@@ -519,6 +519,10 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
               const isLive = m.status === 'live';
               const isMyLock = m.locked_by === currentUser?.id || m.created_by === currentUser?.id;
               const countdown = getCountdown(m.match_date, m.scheduled_time, m.match_length);
+              const isApprentice = currentUser?.commentator_status === 'apprentice';
+              const homeRank = latestRankings[m.home_team?.id]?.rank;
+              const awayRank = latestRankings[m.away_team?.id]?.rank;
+              const isTop10Match = isApprentice && ((homeRank && homeRank <= 10) || (awayRank && awayRank <= 10));
               return (
                 <div key={m.id} style={{
                   background: theme.surface, borderRadius: 10, padding: "10px 12px",
@@ -548,7 +552,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                     </div>
                   )}
                   {/* Action buttons */}
-                  {isLive && isMyLock ? (
+                  {isTop10Match ? (
+                    <div style={{ fontSize: 9, color: "#F59E0B", padding: "4px 0" }}>🔒 Top 10 match — available once you qualify as a Commentator</div>
+                  ) : isLive && isMyLock ? (
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => handleResumeLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#10B981", color: "#fff", cursor: "pointer" }}>🏑 Continue Recording</button>
                       <button onClick={() => { if (confirm("Cancel? Reverts to upcoming.")) handleCancelLive(m); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>✕</button>
@@ -561,7 +567,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                         <button onClick={() => handleStartLive(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", background: "#F59E0B", color: "#0B0F1A", cursor: "pointer" }}>🏑 Start Live</button>
                       )}
                       <button onClick={() => handleQuickScore(m)} style={{ flex: 1, padding: 6, borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>💾 Quick Score</button>
-                      {currentUser?.role !== 'supporter' && (
+                      {currentUser?.role !== 'supporter' && !isApprentice && (
                         <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
                       )}
                       {(currentUser?.role === 'admin' || m.created_by === currentUser?.id) && (
