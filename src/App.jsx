@@ -395,7 +395,7 @@ export default function App() {
     return <PredictionLeaderboard currentUser={currentUser} onBack={() => setSubScreen(null)} />;
   }
   if (subScreen === 'history') {
-    return <HistoryScreen games={store.games} onSelect={() => {}} onBack={() => setSubScreen(null)} onSyncAll={store.syncAllGames} syncing={store.syncing} />;
+    return <HistoryScreen games={store.games} currentUser={currentUser} onSelect={() => {}} onBack={() => setSubScreen(null)} onSyncAll={store.syncAllGames} syncing={store.syncing} />;
   }
 
   const defaultNavigate = (target) => {
@@ -545,6 +545,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <TeamsScreen currentUser={currentUser} onSave={store.saveTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
 
     case "match_setup":
+      if (currentUser?.commentator_status === 'apprentice') { navigate("home"); return null; }
       return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
 
     case "what_if":

@@ -238,11 +238,11 @@ export default function BenchmarkTest({ onPass, onBack }) {
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
         <div style={{width:80,height:80,borderRadius:40,border:'4px solid #10B981',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>✓</div>
         <div style={{fontSize:22,fontWeight:800,color:'#10B981'}}>Test passed!</div>
-        <div style={{fontSize:13,color:'#94A3B8',textAlign:'center',lineHeight:1.6}}>You've proven you can handle the Live Pro recorder. Welcome aboard, commentator.</div>
+        <div style={{fontSize:13,color:'#94A3B8',textAlign:'center',lineHeight:1.6}}>You have now entered the Apprentice program.</div>
         <div style={{background:'#1E293B',borderRadius:10,padding:14,width:'100%',marginTop:8}}>
           <div style={{fontSize:11,color:'#64748B',marginBottom:8,fontWeight:600}}>What's next</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {['You now have access to limited matches to either Live Commentate or Record from video','Complete at least one Live Match and one Recorded match to remove the limitation','Once you have done 5 matches (at least 2 Live), you will be eligible to start earning credits and ultimately some vouchers!'].map((t,i)=>(
+            {['Complete 1 Live and 1 Recorded match to remove the limitation on matches you can commentate','After 5 matches, you will qualify as a full Commentator and be eligible to start earning credits','Credits can be redeemed for Takealot vouchers — R100 per 100 credits'].map((t,i)=>(
               <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:11,color:'#94A3B8'}}><span style={{color:'#10B981',marginTop:2}}>●</span><span>{t}</span></div>
             ))}
           </div>

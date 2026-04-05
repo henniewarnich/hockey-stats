@@ -190,7 +190,7 @@ export async function saveBenchmarkResult(userId, score, passed) {
     benchmark_score: score,
   };
   if (passed) {
-    updates.commentator_status = 'qualified';
+    updates.commentator_status = 'apprentice';
     updates.benchmark_passed_at = new Date().toISOString();
   }
   const { error } = await supabase

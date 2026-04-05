@@ -12,6 +12,9 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   const [cloudMatches, setCloudMatches] = useState([]);
   const [loadingCloud, setLoadingCloud] = useState(true);
   const [penEdit, setPenEdit] = useState(null); // { id, home, away }
+  const [top10TeamIds, setTop10TeamIds] = useState(new Set());
+
+  const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';
 
   // Fetch all ended + abandoned matches from Supabase
   const fetchCloud = async () => {
@@ -49,6 +52,18 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
 
   useEffect(() => {
     fetchCloud();
+    if (isApprentice) {
+      // Fetch Top 10 team IDs to filter for apprentice
+      supabase.from('ranking_sets').select('id').order('created_at', { ascending: false }).limit(1)
+        .then(({ data: sets }) => {
+          if (sets?.[0]?.id) {
+            supabase.from('rankings').select('team_id').eq('ranking_set_id', sets[0].id).lte('rank', 10)
+              .then(({ data: ranks }) => {
+                if (ranks) setTop10TeamIds(new Set(ranks.map(r => r.team_id)));
+              });
+          }
+        });
+    }
   }, []);
 
   // Merge local + cloud, deduplicate by supabase_id
@@ -70,6 +85,10 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
 
   const filtered = useMemo(() => {
     let list = [...allGames];
+    // Apprentice: filter out matches involving Top 10 teams
+    if (isApprentice && top10TeamIds.size > 0) {
+      list = list.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(g => {
@@ -85,7 +104,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
       return sortDir === "desc" ? db - da : da - db;
     });
     return list;
-  }, [allGames, search, sortDir]);
+  }, [allGames, search, sortDir, top10TeamIds, isApprentice]);
 
   const resultColor = (g) => {
     if (g.status === 'abandoned') return "#64748B";
@@ -185,6 +204,12 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
         </div>
 
         {/* Game list */}
+        {isApprentice && (
+          <div style={{ padding: "8px 12px", borderRadius: 8, background: "#F59E0B11", border: "1px solid #F59E0B33", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 600 }}>Matches involving Top 10 ranked teams are hidden</div>
+            <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>Will become available once you qualify by completing one Live and one Recorded match.</div>
+          </div>
+        )}
         {filtered.length === 0 ? (
           <div style={S.empty}>
             {allGames.length === 0 ? "No games recorded yet." : "No matches found."}

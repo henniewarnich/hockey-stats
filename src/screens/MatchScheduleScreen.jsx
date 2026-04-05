@@ -492,7 +492,14 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         <NavLogo />
       </div>
       <div style={S.page}>
-        <button style={S.btn(theme.accent, theme.bg)} onClick={() => { resetForm(); setView("create"); }}>+ Schedule Match</button>
+        {currentUser?.commentator_status === 'apprentice' ? (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "#F59E0B11", border: "1px solid #F59E0B33", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600 }}>You will be able to schedule new matches once you qualify as a Commentator</div>
+            <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Complete 1 Live and 1 Recorded match to remove this limitation.</div>
+          </div>
+        ) : (
+          <button style={S.btn(theme.accent, theme.bg)} onClick={() => { resetForm(); setView("create"); }}>+ Schedule Match</button>
+        )}
 
         {/* Search */}
         <div style={{ marginTop: 10 }}>
