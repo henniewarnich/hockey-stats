@@ -87,23 +87,30 @@ export async function replaceOldestDevice(userId) {
   const deviceName = getDeviceName();
 
   // Find oldest device
-  const { data: devices } = await supabase
+  const { data: devices, error: fetchErr } = await supabase
     .from('user_devices')
     .select('*')
     .eq('user_id', userId)
     .order('last_active_at', { ascending: true })
     .limit(1);
 
+  console.log('replaceOldestDevice: found', devices?.length, 'devices, fetchErr:', fetchErr?.message);
+
   if (devices?.[0]) {
-    await supabase.from('user_devices').delete().eq('id', devices[0].id);
+    console.log('Removing oldest device:', devices[0].device_name, devices[0].device_id);
+    const { error: delErr } = await supabase.from('user_devices').delete().eq('id', devices[0].id);
+    if (delErr) console.error('Delete device error:', delErr.message);
+    else console.log('Device deleted successfully');
   }
 
   // Register new device
-  await supabase.from('user_devices').insert({
+  const { error: insErr } = await supabase.from('user_devices').insert({
     user_id: userId,
     device_id: deviceId,
     device_name: deviceName,
   });
+  if (insErr) console.error('Insert device error:', insErr.message);
+  else console.log('New device registered:', deviceName);
 }
 
 // Fetch all devices for a user (for settings display)

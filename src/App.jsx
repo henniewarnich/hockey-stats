@@ -102,23 +102,33 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     const deviceId = getDeviceId();
+    const checkDevice = async () => {
+      try {
+        const { data, error } = await supabase.from('user_devices')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .eq('device_id', deviceId);
+        if (error) { console.warn('Device heartbeat error:', error.message); return; }
+        if (!data || data.length === 0) {
+          // Device was removed — sign out
+          console.log('Device removed, signing out');
+          await signOut();
+          setCurrentUser(null);
+          sessionStorage.removeItem('kykie-active-role');
+          sessionStorage.removeItem('kykie-user-id');
+          window.location.hash = '#/login';
+          alert('You have been logged out because another device was registered.');
+          return true; // signal to stop
+        }
+      } catch (e) { console.warn('Device heartbeat exception:', e); }
+      return false;
+    };
+    // Check immediately, then every 15 seconds
+    checkDevice();
     const interval = setInterval(async () => {
-      const { data } = await supabase.from('user_devices')
-        .select('id')
-        .eq('user_id', currentUser.id)
-        .eq('device_id', deviceId)
-        .maybeSingle();
-      if (!data) {
-        // Device was removed — sign out
-        clearInterval(interval);
-        await signOut();
-        setCurrentUser(null);
-        sessionStorage.removeItem('kykie-active-role');
-        sessionStorage.removeItem('kykie-user-id');
-        alert('You have been logged out because another device was registered.');
-        window.location.hash = '#/login';
-      }
-    }, 30000); // Check every 30 seconds
+      const stopped = await checkDevice();
+      if (stopped) clearInterval(interval);
+    }, 15000);
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
