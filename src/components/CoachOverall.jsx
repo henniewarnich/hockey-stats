@@ -233,18 +233,21 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
     hdr: { fontSize: 9, fontWeight: 800, textAlign: "center", textTransform: "uppercase", letterSpacing: 0.5 },
   };
 
-  const ValCell = ({ val, suffix, color, detail, avgPM }) => (
+  const ValCell = ({ val, suffix, color, avgPM }) => (
     <div style={{ textAlign: "center" }}>
       <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color }}>{val != null ? `${val}${suffix}` : "\u2013"}</div>
       {avgPM != null && <div style={{ fontSize: 8, color: "#64748B", marginTop: 1 }}>{avgPM}/match</div>}
     </div>
   );
 
-  const LockedCell = () => (
-    <div style={{ textAlign: "center", fontSize: 14, color: "#334155" }}>🔒</div>
+  const BlurCell = ({ val, suffix, color, avgPM }) => (
+    <div style={{ textAlign: "center", filter: "blur(6px)", userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color }}>{val != null ? `${val}${suffix}` : "\u2013"}</div>
+      {avgPM != null && <div style={{ fontSize: 8, color: "#475569", marginTop: 1 }}>{avgPM}/match</div>}
+    </div>
   );
 
-  const OppCell = (props) => canSeeOpp ? <ValCell {...props} /> : <LockedCell />;
+  const GatedCell = (props) => canSeeOpp ? <ValCell {...props} /> : <BlurCell {...props} />;
 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
@@ -255,22 +258,22 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       {/* Detailed Live Pro Stats */}
       <div style={ST.card}>
         <div style={ST.title}>Detailed Live Pro Stats</div>
-        <div style={{ ...ST.colH, gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px" }}>
+        <div style={ST.colH}>
           <div />
           <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
-          {canSeeOpp && <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>}
-          {canSeeOpp && <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>}
+          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
+          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
         </div>
         {rows.map((r, i) => {
           const isExp = expanded[r.key];
           const trend = getTrend(r.trendKey);
           const hasTrend = trend.length >= 2;
-          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, true) : ['#F8FAFC', '#64748B', '#64748B'];
+          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, true) : ['#F8FAFC', '#94A3B8', '#8B5CF6'];
           return (
             <div key={r.key}>
               <div
                 onClick={() => hasTrend && toggle(r.key)}
-                style={{ display: "grid", gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: hasTrend ? "pointer" : "default" }}
+                style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: hasTrend ? "pointer" : "default" }}
               >
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1", display: "flex", alignItems: "center", gap: 4 }}>
@@ -280,8 +283,8 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
                   <div style={{ fontSize: 8, color: "#475569", marginTop: 1, paddingLeft: hasTrend ? 12 : 0 }}>{r.sub}</div>
                 </div>
                 <ValCell val={r.tVal} suffix={r.suffix} color={cols[0]} avgPM={r.tAvgPM} />
-                {canSeeOpp && <OppCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />}
-                {canSeeOpp && <OppCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />}
+                <GatedCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />
+                <GatedCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />
               </div>
               {isExp && hasTrend && (
                 <div style={{ borderBottom: i < rows.length - 1 ? "1px solid #1a2536" : "none", paddingBottom: 4 }}>
@@ -296,25 +299,29 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       {/* Per-match averages */}
       <div style={ST.card}>
         <div style={ST.title}>Per-Match Averages</div>
-        <div style={{ ...ST.colH, gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px" }}>
+        <div style={ST.colH}>
           <div />
           <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
-          {canSeeOpp && <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>}
-          {canSeeOpp && <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>}
+          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
+          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
         </div>
         {[
           { label: "Goals For", tVal: gfPM, oVal: oppGF, t10Val: t10GF, higher: true, color: "#F59E0B" },
           { label: "Goals Against", tVal: gaPM, oVal: oppGA, t10Val: t10GA, higher: false },
           { label: "Goal Difference", tVal: gdPM, oVal: oppGD, t10Val: t10GD, higher: true, fmtPlus: true },
         ].map((r, i, arr) => {
-          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, r.higher) : ['#F8FAFC', '#64748B', '#64748B'];
-          const fmtV = (v, c) => <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: c }}>{v == null ? "\u2013" : (r.fmtPlus && v > 0 ? "+" : "") + v}</div>;
+          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, r.higher) : ['#F8FAFC', '#94A3B8', '#8B5CF6'];
+          const fmtV = (v, c, blur) => (
+            <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: c, ...(blur ? { filter: "blur(6px)", userSelect: "none", WebkitUserSelect: "none" } : {}) }}>
+              {v == null ? "\u2013" : (r.fmtPlus && v > 0 ? "+" : "") + v}
+            </div>
+          );
           return (
-            <div key={r.label} style={{ display: "grid", gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+            <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1" }}>{r.label}</div></div>
-              {fmtV(r.tVal, cols[0])}
-              {canSeeOpp && fmtV(r.oVal, cols[1])}
-              {canSeeOpp && fmtV(r.t10Val, cols[2])}
+              {fmtV(r.tVal, cols[0], false)}
+              {fmtV(r.oVal, cols[1], !canSeeOpp)}
+              {fmtV(r.t10Val, cols[2], !canSeeOpp)}
             </div>
           );
         })}
@@ -326,10 +333,12 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       </div>
 
       {!canSeeOpp && (
-        <div style={{ background: "#1E293B", borderRadius: 10, padding: "14px 16px", marginBottom: 8, border: "1px solid #334155", textAlign: "center" }}>
-          <div style={{ fontSize: 14, marginBottom: 4 }}>🔒</div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>VS OPP and Benchmark comparison</div>
-          <div style={{ fontSize: 9, color: "#64748B", marginTop: 4 }}>Upgrade to Free Plus to compare against opponents and TOP 10 teams</div>
+        <div style={{ background: "#F59E0B11", border: "1px solid #F59E0B33", borderRadius: 10, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 18 }}>🔒</div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>Unlock VS OPP & Benchmark</div>
+            <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>Increase your team's match coverage to reach Free Plus</div>
+          </div>
         </div>
       )}
 

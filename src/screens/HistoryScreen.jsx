@@ -6,6 +6,19 @@ import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
 
+// Build searchable string from all possible name fields
+function gameSearchStr(g) {
+  const h = g.teams?.home || {};
+  const a = g.teams?.away || {};
+  return [
+    teamShortName(h), teamShortName(a),
+    h.name, a.name, h.instName, a.instName,
+    h.institution?.name, a.institution?.name,
+    h.institution?.short_name, a.institution?.short_name,
+    g.venue,
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
 export default function HistoryScreen({ games, currentUser, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState("desc");
@@ -74,51 +87,36 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     }
   }, []);
 
-  // Merge local + cloud, deduplicate, filter, sort — all in one effect
-  const [allGames, setAllGames] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  // ── MERGE + FILTER + SORT — computed every render (600 items = trivial) ──
+  const cloudById = {};
+  cloudMatches.forEach(cm => { cloudById[cm.id] = cm; });
+  const localEnhanced = games.map(g => {
+    const cloud = g.supabase_id ? cloudById[g.supabase_id] : null;
+    if (!cloud) return g;
+    return { ...g, teams: cloud.teams, homePenalty: cloud.homePenalty, awayPenalty: cloud.awayPenalty, status: cloud.status };
+  });
+  const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
+  const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
+  const allGames = [...localEnhanced, ...cloudOnly];
 
-  useEffect(() => {
-    const cloudById = {};
-    cloudMatches.forEach(cm => { cloudById[cm.id] = cm; });
-    const localEnhanced = games.map(g => {
-      const cloud = g.supabase_id ? cloudById[g.supabase_id] : null;
-      if (!cloud) return g;
-      return { ...g, teams: cloud.teams, homePenalty: cloud.homePenalty, awayPenalty: cloud.awayPenalty, status: cloud.status };
+  let filteredList = allGames;
+  if (isApprentice && top10TeamIds.size > 0) {
+    filteredList = filteredList.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
+  }
+  const q = search.trim().toLowerCase();
+  if (q) {
+    const words = q.split(/\s+/).filter(Boolean);
+    filteredList = filteredList.filter(g => {
+      const s = gameSearchStr(g);
+      return words.every(w => s.includes(w));
     });
-    const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
-    const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
-    const merged = [...localEnhanced, ...cloudOnly];
-    // Build search string for each game (all possible name variants)
-    const buildSearch = (g) => {
-      const h = g.teams?.home || {};
-      const a = g.teams?.away || {};
-      const parts = [
-        h.name, h.instName, h.institution?.name, h.institution?.short_name, h.short_name,
-        a.name, a.instName, a.institution?.name, a.institution?.short_name, a.short_name,
-        g.venue,
-      ].filter(Boolean);
-      return parts.join(' ').toLowerCase();
-    };
-    merged.forEach(g => { g._search = buildSearch(g); });
-    setAllGames(merged);
-
-    let list = [...merged];
-    if (isApprentice && top10TeamIds.size > 0) {
-      list = list.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
-    }
-    const q = search.trim().toLowerCase();
-    if (q) {
-      const words = q.split(/\s+/).filter(Boolean);
-      list = list.filter(g => words.every(w => (g._search || '').includes(w)));
-    }
-    list.sort((a, b) => {
-      const da = new Date(a.date || 0).getTime();
-      const db = new Date(b.date || 0).getTime();
-      return sortDir === "desc" ? db - da : da - db;
-    });
-    setFiltered(list);
-  }, [games, cloudMatches, search, sortDir, top10TeamIds, isApprentice]);
+  }
+  filteredList = [...filteredList].sort((a, b) => {
+    const da = new Date(a.date || 0).getTime();
+    const db = new Date(b.date || 0).getTime();
+    return sortDir === "desc" ? db - da : da - db;
+  });
+  const filtered = filteredList;
 
   const unsyncedCount = games.filter(g => !g.supabase_id).length;
 

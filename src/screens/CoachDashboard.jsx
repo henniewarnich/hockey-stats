@@ -90,7 +90,17 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
           const isOvr = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
           ti[tt.team_id] = { ...tt, effectiveTier: isOvr ? tt.tier_override : (tt.tier || 'free'), isOverridden: isOvr };
         });
-        setTierInfo(ti);
+        // Fetch total ended matches per team for correct avg
+        Promise.all(teamIds.map(async tid => {
+          const { count } = await supabase.from('matches')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'ended')
+            .or(`home_team_id.eq.${tid},away_team_id.eq.${tid}`);
+          if (ti[tid]) {
+            ti[tid].totalMatches = count || 0;
+            ti[tid].avgAllMatches = count > 0 ? (ti[tid].credits_total || 0) / count : 0;
+          }
+        })).then(() => setTierInfo({ ...ti }));
       }).catch(() => {});
 
       // Get recent form for all opponents
@@ -246,34 +256,31 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {teams.map(team => {
               const upcoming = upcomingByTeam[team.id] || [];
-              const results = resultsByTeam[team.id] || [];
-              const tab = teamTabs[team.id] || 'upcoming';
+              const ti = tierInfo[team.id];
 
               return (
-                <div key={team.id} style={{ background: theme.surface, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
-                  {/* Team header */}
+                <div key={team.id} onClick={() => goToTeam(team)} style={{ background: theme.surface, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", cursor: "pointer" }}>
                   <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                    <div onClick={() => goToTeam(team)} style={{
-                      width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
                       background: (team.color || "#8B5CF6") + "22", border: `2px solid ${(team.color || "#8B5CF6")}44`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 16, fontWeight: 800, color: team.color || "#8B5CF6",
                     }}>{team.short_name || teamInitial(team)}</div>
-                    <div style={{ flex: 1 }} onClick={() => goToTeam(team)}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: theme.text, cursor: "pointer" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: theme.text }}>
                         {teamDisplayName(team)} {(() => { const r = latestRankings[team.id]; return r ? <RankBadge rank={r.rank} prevRank={r.prevRank} /> : null; })()}
                       </div>
-                      <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2 }}>
-                        {upcoming.length > 0 ? `${upcoming.length} upcoming` : 'No upcoming'}
-                        {results.length > 0 ? ` · ${results.length} result${results.length !== 1 ? 's' : ''}` : ''}
-                      </div>
+                      <div style={{ fontSize: 10, color: theme.textDim, marginTop: 2 }}>Tap to view team page</div>
                     </div>
+                    <span style={{ color: "#334155", fontSize: 16 }}>›</span>
                   </div>
 
-                  {/* Tier progress bar */}
+                  {/* Tier progress — avg = total credits / ALL ended matches */}
                   {(() => {
-                    const ti = tierInfo[team.id];
-                    const avg = ti?.avg_per_match || 0;
+                    const credits = ti?.credits_total || 0;
+                    const allMatches = ti?.totalMatches || 0;
+                    const avg = ti?.avgAllMatches || (allMatches > 0 ? credits / allMatches : 0);
                     const tier = ti?.effectiveTier || 'free';
                     const pct = Math.min(100, Math.round((avg / FREE_PLUS_THRESHOLD) * 100));
                     const isPlus = tier === 'free_plus' || tier === 'premium';
@@ -281,10 +288,10 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                     const color = isPremium ? '#10B981' : isPlus ? '#F59E0B' : '#3B82F6';
                     const label = isPremium ? 'Premium' : isPlus ? 'Free Plus' : 'Free';
                     return (
-                      <div style={{ padding: '0 16px 10px' }}>
+                      <div style={{ padding: '0 16px 14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                           <span style={{ fontSize: 9, color: '#64748B' }}>
-                            {ti ? `${Math.round(avg * 10) / 10} avg credits/match` : 'No credit data yet'}
+                            {credits > 0 ? `${Math.round(avg * 10) / 10} avg credits/match` : 'No credit data yet'}
                           </span>
                           <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 8px', borderRadius: 99, background: color + '22', color }}>
                             {label}{ti?.isOverridden ? ' (override)' : ''}
@@ -303,142 +310,6 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                       </div>
                     );
                   })()}
-
-                  {/* Tabs */}
-                  <div style={{ display: "flex", borderTop: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}` }}>
-                    {[['upcoming', `Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}`], ['results', `Results${results.length > 0 ? ` (${results.length})` : ''}`]].map(([k, label]) => (
-                      <button key={k} onClick={() => setTeamTabs(prev => ({ ...prev, [team.id]: k }))}
-                        style={{
-                          flex: 1, padding: "8px 0", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
-                          background: tab === k ? "#334155" : "transparent",
-                          color: tab === k ? "#F8FAFC" : "#64748B",
-                        }}>{label}</button>
-                    ))}
-                  </div>
-
-                  {/* Upcoming tab */}
-                  {tab === 'upcoming' && (
-                    <div style={{ padding: "6px 12px 10px" }}>
-                      {upcoming.length === 0 ? (
-                        <div style={{ padding: "16px 0", textAlign: "center", color: theme.textDim, fontSize: 11 }}>No upcoming matches</div>
-                      ) : upcoming.slice(0, 5).map(m => {
-                        const isHome = m.home_team_id === team.id;
-                        const opp = isHome ? m.away_team : m.home_team;
-                        const oppId = opp?.id;
-                        const isLive = m.status === 'live' || m.status === 'paused';
-                        const oppRank = latestRankings[oppId];
-                        const form = oppForm[oppId];
-
-                        return (
-                          <div key={m.id} style={{ padding: "10px 4px", borderBottom: `1px solid ${theme.border}22` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {isLive && <span style={{ fontSize: 8, color: "#10B981", fontWeight: 700, padding: "1px 6px", borderRadius: 99, background: "#10B98122" }}>LIVE</span>}
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                  {'vs'} {teamShortName(opp) || 'TBD'} {oppRank ? <RankBadge rank={oppRank.rank} prevRank={oppRank.prevRank} /> : null}
-                                </div>
-                                <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
-                                  {fmtDate(m.match_date)}{m.scheduled_time ? ` · ${fmtTime(m.scheduled_time)}` : ''}{m.venue ? ` · ${m.venue}` : ''}
-                                </div>
-                              </div>
-                              {isLive && <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>{m.home_score} - {m.away_score}</div>}
-                            </div>
-
-                            {/* Opposition scouting — Free Plus required */}
-                            {(() => {
-                              const ti = tierInfo[team.id];
-                              const tier = ti?.effectiveTier || 'free';
-                              const canSeeOpp = tier === 'free_plus' || tier === 'premium';
-                              if (!canSeeOpp) {
-                                return (form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
-                                  <div style={{ marginTop: 6, padding: "8px 10px", background: "#0B0F1A", borderRadius: 6, textAlign: "center" }}>
-                                    <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 600 }}>🔒 Opposition scouting</div>
-                                    <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>Upgrade to Free Plus to see form, rankings & goal difference</div>
-                                  </div>
-                                ) : null;
-                              }
-                              return (form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
-                              <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
-                                {form && form.played > 0 && (
-                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                    <div>
-                                      <div style={{ fontSize: 9, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-                                        {opp?.name} · Last {form.played}
-                                      </div>
-                                      <FormDots form={form} />
-                                    </div>
-                                    <div style={{ textAlign: "right" }}>
-                                      <div style={{ fontSize: 11, fontWeight: 800, color: "#F8FAFC", fontFamily: "monospace" }}>{form.gf}:{form.ga}</div>
-                                      <div style={{ fontSize: 8, color: "#64748B" }}>GF:GA</div>
-                                    </div>
-                                  </div>
-                                )}
-                                {oppRankings[oppId]?.length > 0 && (
-                                  <div style={{ marginTop: form?.played > 0 ? 8 : 0, paddingTop: form?.played > 0 ? 8 : 0, borderTop: form?.played > 0 ? "1px solid #1E293B" : "none" }}>
-                                    <MiniChart data={oppRankings[oppId]} label="Ranking" color="#F59E0B" invert compact />
-                                  </div>
-                                )}
-                                {oppGD[oppId]?.length > 0 && (
-                                  <div style={{ marginTop: 4, paddingTop: 6, borderTop: "1px solid #1E293B" }}>
-                                    <MiniChart data={oppGD[oppId]} label="Goal difference" color="#F59E0B" showZeroLine compact />
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
-                                <div style={{ fontSize: 9, color: "#475569", textAlign: "center" }}>No match history available</div>
-                              </div>
-                            );
-                            })()}
-                          </div>
-                        );
-                      })}
-                      {upcoming.length > 5 && (
-                        <div style={{ fontSize: 10, color: theme.textDim, padding: "6px 4px", textAlign: "center" }}>+ {upcoming.length - 5} more</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Results tab */}
-                  {tab === 'results' && (
-                    <div style={{ padding: "6px 12px 10px" }}>
-                      {results.length === 0 ? (
-                        <div style={{ padding: "16px 0", textAlign: "center", color: theme.textDim, fontSize: 11 }}>No results yet</div>
-                      ) : results.slice(0, 5).map(m => {
-                        const isHome = m.home_team_id === team.id;
-                        const opp = isHome ? m.away_team : m.home_team;
-                        const rl = resultBadge(m, team.id);
-                        const d = parseSASTDate(m.match_date);
-
-                        return (
-                          <div key={m.id} onClick={() => { window.location.hash = `#/team/${teamSlug(team)}?match=${m.id}`; }}
-                            style={{ padding: "8px 4px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${theme.border}22`, cursor: "pointer" }}>
-                            <div style={{
-                              width: 22, height: 22, borderRadius: 5, fontSize: 9, fontWeight: 900,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              background: rl.color + "22", color: rl.color, flexShrink: 0,
-                            }}>{rl.label}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>
-                                {'vs'} {teamShortName(opp) || 'TBD'} <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
-                              </div>
-                              <div style={{ fontSize: 10, color: theme.textDim, marginTop: 1 }}>
-                                {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                                {m.venue && ` · ${m.match_type ? m.match_type.charAt(0).toUpperCase() + m.match_type.slice(1) + ' @ ' : ''}${m.venue}`}
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>{m.home_score}–{m.away_score}</div>
-                            <span style={{ fontSize: 10, color: "#334155" }}>›</span>
-                          </div>
-                        );
-                      })}
-                      {results.length > 5 && (
-                        <div onClick={() => goToTeam(team)} style={{ fontSize: 10, color: "#8B5CF6", padding: "8px 4px", textAlign: "center", cursor: "pointer", fontWeight: 600 }}>
-                          View all {results.length} results →
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
