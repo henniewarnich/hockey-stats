@@ -302,14 +302,35 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                             {label}{ti?.isOverridden ? ' (override)' : ''}
                           </span>
                         </div>
-                        {!isPremium && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <div style={{ flex: 1, height: 4, background: '#0B0F1A', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{ width: `${pct}%`, height: '100%', background: isPlus ? '#F59E0B' : '#3B82F6', borderRadius: 2 }} />
+                        {!isPremium && !isPlus && allMatches > 0 && (() => {
+                          const needed = Math.ceil(FREE_PLUS_THRESHOLD * allMatches - credits);
+                          if (needed <= 0) return null;
+                          // Suggest the simplest action to close the gap
+                          let tip = '';
+                          if (needed <= 5) tip = 'Enter one quick score to unlock';
+                          else if (needed <= 10) tip = 'Record one Live Basic match to unlock';
+                          else if (needed <= 20) tip = 'Record one match from video to unlock';
+                          else if (needed <= 30) tip = 'Record one same-day video review to unlock';
+                          else if (needed <= 50) tip = 'Record one Live Pro match to unlock';
+                          else { const n = Math.ceil(needed / 20); tip = `Record ${n} matches from video to unlock`; }
+                          return (
+                            <div style={{ marginTop: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                <div style={{ flex: 1, height: 4, background: '#0B0F1A', borderRadius: 2, overflow: 'hidden' }}>
+                                  <div style={{ width: `${pct}%`, height: '100%', background: '#3B82F6', borderRadius: 2 }} />
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 9, color: '#94A3B8', lineHeight: 1.4 }}>
+                                <span style={{ color: '#F59E0B', fontWeight: 600 }}>{needed} credits short</span> ({Math.round((FREE_PLUS_THRESHOLD - avg) * 10) / 10} avg × {allMatches} matches). {tip}.
+                              </div>
                             </div>
-                            <span style={{ fontSize: 8, color: '#64748B' }}>
-                              {isPlus ? 'Free Plus active' : `${Math.round(FREE_PLUS_THRESHOLD - avg)} more to Free Plus`}
-                            </span>
+                          );
+                        })()}
+                        {isPlus && !isPremium && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                            <div style={{ flex: 1, height: 4, background: '#0B0F1A', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ width: '100%', height: '100%', background: '#F59E0B', borderRadius: 2 }} />
+                            </div>
                           </div>
                         )}
                       </div>
