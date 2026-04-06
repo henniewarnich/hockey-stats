@@ -8,15 +8,20 @@ import KykieSpinner from '../components/KykieSpinner.jsx';
 
 // Build searchable string from all possible name fields
 function gameSearchStr(g) {
-  const h = g.teams?.home || {};
-  const a = g.teams?.away || {};
-  return [
-    teamShortName(h), teamShortName(a),
-    h.name, a.name, h.instName, a.instName,
-    h.institution?.name, a.institution?.name,
-    h.institution?.short_name, a.institution?.short_name,
-    g.venue,
-  ].filter(Boolean).join(' ').toLowerCase();
+  try {
+    const h = g.teams?.home || {};
+    const a = g.teams?.away || {};
+    return [
+      teamShortName(h), teamShortName(a),
+      h.name, a.name, h.instName, a.instName,
+      h.institution?.name, a.institution?.name,
+      h.institution?.short_name, a.institution?.short_name,
+      h.short_name, a.short_name,
+      h.short, a.short,
+      h.team_description, a.team_description,
+      g.venue,
+    ].filter(Boolean).join(' ').toLowerCase();
+  } catch { return ''; }
 }
 
 export default function HistoryScreen({ games, currentUser, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
@@ -105,11 +110,15 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   }
   const q = search.trim().toLowerCase();
   if (q) {
-    const words = q.split(/\s+/).filter(Boolean);
-    filteredList = filteredList.filter(g => {
-      const s = gameSearchStr(g);
-      return words.every(w => s.includes(w));
-    });
+    try {
+      const words = q.split(/\s+/).filter(Boolean);
+      filteredList = filteredList.filter(g => {
+        const s = gameSearchStr(g);
+        return words.every(w => s.includes(w));
+      });
+    } catch (e) {
+      console.error('Search filter error:', e);
+    }
   }
   filteredList = [...filteredList].sort((a, b) => {
     const da = new Date(a.date || 0).getTime();

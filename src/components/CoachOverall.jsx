@@ -268,27 +268,44 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
           const isExp = expanded[r.key];
           const trend = getTrend(r.trendKey);
           const hasTrend = trend.length >= 2;
+          const canExpand = canSeeOpp ? hasTrend : true; // locked rows always expandable
           const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, true) : ['#F8FAFC', '#94A3B8', '#8B5CF6'];
           return (
             <div key={r.key}>
               <div
-                onClick={() => hasTrend && toggle(r.key)}
-                style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: hasTrend ? "pointer" : "default" }}
+                onClick={() => canExpand && toggle(r.key)}
+                style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: canExpand ? "pointer" : "default" }}
               >
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1", display: "flex", alignItems: "center", gap: 4 }}>
-                    {hasTrend && <span style={{ fontSize: 8, color: "#475569", transition: "transform 0.2s", transform: isExp ? "rotate(90deg)" : "none", display: "inline-block" }}>{"\u203A"}</span>}
+                    {canExpand && <span style={{ fontSize: 8, color: "#475569", transition: "transform 0.2s", transform: isExp ? "rotate(90deg)" : "none", display: "inline-block" }}>{"\u203A"}</span>}
                     {r.label}
                   </div>
-                  <div style={{ fontSize: 8, color: "#475569", marginTop: 1, paddingLeft: hasTrend ? 12 : 0 }}>{r.sub}</div>
+                  <div style={{ fontSize: 8, color: "#475569", marginTop: 1, paddingLeft: canExpand ? 12 : 0 }}>{r.sub}</div>
                 </div>
                 <ValCell val={r.tVal} suffix={r.suffix} color={cols[0]} avgPM={r.tAvgPM} />
                 <GatedCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />
                 <GatedCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />
               </div>
-              {isExp && hasTrend && (
+              {/* Unlocked: show trend chart */}
+              {isExp && canSeeOpp && hasTrend && (
                 <div style={{ borderBottom: i < rows.length - 1 ? "1px solid #1a2536" : "none", paddingBottom: 4 }}>
                   <MiniTrend points={trend} oppAvg={r.oVal} top10Avg={r.t10Val} teamColor={teamColor} />
+                </div>
+              )}
+              {/* Locked: show unlock explanation */}
+              {isExp && !canSeeOpp && (
+                <div style={{ padding: "8px 0 10px", borderBottom: i < rows.length - 1 ? "1px solid #1a2536" : "none" }}>
+                  <div style={{ background: "#F59E0B08", border: "1px solid #F59E0B22", borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", marginBottom: 4 }}>🔒 Free Plus required</div>
+                    <div style={{ fontSize: 9, color: "#94A3B8", lineHeight: 1.5 }}>
+                      See how your <strong style={{ color: "#CBD5E1" }}>{r.label}</strong> compares to opponents and TOP 10 teams. Unlock by increasing your team's average credits per match above 20.
+                    </div>
+                    <div style={{ fontSize: 9, color: "#64748B", lineHeight: 1.5, marginTop: 6 }}>
+                      Every Live Pro recording earns <strong style={{ color: "#10B981" }}>+50</strong>, video review <strong style={{ color: "#10B981" }}>+20–30</strong>, each viewer <strong style={{ color: "#10B981" }}>+1</strong>. Share match links with parents to boost viewership.
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); window.location.hash = '#/info/coach'; }} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 6, border: "1px solid #F59E0B44", background: "#F59E0B11", color: "#F59E0B", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Learn more about Free Plus →</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -331,16 +348,6 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
           </div>
         )}
       </div>
-
-      {!canSeeOpp && (
-        <div style={{ background: "#F59E0B11", border: "1px solid #F59E0B33", borderRadius: 10, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 18 }}>🔒</div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>Unlock VS OPP & Benchmark</div>
-            <div style={{ fontSize: 9, color: "#94A3B8", marginTop: 2 }}>Increase your team's match coverage to reach Free Plus</div>
-          </div>
-        </div>
-      )}
 
       {/* Legend */}
       {canSeeOpp && (

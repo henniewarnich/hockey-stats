@@ -87,19 +87,24 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
       supabase.from('team_tiers').select('*').in('team_id', teamIds).then(({ data: tiers }) => {
         const ti = {};
         (tiers || []).forEach(tt => {
-          const isOvr = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
-          ti[tt.team_id] = { ...tt, effectiveTier: isOvr ? tt.tier_override : (tt.tier || 'free'), isOverridden: isOvr };
+          ti[tt.team_id] = { ...tt };
         });
-        // Fetch total ended matches per team for correct avg
+        // Fetch total ended matches per team — compute correct avg and tier
         Promise.all(teamIds.map(async tid => {
           const { count } = await supabase.from('matches')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'ended')
             .or(`home_team_id.eq.${tid},away_team_id.eq.${tid}`);
-          if (ti[tid]) {
-            ti[tid].totalMatches = count || 0;
-            ti[tid].avgAllMatches = count > 0 ? (ti[tid].credits_total || 0) / count : 0;
-          }
+          if (!ti[tid]) ti[tid] = { credits_total: 0 };
+          const credits = ti[tid].credits_total || 0;
+          const totalMatches = count || 0;
+          const avg = totalMatches > 0 ? credits / totalMatches : 0;
+          const isOvr = ti[tid].tier_override && (!ti[tid].override_expires || new Date(ti[tid].override_expires) > new Date());
+          const calculatedTier = avg >= FREE_PLUS_THRESHOLD ? 'free_plus' : 'free';
+          ti[tid].totalMatches = totalMatches;
+          ti[tid].avgAllMatches = avg;
+          ti[tid].effectiveTier = isOvr ? ti[tid].tier_override : calculatedTier;
+          ti[tid].isOverridden = isOvr;
         })).then(() => setTierInfo({ ...ti }));
       }).catch(() => {});
 

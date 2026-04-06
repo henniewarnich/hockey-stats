@@ -15,6 +15,7 @@ import CoachTrends from '../components/CoachTrends.jsx';
 import PlayPatternField from '../components/PlayPatternField.jsx';
 import { analysePlayPatterns, getProminentZones, getBallLossZones } from '../utils/playPattern.js';
 import SponsorBanner from '../components/SponsorBanner.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 
@@ -402,11 +403,18 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
-        // Fetch team tier
-        supabase.from('team_tiers').select('*').eq('team_id', found.id).single().then(({ data: tt }) => {
-          if (!tt) return;
-          const isOvr = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
-          setTeamTier(isOvr ? tt.tier_override : (tt.tier || 'free'));
+        // Fetch team tier — use total ended matches for correct avg
+        supabase.from('team_tiers').select('*').eq('team_id', found.id).single().then(async ({ data: tt }) => {
+          const isOvr = tt?.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
+          if (isOvr) { setTeamTier(tt.tier_override); return; }
+          // Count all ended matches for this team
+          const { count } = await supabase.from('matches')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'ended')
+            .or(`home_team_id.eq.${found.id},away_team_id.eq.${found.id}`);
+          const credits = tt?.credits_total || 0;
+          const avg = count > 0 ? credits / count : 0;
+          setTeamTier(avg >= 20 ? 'free_plus' : 'free');
         }).catch(() => {});
         // Load matches + rankings + coach check in parallel
         const matchPromise = supabase
@@ -717,7 +725,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
       {/* Sticky header */}
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
-      {/* Home link + Login */}
+      {isCoach && coachProfile ? (
+        <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout}
+          onBack={() => { window.location.hash = '#/coach'; }} />
+      ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.location.hash = ''; }} style={{
           background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", padding: 0,
@@ -732,7 +743,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           </svg>
           ← kykie
         </button>
-        {/* Refresh + Login / Logout */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={refreshMatches} disabled={refreshing} style={{
             background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center",
@@ -742,16 +752,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
             </svg>
           </button>
-          {isCoach && coachProfile ? (
-            <>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6" }}>{coachProfile.firstname}</span>
-              <button onClick={handleCoachLogout} style={{ fontSize: 10, color: "#EF4444", background: "none", border: "1px solid #EF444444", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>Logout</button>
-            </>
-          ) : (
-            <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
-          )}
+          <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 10, color: "#F59E0B", background: "#F59E0B11", border: "1px solid #F59E0B44", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>Login</button>
         </div>
       </div>
+      )}
       </div>
 
       {/* Team Header */}
