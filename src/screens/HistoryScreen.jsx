@@ -99,10 +99,11 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     if (q) {
       const words = q.split(/\s+/).filter(Boolean);
       list = list.filter(g => {
-        const home = (g.teams?.home?.name || '').toLowerCase();
-        const away = (g.teams?.away?.name || '').toLowerCase();
-        const homeInst = (g.teams?.home?.instName || '').toLowerCase();
-        const awayInst = (g.teams?.away?.instName || '').toLowerCase();
+        // Use teamShortName (same as display) + institution name + venue
+        const home = teamShortName(g.teams?.home).toLowerCase();
+        const away = teamShortName(g.teams?.away).toLowerCase();
+        const homeInst = (g.teams?.home?.institution?.name || g.teams?.home?.instName || '').toLowerCase();
+        const awayInst = (g.teams?.away?.institution?.name || g.teams?.away?.instName || '').toLowerCase();
         const venue = (g.venue || '').toLowerCase();
         const combined = `${home} ${away} ${homeInst} ${awayInst} ${venue}`;
         return words.every(w => combined.includes(w));
