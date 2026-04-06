@@ -94,40 +94,45 @@ During registration, users select one of three roles. Each higher role includes 
 ## 2. Freemium Tiers (Team Credits)
 
 ### Concept
-Every match has a "maintenance cost" of 100 credits. Credits flow in from commentator activity and viewer engagement. The net result determines whether the team gains or loses credits.
+Every match earns team credits from commentator activity and viewer engagement. The team's tier is determined by their **average credits per match** — total team credits ÷ total matches. This naturally rewards consistent quality coverage over volume.
 
 ### Per-Match Credit Sources
 
 | Action | Credits |
 |---|---|
-| Scheduled | +1 |
-| Score entered | +1 |
+| Scheduled | +5 |
+| Score entered | +5 |
 | Live Basic recorded | +10 |
 | Live Pro recorded | +50 |
 | Same-day video review | +30 |
 | Older video review | +20 |
 | Each unique viewer | +1 |
-| **Match maintenance cost** | **-100** |
 
-Net result = credits earned − 100.
+### Examples (credits per match)
+- Schedule + quick score only: **10** per match
+- + older video review: **30** per match
+- + same-day video review: **40** per match
+- + Live Pro: **60** per match
+- + Live Pro + 50 viewers: **110** per match
 
-### Examples
-- Schedule + quick score only (2 earned): team **loses 98** credits
-- Live Pro + 30 viewers (82 earned): team loses 18
-- Live Pro + 50 viewers (102 earned): team **gains 2**
-- Live Pro + 100 viewers (152 earned): team gains 52
-- Schedule + score + older video review + 20 viewers (42 earned): team loses 58
-
-**Break-even**: a Live Pro match with ~50 viewers. That's exactly the behaviour we want.
+**Free Plus threshold: 20 credits/match average.** A team needs more than just scores — either recordings on some matches or meaningful viewer engagement.
 
 ### Tier Unlocks
 
-| Team Credits | Tier | Unlocks |
+| Avg Credits/Match | Tier | Unlocks |
 |---|---|---|
-| 0–99 | **Free** | Own team stats (conversion rates, per-match data) |
-| 100+ | **Free Plus** | + Match insights, visual play analysis, TOP10 benchmark, opposition scouting |
+| 0–19 | **Free** | Own team stats, match insights |
+| 20+ | **Free Plus** | + Opposition stats, visual play analysis |
+| Paid | **Premium** | + TOP10 benchmark, Opposition AI Insights, training suggestions |
 
-Must maintain 100+ credits to keep Free Plus. Drops back to Free if balance falls below 100.
+**Calculation:** Total team credits ÷ total matches = average credits per match. Must maintain 20+ average to keep Free Plus — drops back to Free if average falls below 20.
+
+**Examples:**
+- 30 matches, all quick-score only (10 each) = 300 credits ÷ 30 = **10 avg → Free**
+- 30 matches, half with video reviews (10×30 + 20×10 = 500) = 500 ÷ 30 = **16.7 avg → Free**
+- 30 matches, half with video reviews + some viewers (650 ÷ 30) = **21.7 avg → Free Plus**
+- 20 matches, all Live Pro (60 each) = 1200 ÷ 20 = **60 avg → Free Plus**
+- Quick-score team that adds 5 Live Pro matches: (25×10 + 5×60) ÷ 30 = **18.3 avg → just short**
 
 ### Premium (Paid)
 Bypasses credit requirements entirely. Always has full access regardless of team credit balance.
@@ -142,38 +147,38 @@ Includes everything in Free Plus, plus:
 - Season planning tools (future)
 
 ### Coach Credit Purchase
-Coaches can buy credits at any time to make up for shortfalls:
-- R1 per credit (e.g. R100 buys 100 credits to unlock Free Plus)
-- Credits purchased are permanent — not subject to match maintenance cost
+Coaches can buy credits at any time to boost their average:
+- R1 per credit (e.g. R200 buys 200 credits, spread across existing matches)
+- Purchased credits are permanent and improve the per-match average
 - Creates a smooth transition from free to premium
 
 ### Penalty Pass-Through
 When a commentator receives a penalty (wrong score, failed AI review), the -1.5× penalty also applies to the team credits. The team community has incentive to police accuracy.
 
 ### Self-Regulating Dynamics
-- A team with 20 quick-score-only matches bleeds 98 × 20 = 1,960 credits
-- A team with 10 Live Pro matches at 60 viewers each gains ~12 × 10 = 120 credits net
-- Teams must have consistent coverage AND audience to maintain Free Plus
-- New teams start at 0 — one well-covered match gets them to 100 quickly
+- A team with 20 quick-score-only matches: 200 credits ÷ 20 = **10 avg → Free**
+- Same team adds 5 video reviews: 300 credits ÷ 20 = **15 avg → still Free, but improving**
+- Same team gets 3 Live Pro matches: 450 credits ÷ 20 = **22.5 avg → Free Plus unlocked**
+- Every quick-score-only match drags the average down — incentivises recordings
+- New teams start at 0 — one Live Pro match (60 credits ÷ 1 match = 60 avg) instantly unlocks Free Plus
 
 ### Coach Dashboard UX
-- Progress bar: "Your team: 67/100 credits — 33 more to unlock Free Plus"
-- Credit breakdown per match: "+50 (Live Pro) +67 (viewers) −100 (match cost) = +17 net"
+- Progress bar: "Your team: 16.3 avg credits/match — need 20 for Free Plus"
+- Per-match breakdown: which matches earned the most, which are dragging the average down
 - Breakdown by source: recording credits vs viewer credits
-- Warning when trending down: "4 quick-score-only matches have cost your team 392 credits"
+- Tip: "3 more video reviews would push your average above 20"
 
 ### Feature Access Matrix
 
 | Feature | Free | Free Plus | Premium |
 |---|---|---|---|
 | Own team stats | ✓ | ✓ | ✓ |
-| Match insights | — | ✓ | ✓ |
+| Match insights | ✓ | ✓ | ✓ |
+| Opposition stats | — | ✓ | ✓ |
 | Visual play analysis | — | ✓ | ✓ |
-| TOP10 benchmark | — | ✓ | ✓ |
-| Opposition scouting | — | ✓ | ✓ |
+| TOP10 benchmark | — | — | ✓ |
+| Opposition AI Insights | — | — | ✓ |
 | Training suggestions | — | — | ✓ |
-| PDF reports | — | — | ✓ |
-| Season planning tools | — | — | ✓ |
 
 ---
 

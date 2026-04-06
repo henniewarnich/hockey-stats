@@ -12,6 +12,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userLedger, setUserLedger] = useState([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [matchDetails, setMatchDetails] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -97,13 +98,67 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
   const viewLedger = async (user) => {
     setSelectedUser(user);
     setLedgerLoading(true);
-    const { data } = await supabase.from('credit_ledger')
+    const { data: ledger } = await supabase.from('credit_ledger')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
-    setUserLedger(data || []);
+
+    // Fetch match details for all ledger entries with match_ids
+    const matchIds = [...new Set((ledger || []).map(l => l.match_id).filter(Boolean))];
+    let matchMap = {};
+    if (matchIds.length > 0) {
+      const { data: matches } = await supabase.from('matches')
+        .select('id, home_team_id, away_team_id, home_score, away_score, match_date, duration, match_length, status')
+        .in('id', matchIds);
+      (matches || []).forEach(m => { matchMap[m.id] = m; });
+
+      // Fetch team names
+      const teamIds = [...new Set((matches || []).flatMap(m => [m.home_team_id, m.away_team_id]))];
+      const { data: teams } = await supabase.from('teams').select('id, name, institution_id').in('id', teamIds);
+      const instIds = [...new Set((teams || []).map(t => t.institution_id).filter(Boolean))];
+      const { data: insts } = await supabase.from('institutions').select('id, name, short_name').in('id', instIds);
+      const instMap = {};
+      (insts || []).forEach(i => { instMap[i.id] = i; });
+      const teamNames = {};
+      (teams || []).forEach(t => {
+        const inst = instMap[t.institution_id];
+        teamNames[t.id] = inst?.short_name || inst?.name || t.name;
+      });
+      Object.values(matchMap).forEach(m => {
+        m.homeName = teamNames[m.home_team_id] || '?';
+        m.awayName = teamNames[m.away_team_id] || '?';
+      });
+
+      // Fetch event counts per match
+      const { data: evtCounts } = await supabase.from('match_events')
+        .select('match_id')
+        .in('match_id', matchIds);
+      const eventCounts = {};
+      (evtCounts || []).forEach(e => { eventCounts[e.match_id] = (eventCounts[e.match_id] || 0) + 1; });
+      Object.values(matchMap).forEach(m => { m.eventCount = eventCounts[m.id] || 0; });
+    }
+
+    setMatchDetails(matchMap);
+    setUserLedger(ledger || []);
     setLedgerLoading(false);
+  };
+
+  const getQualityRating = (m) => {
+    if (!m || !m.match_length) return { label: '—', color: '#64748B', stars: 0 };
+    const durPct = Math.min(100, ((m.duration || 0) / (m.match_length * 60)) * 100);
+    const evtPerMin = m.duration > 0 ? (m.eventCount / (m.duration / 60)) : 0;
+    // Score: 40% duration coverage + 40% event density + 20% absolute events
+    const durScore = Math.min(1, durPct / 95); // 95%+ = full marks
+    const densityScore = Math.min(1, evtPerMin / 18); // 18 events/min = excellent
+    const evtScore = Math.min(1, (m.eventCount || 0) / 350); // 350+ events = full marks
+    const score = durScore * 0.4 + densityScore * 0.4 + evtScore * 0.2;
+    const pct = Math.round(score * 100);
+    if (pct >= 85) return { label: `${pct}%`, color: '#10B981', stars: 5 };
+    if (pct >= 70) return { label: `${pct}%`, color: '#3B82F6', stars: 4 };
+    if (pct >= 50) return { label: `${pct}%`, color: '#F59E0B', stars: 3 };
+    if (pct >= 30) return { label: `${pct}%`, color: '#F97316', stars: 2 };
+    return { label: `${pct}%`, color: '#EF4444', stars: 1 };
   };
 
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -148,18 +203,42 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
         ) : userLedger.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#475569', padding: 30, fontSize: 12 }}>No credit transactions yet</div>
         ) : (
-          userLedger.map(l => (
-            <div key={l.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700 }}>{LEDGER_LABELS[l.action] || l.action}</div>
-                <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{fmtDate(l.created_at)}</div>
+          userLedger.map(l => {
+            const m = matchDetails[l.match_id];
+            const q = m ? getQualityRating(m) : null;
+            const durMin = m ? ((m.duration || 0) / 60).toFixed(1) : null;
+            const durPct = m && m.match_length ? Math.round(((m.duration || 0) / (m.match_length * 60)) * 100) : null;
+            return (
+            <div key={l.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700 }}>{LEDGER_LABELS[l.action] || l.action}</div>
+                  {m ? (
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#CBD5E1' }}>{m.homeName} vs {m.awayName}</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>
+                        {m.home_score}–{m.away_score} · {fmtDate(m.match_date)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{fmtDate(l.created_at)}</div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: l.credits >= 0 ? '#10B981' : '#EF4444' }}>{l.credits >= 0 ? '+' : ''}{Math.round(l.credits)}</div>
+                  <div style={{ fontSize: 9, color: '#64748B' }}>bal: {Math.round(l.balance_after)}</div>
+                </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: l.credits >= 0 ? '#10B981' : '#EF4444' }}>{l.credits >= 0 ? '+' : ''}{Math.round(l.credits)}</div>
-                <div style={{ fontSize: 9, color: '#64748B' }}>bal: {Math.round(l.balance_after)}</div>
-              </div>
+              {m && m.duration > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: '#0F172A', color: '#94A3B8' }}>{durMin}m / {m.match_length}m ({durPct}%)</span>
+                  <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: '#0F172A', color: '#94A3B8' }}>{m.eventCount} events</span>
+                  {q && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: q.color + '22', color: q.color, fontWeight: 700 }}>{'★'.repeat(q.stars)}{'☆'.repeat(5 - q.stars)} {q.label}</span>}
+                </div>
+              )}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     );

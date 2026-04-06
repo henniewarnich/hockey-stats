@@ -97,13 +97,17 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     if (isApprentice && top10TeamIds.size > 0) {
       list = list.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
     }
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
+    if (q) {
+      const words = q.split(/\s+/).filter(Boolean);
       list = list.filter(g => {
+        // Build combined searchable string: both teams + venue
         const home = (g.teams?.home?.name || '').toLowerCase();
         const away = (g.teams?.away?.name || '').toLowerCase();
         const venue = (g.venue || '').toLowerCase();
-        return home.includes(q) || away.includes(q) || venue.includes(q);
+        const combined = `${home} ${away} ${venue}`;
+        // Every word must appear somewhere in the combined string
+        return words.every(w => combined.includes(w));
       });
     }
     list.sort((a, b) => {
