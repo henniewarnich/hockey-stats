@@ -13,6 +13,7 @@ import LiveModeChooser from '../components/LiveModeChooser.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [view, setView] = useState("list"); // list | create | edit
@@ -505,7 +506,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner text message="Loading schedule..." /></div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{search.trim() ? "No matches found" : "No upcoming matches"}</div>
         ) : (

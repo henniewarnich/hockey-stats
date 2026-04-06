@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { VOUCHER_THRESHOLD, CREDIT_VALUES as CV } from '../utils/credits.js';
 import Icon from '../components/Icons.jsx';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function AdminCreditsScreen({ currentUser, onBack }) {
   const [loading, setLoading] = useState(true);
@@ -169,7 +170,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16 }}>
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner text message='Loading credits...' /></div>
       ) : (
         <>
           {/* Summary cards */}

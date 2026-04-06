@@ -5,6 +5,7 @@ import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLive
 import { parseSASTDate } from '../utils/helpers.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { teamColor, teamDisplayName, teamShortName } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const ISSUE_TYPES = { inaccuracy: { label: 'Inaccuracy', color: '#F59E0B', bg: '#F59E0B22' }, bug: { label: 'Bug', color: '#EF4444', bg: '#EF444422' }, other: { label: 'Other', color: '#8B5CF6', bg: '#8B5CF622' } };
 const STATUS_MAP = { open: { label: 'Open', color: '#F59E0B', bg: '#F59E0B22' }, in_progress: { label: 'In progress', color: '#3B82F6', bg: '#3B82F622' }, resolved: { label: 'Resolved', color: '#10B981', bg: '#10B98122' } };
@@ -237,7 +238,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#64748B', marginTop: 40 }}>Loading...</div>
+        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner text message='Loading...' /></div>
       ) : (
         <>
           {tab === 'matches' && (

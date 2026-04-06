@@ -4,6 +4,7 @@ import { S, theme } from '../utils/styles.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, teamShortName } from '../utils/teams.js';
 import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function HistoryScreen({ games, currentUser, onSelect, onBack, onSyncAll, syncing, onVideoReview }) {
   const [search, setSearch] = useState("");
@@ -155,7 +156,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   return (
     <div style={S.app}>
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? "Loading..." : `${allGames.length} matches`}</div>
+        <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? <KykieSpinner size={20} /> : `${allGames.length} matches`}</div>
         <button onClick={() => { setLoadingCloud(true); fetchCloud(); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, color: "#94A3B8", fontSize: 10, cursor: "pointer", padding: "3px 10px", fontWeight: 600 }}>↻ Refresh</button>
       </div>
       <div style={S.page}>

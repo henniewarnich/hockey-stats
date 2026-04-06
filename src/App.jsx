@@ -43,6 +43,7 @@ import AdminCreditsScreen from './screens/AdminCreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
 import PageHeader from './components/PageHeader.jsx';
+import { KykieLoadingScreen } from './components/KykieSpinner.jsx';
 import { checkDevice, getDeviceId } from './utils/devices.js';
 
 function getHashRoute() {
@@ -379,11 +380,7 @@ export default function App() {
   // ── AUTH-REQUIRED ROUTES ──
 
   if (authLoading) {
-    return (
-      <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        Loading...
-      </div>
-    );
+    return <KykieLoadingScreen />;
   }
 
   // Crowd submit area

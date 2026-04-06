@@ -5,6 +5,7 @@ import { exportAllData, exportTeamData } from '../utils/export.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { TEAM_SELECT, teamDisplayName } from '../utils/teams.js';
 import NavLogo from '../components/NavLogo.jsx';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const THRESHOLDS = {
   matches:        { green: 1000, amber: 5000 },
@@ -208,7 +209,7 @@ export default function SystemHealthScreen({ onBack }) {
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#64748B', marginTop: 40 }}>Loading metrics...</div>
+        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner text message='Loading metrics...' /></div>
       ) : (
         <>
           {/* DB size + connections */}

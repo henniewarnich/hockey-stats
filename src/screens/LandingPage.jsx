@@ -13,6 +13,7 @@ import CoachDashboardPanel from '../components/CoachDashboardPanel.jsx';
 import CrowdDashboardPanel from '../components/CrowdDashboardPanel.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import { predictMatch } from '../utils/predict.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 import { teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug, teamColor, teamDerivedName, TEAM_SELECT, MATCH_HOME_TEAM, MATCH_AWAY_TEAM } from '../utils/teams.js';
 import FilterBar, { matchPassesFilter, teamPassesFilter } from '../components/FilterBar.jsx';
 import BottomNav from '../components/BottomNav.jsx';
@@ -482,7 +483,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         )}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 13 }}>Loading...</div>
+        <KykieSpinner text message="Loading matches..." />
       ) : (
         <>
 
