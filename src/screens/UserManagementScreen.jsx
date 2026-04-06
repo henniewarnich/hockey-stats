@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword, getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import NavLogo from '../components/NavLogo.jsx';
+import { logAudit } from '../utils/audit.js';
 import { TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
 
 const timeAgo = (ts) => {
@@ -116,13 +116,28 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const handleUpdate = async () => {
     if (!editUser) return;
     setSaving(true); setSaveError("");
+
+    // Check if commentator_status changed
+    const origUser = users.find(u => u.id === editUser.id);
+    const statusChanged = origUser && editUser.commentator_status !== origUser.commentator_status;
+
     const result = await updateProfile(editUser.id, {
       firstname: editUser.firstname,
       lastname: editUser.lastname,
       role: editUser.role,
       roles: editRoles,
+      commentator_status: editUser.commentator_status || null,
     });
     if (result.error) { setSaveError(result.error); setSaving(false); return; }
+
+    // Audit log if status was overridden
+    if (statusChanged) {
+      logAudit('commentator_status_override', 'profile', editUser.id, {
+        from: origUser.commentator_status,
+        to: editUser.commentator_status,
+        name: `${editUser.firstname} ${editUser.lastname}`,
+      }).catch(() => {});
+    }
 
     // Save coach team assignments if roles include coach
     if (editRoles.includes('coach')) {
@@ -282,6 +297,33 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Commentator status override */}
+        {isAdmin && editRoles.some(r => ['commentator', 'commentator_admin'].includes(r)) && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Commentator Status</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { id: 'trainee', label: 'Trainee', color: '#64748B' },
+                { id: 'apprentice', label: 'Apprentice', color: '#F59E0B' },
+                { id: 'qualified', label: 'Qualified', color: '#10B981' },
+              ].map(s => {
+                const isOn = editUser.commentator_status === s.id;
+                return (
+                  <button key={s.id} onClick={() => setEditUser(p => ({ ...p, commentator_status: s.id }))} style={{
+                    flex: 1, padding: "8px 6px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    border: isOn ? `2px solid ${s.color}` : `1px solid ${theme.border}`,
+                    background: isOn ? s.color + "22" : theme.bg,
+                    color: isOn ? s.color : theme.textMuted, cursor: "pointer",
+                  }}>{s.label}</button>
+                );
+              })}
+            </div>
+            {editUser.commentator_status !== users.find(u => u.id === editUser.id)?.commentator_status && (
+              <div style={{ fontSize: 9, color: '#F59E0B', marginTop: 4 }}>Status will be changed — logged in audit trail</div>
+            )}
           </div>
         )}
 
@@ -448,13 +490,20 @@ export default function UserManagementScreen({ currentUser, onBack }) {
                     </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", flexShrink: 0, alignItems: "center" }}>
                   {(u.roles?.length > 1 ? u.roles : [u.role]).map(r => (
                     <span key={r} style={{
                       fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 99,
                       background: roleColor(r) + "22", color: roleColor(r),
                     }}>{roleLabel(r)}</span>
                   ))}
+                  {u.commentator_status && (u.roles?.some(r => ['commentator', 'commentator_admin'].includes(r)) || ['commentator', 'commentator_admin'].includes(u.role)) && (
+                    <span style={{
+                      fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: 99,
+                      background: u.commentator_status === 'qualified' ? '#10B98122' : u.commentator_status === 'apprentice' ? '#F59E0B22' : '#64748B22',
+                      color: u.commentator_status === 'qualified' ? '#10B981' : u.commentator_status === 'apprentice' ? '#F59E0B' : '#64748B',
+                    }}>{u.commentator_status}</span>
+                  )}
                 </div>
                 <span style={{ color: "#334155", fontSize: 14 }}>›</span>
               </div>

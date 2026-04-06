@@ -45,6 +45,9 @@ import DeviceVerification from './components/DeviceVerification.jsx';
 import PageHeader from './components/PageHeader.jsx';
 import { KykieLoadingScreen } from './components/KykieSpinner.jsx';
 import { checkDevice, getDeviceId } from './utils/devices.js';
+import CoachInfoScreen from './screens/CoachInfoScreen.jsx';
+import CommentatorInfoScreen from './screens/CommentatorInfoScreen.jsx';
+import SupporterInfoScreen from './screens/SupporterInfoScreen.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -69,6 +72,9 @@ function getHashRoute() {
   if (hash === 'training') return { type: 'training' };
   if (hash === 'security') return { type: 'security' };
   if (hash === 'coach') return { type: 'coach' };
+  if (hash === 'info/coach') return { type: 'info_coach' };
+  if (hash === 'info/commentator') return { type: 'info_commentator' };
+  if (hash === 'info/supporter') return { type: 'info_supporter' };
   if (hash === 'admin' || hash.startsWith('admin/') || hash.startsWith('admin?')) {
     const sub = hash.includes('/') ? hash.split('/')[1] : null;
     return { type: 'admin', screen: sub || null };
@@ -415,6 +421,10 @@ export default function App() {
     return <SecurityScreen currentUser={currentUser} onBack={() => { window.history.back(); }} />;
   }
 
+  if (route.type === 'info_coach') return <CoachInfoScreen />;
+  if (route.type === 'info_commentator') return <CommentatorInfoScreen />;
+  if (route.type === 'info_supporter') return <SupporterInfoScreen />;
+
   // Commentator training (trainee commentators)
   if (route.type === 'training') {
     if (!currentUser) {
@@ -534,12 +544,17 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   const handleSaveGame = (game) => { store.saveGame(game); return game; };
   const handleImportGame = (game) => { const saved = store.saveGame(game); setReviewGame(saved || game); setScreen("game_review"); };
   const handleDeleteGame = async (id) => {
-    // Delete from local storage
-    store.deleteGame(id);
-    // Delete from Supabase via audited function
+    // 1. Clean up credit entries (before FK blocks delete)
+    try {
+      await supabase.from('credit_ledger').delete().eq('match_id', id);
+      await supabase.from('team_credits').delete().eq('match_id', id);
+    } catch {}
+    // 2. Delete from Supabase via audited RPC (MUST run before local delete)
     try {
       await supabase.rpc('delete_match', { p_match_id: id, p_user_id: currentUser?.id });
     } catch {}
+    // 3. Remove from local storage only (Supabase already handled above)
+    store.deleteGameLocal(id);
     setScreen("history");
   };
 
@@ -708,7 +723,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "game_review":
       if (!reviewGame) { navigate("history"); return null; }
-      return <GameReviewScreen game={reviewGame} onDelete={handleDeleteGame} onBack={() => navigate("history")} onNavigate={navigate} />;
+      return <GameReviewScreen game={reviewGame} onDelete={handleDeleteGame} onBack={() => navigate("history")} onNavigate={navigate} currentUser={currentUser} />;
 
     case "public_view":
       if (!reviewGame) { navigate("history"); return null; }

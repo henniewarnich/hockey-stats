@@ -589,6 +589,13 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{isDemo ? "End Demo?" : isVideoReview ? "End Video Review?" : "End Match?"}</div>
             <div style={{ fontSize: 10, color: theme.textDim, marginBottom: 4 }}>{teamShortName(teams.home)} {score.home} – {score.away} {teamShortName(teams.away)}</div>
             <div style={{ fontSize: 9, color: theme.textDim, marginBottom: 12 }}>{events.filter(e => e.team !== "commentary" && e.team !== "meta").length} events{isDemo ? " (will not be saved)" : ""}</div>
+            {/* Premature ending warning */}
+            {!isDemo && (timer.matchTime < 300 || events.filter(e => e.team !== "commentary" && e.team !== "meta").length < 10) && (
+              <div style={{ background: '#EF444418', border: '1px solid #EF444444', borderRadius: 8, padding: '8px 10px', marginBottom: 12, textAlign: 'left' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>Very short recording</div>
+                <div style={{ fontSize: 9, color: '#94A3B8', lineHeight: 1.4 }}>This recording has minimal data and may not be useful. Consider using <strong style={{ color: '#F8FAFC' }}>Abandon Match</strong> to discard it, or continue recording.</div>
+              </div>
+            )}
             {/* Penalty option when tied */}
             {!isDemo && !isVideoReview && score.home === score.away && (
               <div style={{ marginBottom: 12 }}>

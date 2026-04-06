@@ -74,8 +74,11 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     }
   }, []);
 
-  // Merge local + cloud, deduplicate by supabase_id
-  const allGames = (() => {
+  // Merge local + cloud, deduplicate, filter, sort — all in one effect
+  const [allGames, setAllGames] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+
+  useEffect(() => {
     const cloudById = {};
     cloudMatches.forEach(cm => { cloudById[cm.id] = cm; });
     const localEnhanced = games.map(g => {
@@ -85,13 +88,10 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     });
     const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
     const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
-    return [...localEnhanced, ...cloudOnly];
-  })();
+    const merged = [...localEnhanced, ...cloudOnly];
+    setAllGames(merged);
 
-  const unsyncedCount = games.filter(g => !g.supabase_id).length;
-
-  const filtered = (() => {
-    let list = [...allGames];
+    let list = [...merged];
     if (isApprentice && top10TeamIds.size > 0) {
       list = list.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
     }
@@ -99,7 +99,6 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     if (q) {
       const words = q.split(/\s+/).filter(Boolean);
       list = list.filter(g => {
-        // Use teamShortName (same as display) + institution name + venue
         const home = teamShortName(g.teams?.home).toLowerCase();
         const away = teamShortName(g.teams?.away).toLowerCase();
         const homeInst = (g.teams?.home?.institution?.name || g.teams?.home?.instName || '').toLowerCase();
@@ -114,8 +113,10 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
       const db = new Date(b.date || 0).getTime();
       return sortDir === "desc" ? db - da : da - db;
     });
-    return list;
-  })();
+    setFiltered(list);
+  }, [games, cloudMatches, search, sortDir, top10TeamIds, isApprentice]);
+
+  const unsyncedCount = games.filter(g => !g.supabase_id).length;
 
   const resultColor = (g) => {
     if (g.status === 'abandoned') return "#64748B";

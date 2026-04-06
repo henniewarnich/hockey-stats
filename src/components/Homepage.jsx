@@ -463,11 +463,11 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[
-                { icon: '👀', label: 'Follow', desc: 'Supporter' },
-                { icon: '🎙️', label: 'Commentate', desc: 'Earn vouchers' },
-                { icon: '📊', label: 'Coach', desc: 'Team analytics' },
+                { icon: '👀', label: 'Follow', desc: 'Supporter', href: '#/info/supporter' },
+                { icon: '🎙️', label: 'Commentate', desc: 'Earn vouchers', href: '#/info/commentator' },
+                { icon: '📊', label: 'Coach', desc: 'Team analytics', href: '#/info/coach' },
               ].map(r => (
-                <div key={r.label} onClick={() => { window.location.hash = '#/register'; }}
+                <div key={r.label} onClick={() => { window.location.hash = r.href; }}
                   style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', textAlign: 'center', border: '1px solid #33415566', cursor: 'pointer' }}>
                   <div style={{ fontSize: 18 }}>{r.icon}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>{r.label}</div>

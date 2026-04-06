@@ -13,6 +13,8 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
   const [userLedger, setUserLedger] = useState([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [matchDetails, setMatchDetails] = useState({});
+  const [expandedMatch, setExpandedMatch] = useState(null);
+  const [eventBreakdown, setEventBreakdown] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -130,12 +132,14 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
         m.awayName = teamNames[m.away_team_id] || '?';
       });
 
-      // Fetch event counts per match
-      const { data: evtCounts } = await supabase.from('match_events')
-        .select('match_id')
-        .in('match_id', matchIds);
+      // Fetch event counts per match (use head:true count to avoid row limit)
       const eventCounts = {};
-      (evtCounts || []).forEach(e => { eventCounts[e.match_id] = (eventCounts[e.match_id] || 0) + 1; });
+      await Promise.all(matchIds.map(async mid => {
+        const { count } = await supabase.from('match_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('match_id', mid);
+        eventCounts[mid] = count || 0;
+      }));
       Object.values(matchMap).forEach(m => { m.eventCount = eventCounts[m.id] || 0; });
     }
 
@@ -176,6 +180,24 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
   const earning = commentators.filter(c => c.isEarning);
   const notEarning = commentators.filter(c => !c.isEarning);
 
+  const toggleMatchExpand = async (matchId) => {
+    if (expandedMatch === matchId) { setExpandedMatch(null); return; }
+    setExpandedMatch(matchId);
+    if (eventBreakdown[matchId]) return; // already cached
+    const { data: events } = await supabase.from('match_events')
+      .select('team, event')
+      .eq('match_id', matchId)
+      .not('team', 'in', '("commentary","meta")')
+      .limit(5000);
+    if (!events) return;
+    const bd = { home: {}, away: {}, total: events.length };
+    events.forEach(e => {
+      const side = e.team === 'home' ? 'home' : 'away';
+      bd[side][e.event] = (bd[side][e.event] || 0) + 1;
+    });
+    setEventBreakdown(prev => ({ ...prev, [matchId]: bd }));
+  };
+
   // ── LEDGER DETAIL VIEW ──
   if (selectedUser) {
     return (
@@ -209,10 +231,14 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
             const durMin = m ? ((m.duration || 0) / 60).toFixed(1) : null;
             const durPct = m && m.match_length ? Math.round(((m.duration || 0) / (m.match_length * 60)) * 100) : null;
             return (
-            <div key={l.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
+            <div key={l.id} style={{ background: '#1E293B', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: m ? 'pointer' : 'default' }}
+              onClick={() => m && m.duration > 0 && toggleMatchExpand(l.match_id)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700 }}>{LEDGER_LABELS[l.action] || l.action}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {LEDGER_LABELS[l.action] || l.action}
+                    {m && m.duration > 0 && <span style={{ fontSize: 9, color: '#475569' }}>{expandedMatch === l.match_id ? '▾' : '▸'}</span>}
+                  </div>
                   {m ? (
                     <div style={{ marginTop: 4 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: '#CBD5E1' }}>{m.homeName} vs {m.awayName}</div>
@@ -236,6 +262,47 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
                   {q && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: q.color + '22', color: q.color, fontWeight: 700 }}>{'★'.repeat(q.stars)}{'☆'.repeat(5 - q.stars)} {q.label}</span>}
                 </div>
               )}
+              {/* Expanded match stats */}
+              {expandedMatch === l.match_id && (() => {
+                const bd = eventBreakdown[l.match_id];
+                if (!bd) return <div style={{ marginTop: 8, fontSize: 9, color: '#475569' }}>Loading stats...</div>;
+                const STAT_EVENTS = ['Goal', 'Shot on Goal', 'Shot off Target', 'D Entry', 'Short Corner', 'Long Corner', 'Poss Conceded'];
+                const hasData = STAT_EVENTS.some(ev => (bd.home[ev] || 0) + (bd.away[ev] || 0) > 0);
+                if (!hasData) return <div style={{ marginTop: 8, fontSize: 9, color: '#475569' }}>No event breakdown available</div>;
+                return (
+                  <div style={{ marginTop: 8, borderTop: '1px solid #334155', paddingTop: 8 }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 60px 60px', gap: '3px 0', alignItems: 'center' }}>
+                      <div /><div style={{ fontSize: 8, color: '#475569', fontWeight: 700 }}>EVENT</div>
+                      <div style={{ fontSize: 8, color: '#3B82F6', fontWeight: 700, textAlign: 'center' }}>{m.homeName}</div>
+                      <div style={{ fontSize: 8, color: '#EF4444', fontWeight: 700, textAlign: 'center' }}>{m.awayName}</div>
+                      {STAT_EVENTS.map(ev => {
+                        const h = bd.home[ev] || 0, a = bd.away[ev] || 0;
+                        if (h === 0 && a === 0) return null;
+                        const short = ev.replace('Shot on Goal', 'Shots on').replace('Shot off Target', 'Shots off').replace('Poss Conceded', 'Turnovers');
+                        return [
+                          <div key={ev+'i'} style={{ fontSize: 8, color: ev === 'Goal' ? '#10B981' : '#475569' }}>{ev === 'Goal' ? '⚽' : '·'}</div>,
+                          <div key={ev+'l'} style={{ fontSize: 10, color: '#94A3B8' }}>{short}</div>,
+                          <div key={ev+'h'} style={{ fontSize: 11, fontWeight: 700, textAlign: 'center', color: h > a ? '#F8FAFC' : '#64748B' }}>{h}</div>,
+                          <div key={ev+'a'} style={{ fontSize: 11, fontWeight: 700, textAlign: 'center', color: a > h ? '#F8FAFC' : '#64748B' }}>{a}</div>,
+                        ];
+                      })}
+                    </div>
+                    {/* Conversion rate */}
+                    {(bd.home['Goal'] || bd.away['Goal']) > 0 && (bd.home['D Entry'] || bd.away['D Entry']) > 0 && (
+                      <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #334155', display: 'flex', justifyContent: 'space-around' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: '#F59E0B' }}>{bd.home['D Entry'] > 0 ? Math.round((bd.home['Goal'] || 0) / bd.home['D Entry'] * 100) : 0}%</div>
+                          <div style={{ fontSize: 8, color: '#64748B' }}>Conversion</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: '#F59E0B' }}>{bd.away['D Entry'] > 0 ? Math.round((bd.away['Goal'] || 0) / bd.away['D Entry'] * 100) : 0}%</div>
+                          <div style={{ fontSize: 8, color: '#64748B' }}>Conversion</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             );
           })

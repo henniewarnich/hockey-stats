@@ -1,12 +1,48 @@
+import { useState } from 'react';
 import { fmt, fmtTs, exportMatchJSON } from '../utils/helpers.js';
 import { S, theme } from '../utils/styles.js';
 import { teamShortName, teamColor } from '../utils/teams.js';
-import NavLogo from '../components/NavLogo.jsx';
+import { supabase } from '../utils/supabase.js';
+import { logAudit } from '../utils/audit.js';
 
-export default function GameReviewScreen({ game, onDelete, onBack, onNavigate }) {
+export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, currentUser }) {
+  const [deleting, setDeleting] = useState(false);
   const G = game;
   const T = G.teams;
   const d = new Date(G.date);
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
+  const hasRecording = (G.events?.length > 0 || (G.duration && G.duration > 0));
+  const matchId = G.supabase_id || G.id;
+
+  const handleDeleteRecording = async () => {
+    if (!confirm('Delete only the recording (events, credits, commentator assignments)?\n\nThe match result and scores will be kept.')) return;
+    setDeleting(true);
+    try {
+      // Delete events
+      await supabase.from('match_events').delete().eq('match_id', matchId);
+      // Delete credits
+      await supabase.from('credit_ledger').delete().eq('match_id', matchId);
+      await supabase.from('team_credits').delete().eq('match_id', matchId);
+      // Delete commentator assignments
+      await supabase.from('match_commentators').delete().eq('match_id', matchId);
+      // Reset match duration + unlock
+      await supabase.from('matches').update({ duration: 0, locked_by: null }).eq('id', matchId);
+      // Recalc team tiers
+      const { data: match } = await supabase.from('matches').select('home_team_id, away_team_id').eq('id', matchId).single();
+      if (match) {
+        await supabase.rpc('recalc_team_tier', { p_team_id: match.home_team_id }).catch(() => {});
+        await supabase.rpc('recalc_team_tier', { p_team_id: match.away_team_id }).catch(() => {});
+      }
+      // Audit
+      await logAudit('recording_deleted', 'match', matchId, { reason: 'Admin deleted recording' });
+      alert('Recording deleted. Match result retained.');
+      onBack();
+    } catch (e) {
+      console.error('Delete recording error:', e);
+      alert('Error deleting recording. Check console.');
+    }
+    setDeleting(false);
+  };
 
   const renderLogEntry = (entry) => {
     if (entry.team === "commentary") return (
@@ -91,6 +127,14 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate })
           🗑 Delete
         </button>
       </div>
+      {isAdmin && hasRecording && (
+        <div style={{ textAlign: 'center', padding: '0 16px 10px' }}>
+          <button onClick={handleDeleteRecording} disabled={deleting}
+            style={{ ...S.btnSm("transparent", "#F97316"), border: '1px solid #F9731644', opacity: deleting ? 0.5 : 1 }}>
+            {deleting ? '...' : '🧹 Delete Recording Only'}
+          </button>
+        </div>
+      )}
 
       {/* Match Log */}
       <div style={{ padding: "0 12px 20px" }}>

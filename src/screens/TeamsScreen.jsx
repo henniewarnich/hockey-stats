@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TEAM_COLORS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
-import NavLogo from '../components/NavLogo.jsx';
 import { teamColor, teamDisplayName, teamDerivedName, teamInitial, teamMatchesSearch, teamSlug } from '../utils/teams.js';
 import { fetchInstitutions, upsertInstitution, deleteInstitution, fetchTeams, deleteTeamRemote } from '../utils/sync.js';
 import { getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
+import { setTeamTierOverride, FREE_PLUS_THRESHOLD } from '../utils/credits.js';
 
 const GENDERS = ['Girls', 'Boys'];
 const AGE_GROUPS = ['U14', 'U16', '1st', '2nd', '3rd'];
 const SPORTS = ['Hockey', 'Rugby', 'Netball', 'Cricket'];
+const TIER_COLORS = { free: '#64748B', free_plus: '#F59E0B', premium: '#10B981' };
+const TIER_LABELS = { free: 'Free', free_plus: 'Free+', premium: 'Premium' };
 
 export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink }) {
   const [institutions, setInstitutions] = useState([]);
@@ -23,17 +25,20 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [coachEmail, setCoachEmail] = useState('');
+  const [tierMap, setTierMap] = useState({});  // team_id → tier info
+  const [tierEdit, setTierEdit] = useState(null); // { teamId, teamName, ... } for override popup
   const [coachLookup, setCoachLookup] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [insts, allTeams, ctRecords, { data: coachProfiles }] = await Promise.all([
+    const [insts, allTeams, ctRecords, { data: coachProfiles }, { data: tiers }] = await Promise.all([
       fetchInstitutions(),
       fetchTeams(),
       getAllCoachTeams(),
       supabase.from('profiles').select('id, firstname, lastname, email, roles').contains('roles', ['coach']),
+      supabase.from('team_tiers').select('*'),
     ]);
     setInstitutions(insts);
     setTeams(allTeams || []);
@@ -45,6 +50,17 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
       map[ct.team_id].push({ coach_id: ct.coach_id, ...(p || {}) });
     });
     setCoachTeamMap(map);
+    // Build tier map
+    const tm = {};
+    (tiers || []).forEach(tt => {
+      const isOverridden = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
+      tm[tt.team_id] = {
+        ...tt,
+        effectiveTier: isOverridden ? tt.tier_override : (tt.tier || 'free'),
+        isOverridden,
+      };
+    });
+    setTierMap(tm);
     setLoading(false);
   }, []);
 
@@ -389,11 +405,20 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
                       {instTeams.length === 0 && <div style={{ fontSize: 11, color: theme.textDim, padding: '8px 0' }}>No teams yet</div>}
                       {instTeams.map(t => {
                         const tCoaches = coachTeamMap[t.id] || [];
+                        const tier = tierMap[t.id];
+                        const eTier = tier?.effectiveTier || 'free';
+                        const tColor = TIER_COLORS[eTier];
                         return (
                           <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: `1px solid ${theme.border}22` }}>
                             <div style={{ width: 3, height: 28, borderRadius: 2, background: instColor, flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1' }}>{teamDerivedName(t)}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {teamDerivedName(t)}
+                                <span onClick={e => { e.stopPropagation(); if (isAdmin) setTierEdit({ teamId: t.id, teamName: `${inst.short_name || inst.name} ${teamDerivedName(t)}`, tier: eTier, override: tier?.tier_override || '', expires: tier?.override_expires || '', note: tier?.override_note || '', avg: tier?.avg_per_match || 0, credits: tier?.credits_total || 0, matches: tier?.matches_count || 0 }); }}
+                                  style={{ fontSize: 8, padding: '1px 6px', borderRadius: 99, fontWeight: 700, background: tColor + '22', color: tColor, cursor: isAdmin ? 'pointer' : 'default' }}>
+                                  {TIER_LABELS[eTier]}{tier?.isOverridden ? ' ⚙' : ''}{tier ? ` · ${Math.round(tier.avg_per_match || 0)}avg` : ''}
+                                </span>
+                              </div>
                               <div style={{ fontSize: 10, color: theme.textDim, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                                 {t.sport || 'Hockey'} · {t.gender || '?'} · {t.age_group || '?'}
                                 {tCoaches.map(c => (
@@ -427,6 +452,52 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
           </div>
         )}
       </div>
+
+      {/* Tier Override Popup */}
+      {tierEdit && (
+        <div onClick={() => setTierEdit(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#1E293B', borderRadius: 14, padding: 20, width: 320, maxWidth: '100%' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC', marginBottom: 4 }}>{tierEdit.teamName}</div>
+            <div style={{ fontSize: 10, color: '#64748B', marginBottom: 14 }}>
+              {tierEdit.credits > 0 ? `${Math.round(tierEdit.credits)} credits · ${tierEdit.matches} matches · ${Math.round(tierEdit.avg * 10) / 10} avg/match` : 'No credits yet'}
+              {' · '}Calculated: {(tierEdit.avg || 0) >= FREE_PLUS_THRESHOLD ? 'Free+' : 'Free'}
+            </div>
+
+            <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 6 }}>Tier override</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[['', 'None (use calculated)'], ['free_plus', 'Free Plus'], ['premium', 'Premium']].map(([val, label]) => (
+                <button key={val} onClick={() => setTierEdit(prev => ({ ...prev, override: val }))} style={{
+                  flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                  border: tierEdit.override === val ? '2px solid #F59E0B' : `1px solid ${theme.border}`,
+                  background: tierEdit.override === val ? '#F59E0B22' : '#0B0F1A',
+                  color: tierEdit.override === val ? '#F59E0B' : '#64748B', cursor: 'pointer',
+                }}>{label}</button>
+              ))}
+            </div>
+
+            {tierEdit.override && (
+              <>
+                <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 4 }}>Expires (optional)</div>
+                <input type="date" value={tierEdit.expires || ''} onChange={e => setTierEdit(prev => ({ ...prev, expires: e.target.value }))}
+                  style={{ ...S.input, fontSize: 12, marginBottom: 12 }} />
+
+                <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 4 }}>Note</div>
+                <input value={tierEdit.note || ''} onChange={e => setTierEdit(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder="e.g. Early adopter, beta tester" style={{ ...S.input, fontSize: 12, marginBottom: 14 }} />
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setTierEdit(null)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `1px solid ${theme.border}`, background: 'transparent', color: '#64748B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={async () => {
+                await setTeamTierOverride(tierEdit.teamId, tierEdit.override || null, tierEdit.expires || null, tierEdit.note || null, currentUser?.id);
+                setTierEdit(null);
+                await load();
+              }} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#F59E0B', color: '#0B0F1A', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

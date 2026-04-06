@@ -137,6 +137,15 @@ export function useMatchStore() {
     }
   }, [games]);
 
+  // Remove from local storage only (when Supabase delete is handled separately)
+  const deleteGameLocal = useCallback((id) => {
+    setGames(prev => {
+      const updated = prev.filter(g => g.id !== id);
+      saveData(GAMES_KEY, updated);
+      return updated;
+    });
+  }, []);
+
   // Force sync all unsynced games to Supabase
   const syncAllGames = useCallback(async () => {
     const unsynced = games.filter(g => !g.supabase_id);
@@ -169,7 +178,7 @@ export function useMatchStore() {
     return { synced, failed };
   }, [games]);
 
-  return { teams, games, saveTeam, deleteTeam, saveGame, deleteGame, syncAllGames, syncing, lastSyncError };
+  return { teams, games, saveTeam, deleteTeam, saveGame, deleteGame, deleteGameLocal, syncAllGames, syncing, lastSyncError };
 }
 
 // Merge local and remote teams (remote wins for name conflicts)

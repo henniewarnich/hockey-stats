@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { theme } from '../utils/styles.js';
 import { teamColor, teamInitial, teamShortName } from '../utils/teams.js';
+import { FREE_PLUS_THRESHOLD } from '../utils/credits.js';
 
 import PlayPatternField from '../components/PlayPatternField.jsx';
 
@@ -182,7 +183,7 @@ function getQuarters(events, breakFormat, matchLength, matchTime) {
   });
 }
 
-export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg, playPatterns, matchPlayPatterns, prominentZones, matchProminentZones, ballLossZones, matchBallLossZones }) {
+export default function CoachLiveScreen({ match, events, matchTime, running, onBack, embedded, seasonAvg, playPatterns, matchPlayPatterns, prominentZones, matchProminentZones, ballLossZones, matchBallLossZones, teamTier = 'free' }) {
   const teams = match?.teams || { home: { name: "Home", color: "#3B82F6" }, away: { name: "Away", color: "#EF4444" } };
   const breakFormat = match?.breakFormat || "quarters";
   const isEnded = match?.status === "ended";
@@ -312,7 +313,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
               { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
               { label: "Territory", sub: "% in opp half", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
               ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
-                ? [{ label: "Attack → D", sub: "attack zone to D entry", hVal: atkConv("home"), aVal: atkConv("away"), hDetail: `${totalStat("home", "dEntries")} of ${totalStat("home", "atkZoneEntries")}`, aDetail: `${totalStat("away", "dEntries")} of ${totalStat("away", "atkZoneEntries")}`, suffix: "%" }]
+                ? [{ label: "D-Entry", sub: "all entries into D", hVal: atkConv("home"), aVal: atkConv("away"), hDetail: `${totalStat("home", "dEntries")} of ${totalStat("home", "atkZoneEntries")}`, aDetail: `${totalStat("away", "dEntries")} of ${totalStat("away", "atkZoneEntries")}`, suffix: "%" }]
                 : []),
               { label: "D → Short Crnr", sub: "% of D entries", hVal: dToSC("home"), aVal: dToSC("away"), hDetail: `${totalStat("home", "shortCorners")} of ${totalStat("home", "dEntries")}`, aDetail: `${totalStat("away", "shortCorners")} of ${totalStat("away", "dEntries")}`, suffix: "%" },
               { label: "SC → Goal", sub: "% of short corners", hVal: scToGoal("home"), aVal: scToGoal("away"), hDetail: `${totalStat("home", "scGoals")} of ${totalStat("home", "shortCorners")}`, aDetail: `${totalStat("away", "scGoals")} of ${totalStat("away", "shortCorners")}`, suffix: "%" },
@@ -456,6 +457,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
 
       {/* Visuals Tab */}
       {viewTab === "visuals" && matchPlayPatterns && playPatterns && (
+        (teamTier === 'free_plus' || teamTier === 'premium') ? (
         <div style={{ padding: "0 14px 20px" }}>
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
             <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Play Pattern & Prominent Players</div>
@@ -469,6 +471,15 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             />
           </div>
         </div>
+        ) : (
+        <div style={{ padding: "0 14px 20px" }}>
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "24px 16px", border: "1px solid #334155", textAlign: "center" }}>
+            <div style={{ fontSize: 20, marginBottom: 6 }}>🔒</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Visual play analysis</div>
+            <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Available with Free Plus — increase your team's average credits per match above {FREE_PLUS_THRESHOLD} to unlock</div>
+          </div>
+        </div>
+        )
       )}
 
       {!embedded && <style>{`@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>}

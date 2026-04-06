@@ -98,32 +98,30 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   const agg = aggregateStats(matchStatsList);
   const n = agg.matchCount;
   const abbr = (teamName || "TEAM").slice(0, 3).toUpperCase();
-  const oppColor = "#94A3B8";
-  const top10Color = "#8B5CF6";
 
   const tShots = agg.team.shotsOn + agg.team.shotsOff;
   const oShots = agg.opp.shotsOn + agg.opp.shotsOff;
   const t10 = top10Agg;
+  const t10n = t10?.matchCount || 1;
   const t10Shots = t10 ? t10.team.shotsOn + t10.team.shotsOff : 0;
 
   const pct = (num, den) => den > 0 ? Math.round(num / den * 100) : 0;
-  const fmtDiff = (teamVal, otherVal, suffix = "%") => {
-    const diff = otherVal - teamVal;
-    if (diff === 0) return `0${suffix}`;
-    return `${diff > 0 ? "+" : ""}${diff}${suffix}`;
+
+  // Rank 3 values: best=green, second=yellow, worst=grey. higherBetter controls direction.
+  const rank3 = (a, b, c, higherBetter = true) => {
+    const vals = [{ v: a, i: 0 }, { v: b ?? -Infinity, i: 1 }, { v: c ?? -Infinity, i: 2 }];
+    if (higherBetter) vals.sort((x, y) => y.v - x.v);
+    else vals.sort((x, y) => x.v - y.v);
+    const cols = ['', '', ''];
+    cols[vals[0].i] = '#10B981'; cols[vals[1].i] = '#F59E0B'; cols[vals[2].i] = '#64748B';
+    if (vals[0].v === vals[1].v) { cols[vals[0].i] = cols[vals[1].i] = '#10B981'; }
+    if (vals[1].v === vals[2].v && cols[vals[1].i] === '#F59E0B') { cols[vals[2].i] = '#F59E0B'; }
+    if (b == null) cols[1] = '#475569';
+    if (c == null) cols[2] = '#475569';
+    return cols;
   };
-  const trafficColor = (teamVal, oppVal, top10Val) => {
-    if (top10Val == null) {
-      if (teamVal > oppVal) return "#10B981";
-      if (teamVal < oppVal) return "#EF4444";
-      return "#F59E0B";
-    }
-    const behindOpp = oppVal > teamVal;
-    const behindTop = top10Val > teamVal;
-    if (behindOpp && behindTop) return "#EF4444";
-    if (!behindOpp && !behindTop) return "#10B981";
-    return "#F59E0B";
-  };
+
+  const avgPM = (total, count) => count > 0 ? +(total / count).toFixed(1) : null;
 
   // Build per-match trend data (sorted by date)
   const matchesMap = {};
@@ -140,7 +138,7 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
         matchId, date: d, label,
         poss: stats.team.possessionTimePct != null ? stats.team.possessionTimePct : stats.team.territory,
         terr: stats.team.territoryTimePct != null ? stats.team.territoryTimePct : stats.team.territory,
-        atkConv: stats.team.atkZoneEntries > 0 ? Math.round(stats.team.dEntries / stats.team.atkZoneEntries * 100) : null,
+        dEntry: stats.team.dEntries > 0 ? pct(stats.team.dEntries, stats.team.atkZoneEntries || stats.team.dEntries) : null,
         dToSC: stats.team.dEntries > 0 ? Math.round(stats.team.shortCorners / stats.team.dEntries * 100) : null,
         scToGoal: stats.team.shortCorners > 0 ? Math.round((stats.team.scGoals || 0) / stats.team.shortCorners * 100) : null,
         shotsTaken: stats.team.dEntries > 0 ? Math.round(ts / stats.team.dEntries * 100) : null,
@@ -150,7 +148,6 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
     });
   }
   trendData.sort((a, b) => a.date - b.date);
-
   const getTrend = (key) => trendData.filter(d => d[key] != null).map(d => ({ val: d[key], label: d.label }));
 
   // Possession & territory
@@ -161,47 +158,50 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   const oTerr = agg.opp.territoryTimePct != null ? agg.opp.territoryTimePct : agg.opp.territory;
   const t10Terr = t10 ? (t10.team.territoryTimePct != null ? t10.team.territoryTimePct : t10.team.territory) : null;
 
-  const hasAtkData = agg.team.atkZoneEntries > 0 || agg.opp.atkZoneEntries > 0;
-
   const rows = [
     { key: 'poss', label: "Possession", sub: "% of play", tVal: tPoss, oVal: oPoss, t10Val: t10Poss, suffix: "%", trendKey: 'poss' },
     { key: 'terr', label: "Territory", sub: "% in opp half", tVal: tTerr, oVal: oTerr, t10Val: t10Terr, suffix: "%", trendKey: 'terr' },
-    ...(hasAtkData ? [{
-      key: 'atk', label: "Attack \u2192 D", sub: "attack zone to D entry",
-      tVal: pct(agg.team.dEntries, agg.team.atkZoneEntries),
-      oVal: pct(agg.opp.dEntries, agg.opp.atkZoneEntries),
-      t10Val: t10 ? pct(t10.team.dEntries, t10.team.atkZoneEntries) : null,
-      tDetail: `${agg.team.dEntries} of ${agg.team.atkZoneEntries}`, suffix: "%", trendKey: 'atkConv',
-    }] : []),
+    { key: 'dEntry', label: "D-Entry", sub: "all entries into D",
+      tVal: pct(agg.team.dEntries, agg.team.atkZoneEntries || agg.team.dEntries),
+      oVal: pct(agg.opp.dEntries, agg.opp.atkZoneEntries || agg.opp.dEntries),
+      t10Val: t10 ? pct(t10.team.dEntries, t10.team.atkZoneEntries || t10.team.dEntries) : null,
+      tDetail: `${agg.team.dEntries} of ${agg.team.atkZoneEntries || agg.team.dEntries}`, suffix: "%", trendKey: 'dEntry',
+      tAvgPM: avgPM(agg.team.dEntries, n), oAvgPM: avgPM(agg.opp.dEntries, n), t10AvgPM: t10 ? avgPM(t10.team.dEntries, t10n) : null,
+    },
     { key: 'dsc', label: "D \u2192 Short Crnr", sub: "% of D entries",
       tVal: pct(agg.team.shortCorners, agg.team.dEntries),
       oVal: pct(agg.opp.shortCorners, agg.opp.dEntries),
       t10Val: t10 ? pct(t10.team.shortCorners, t10.team.dEntries) : null,
       tDetail: `${agg.team.shortCorners} of ${agg.team.dEntries}`, suffix: "%", trendKey: 'dToSC',
+      tAvgPM: avgPM(agg.team.shortCorners, n), oAvgPM: avgPM(agg.opp.shortCorners, n), t10AvgPM: t10 ? avgPM(t10.team.shortCorners, t10n) : null,
     },
     { key: 'scg', label: "SC \u2192 Goal", sub: "% of short corners",
       tVal: pct(agg.team.scGoals || 0, agg.team.shortCorners),
       oVal: pct(agg.opp.scGoals || 0, agg.opp.shortCorners),
       t10Val: t10 ? pct(t10.team.scGoals || 0, t10.team.shortCorners) : null,
       tDetail: `${agg.team.scGoals || 0} of ${agg.team.shortCorners}`, suffix: "%", trendKey: 'scToGoal',
+      tAvgPM: avgPM(agg.team.scGoals || 0, n), oAvgPM: avgPM(agg.opp.scGoals || 0, n), t10AvgPM: t10 ? avgPM(t10.team.scGoals || 0, t10n) : null,
     },
     { key: 'shots', label: "Shots taken", sub: "D Entry \u2192 Shot",
       tVal: pct(tShots, agg.team.dEntries),
       oVal: pct(oShots, agg.opp.dEntries),
       t10Val: t10 ? pct(t10Shots, t10.team.dEntries) : null,
       tDetail: `${tShots} of ${agg.team.dEntries}`, suffix: "%", trendKey: 'shotsTaken',
+      tAvgPM: avgPM(tShots, n), oAvgPM: avgPM(oShots, n), t10AvgPM: t10 ? avgPM(t10Shots, t10n) : null,
     },
     { key: 'onTarget', label: "On target", sub: "% of shots",
       tVal: pct(agg.team.shotsOn, tShots),
       oVal: pct(agg.opp.shotsOn, oShots),
       t10Val: t10 ? pct(t10.team.shotsOn, t10Shots) : null,
       tDetail: `${agg.team.shotsOn} of ${tShots}`, suffix: "%", trendKey: 'onTarget',
+      tAvgPM: avgPM(agg.team.shotsOn, n), oAvgPM: avgPM(agg.opp.shotsOn, n), t10AvgPM: t10 ? avgPM(t10.team.shotsOn, t10n) : null,
     },
     { key: 'goals', label: "Goals", sub: "% of shots on target", color: "#F59E0B",
       tVal: pct(agg.team.goals, agg.team.shotsOn),
       oVal: pct(agg.opp.goals, agg.opp.shotsOn),
       t10Val: t10 ? pct(t10.team.goals, t10.team.shotsOn) : null,
       tDetail: `${agg.team.goals} of ${agg.team.shotsOn}`, suffix: "%", trendKey: 'goals',
+      tAvgPM: avgPM(agg.team.goals, n), oAvgPM: avgPM(agg.opp.goals, n), t10AvgPM: t10 ? avgPM(t10.team.goals, t10n) : null,
     },
   ];
 
@@ -224,22 +224,21 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   const t10GF = top10PM ? +top10PM.gf.toFixed(1) : null;
   const t10GA = top10PM ? +top10PM.ga.toFixed(1) : null;
   const t10GD = top10PM ? +top10PM.gd.toFixed(1) : null;
-  const gfColor = trafficColor(gfPM, oppGF, t10GF);
-  const gaColor = trafficColor(-gaPM, -oppGA, t10GA != null ? -t10GA : null);
-  const gdColor = trafficColor(gdPM, oppGD, t10GD);
-  const fmtDiffDec = (tVal, oVal) => {
-    if (oVal == null) return "\u2013";
-    const diff = +(oVal - tVal).toFixed(1);
-    if (diff === 0) return "0";
-    return `${diff > 0 ? "+" : ""}${diff}`;
-  };
 
-  const S = {
+  const ST = {
     card: { background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8, border: "1px solid #334155" },
     title: { fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 },
     colH: { display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, marginBottom: 6, paddingBottom: 6, borderBottom: "1px solid #33415544" },
     hdr: { fontSize: 9, fontWeight: 800, textAlign: "center", textTransform: "uppercase", letterSpacing: 0.5 },
   };
+
+  const ValCell = ({ val, suffix, color, detail, avgPM }) => (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color }}>{val != null ? `${val}${suffix}` : "\u2013"}</div>
+      {detail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{detail}</div>}
+      {avgPM != null && <div style={{ fontSize: 8, color: "#64748B", marginTop: 1 }}>{avgPM}/match</div>}
+    </div>
+  );
 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
@@ -248,18 +247,19 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       </div>
 
       {/* Detailed Live Pro Stats */}
-      <div style={S.card}>
-        <div style={S.title}>Detailed Live Pro Stats</div>
-        <div style={S.colH}>
+      <div style={ST.card}>
+        <div style={ST.title}>Detailed Live Pro Stats</div>
+        <div style={ST.colH}>
           <div />
-          <div style={{ ...S.hdr, color: teamColor }}>{abbr}</div>
-          <div style={{ ...S.hdr, color: oppColor }}>vs OPP</div>
-          <div style={{ ...S.hdr, color: top10Color, lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
+          <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
+          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
+          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
         </div>
         {rows.map((r, i) => {
           const isExp = expanded[r.key];
           const trend = getTrend(r.trendKey);
           const hasTrend = trend.length >= 2;
+          const cols = rank3(r.tVal, r.oVal, r.t10Val, true);
           return (
             <div key={r.key}>
               <div
@@ -273,12 +273,9 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
                   </div>
                   <div style={{ fontSize: 8, color: "#475569", marginTop: 1, paddingLeft: hasTrend ? 12 : 0 }}>{r.sub}</div>
                 </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color: trafficColor(r.tVal, r.oVal, r.t10Val) }}>{r.tVal}{r.suffix}</div>
-                  {r.tDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.tDetail}</div>}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: oppColor }}>{fmtDiff(r.tVal, r.oVal, r.suffix)}</div>
-                <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: top10Color }}>{r.t10Val != null ? fmtDiff(r.tVal, r.t10Val, r.suffix) : "\u2013"}</div>
+                <ValCell val={r.tVal} suffix={r.suffix} color={cols[0]} detail={r.tDetail} avgPM={r.tAvgPM} />
+                <ValCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />
+                <ValCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />
               </div>
               {isExp && hasTrend && (
                 <div style={{ borderBottom: i < rows.length - 1 ? "1px solid #1a2536" : "none", paddingBottom: 4 }}>
@@ -291,32 +288,30 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       </div>
 
       {/* Per-match averages */}
-      <div style={S.card}>
-        <div style={S.title}>Per-Match Averages</div>
-        <div style={S.colH}>
+      <div style={ST.card}>
+        <div style={ST.title}>Per-Match Averages</div>
+        <div style={ST.colH}>
           <div />
-          <div style={{ ...S.hdr, color: teamColor }}>{abbr}</div>
-          <div style={{ ...S.hdr, color: oppColor }}>vs OPP</div>
-          <div style={{ ...S.hdr, color: top10Color, lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
+          <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
+          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
+          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #1a2536" }}>
-          <div><div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>Goals For</div></div>
-          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: gfColor }}>{gfPM}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: oppColor }}>{fmtDiffDec(gfPM, oppGF)}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: top10Color }}>{fmtDiffDec(gfPM, t10GF)}</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #1a2536" }}>
-          <div><div style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1" }}>Goals Against</div></div>
-          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: gaColor }}>{gaPM}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: oppColor }}>{fmtDiffDec(gaPM, oppGA)}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: top10Color }}>{fmtDiffDec(gaPM, t10GA)}</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0" }}>
-          <div><div style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1" }}>Goal Difference</div></div>
-          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: gdColor }}>{gdPM > 0 ? "+" : ""}{gdPM}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: oppColor }}>{fmtDiffDec(gdPM, oppGD)}</div>
-          <div style={{ fontSize: 13, fontWeight: 800, textAlign: "center", color: top10Color }}>{fmtDiffDec(gdPM, t10GD)}</div>
-        </div>
+        {[
+          { label: "Goals For", tVal: gfPM, oVal: oppGF, t10Val: t10GF, higher: true, color: "#F59E0B" },
+          { label: "Goals Against", tVal: gaPM, oVal: oppGA, t10Val: t10GA, higher: false },
+          { label: "Goal Difference", tVal: gdPM, oVal: oppGD, t10Val: t10GD, higher: true, fmtPlus: true },
+        ].map((r, i, arr) => {
+          const cols = rank3(r.tVal, r.oVal, r.t10Val, r.higher);
+          const fmtV = (v, c) => <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: c }}>{v == null ? "\u2013" : (r.fmtPlus && v > 0 ? "+" : "") + v}</div>;
+          return (
+            <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1" }}>{r.label}</div></div>
+              {fmtV(r.tVal, cols[0])}
+              {fmtV(r.oVal, cols[1])}
+              {fmtV(r.t10Val, cols[2])}
+            </div>
+          );
+        })}
         {totalMatches > n && (
           <div style={{ fontSize: 8, color: "#475569", textAlign: "center", marginTop: 6 }}>
             Goals from all {totalMatches} matches · other stats from {n} recorded
@@ -326,7 +321,7 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
 
       {/* Legend */}
       <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "6px 0" }}>
-        {[["#10B981", "Better than both"], ["#F59E0B", "Mixed"], ["#EF4444", "Behind both"]].map(([c, l]) => (
+        {[["#10B981", "Best"], ["#F59E0B", "Second"], ["#64748B", "Lowest"]].map(([c, l]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: "#64748B" }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />
             {l}
@@ -334,7 +329,7 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
         ))}
       </div>
       <div style={{ textAlign: "center", fontSize: 9, color: "#334155" }}>
-        + means they're ahead · − means you're ahead · tap metrics for trends
+        Tap any metric with trends for per-match chart
       </div>
     </div>
   );

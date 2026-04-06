@@ -10,6 +10,7 @@ import RankBadge from '../components/RankBadge.jsx';
 import RoleSwitcher from '../components/RoleSwitcher.jsx';
 import MiniChart from '../components/MiniChart.jsx';
 import { teamDisplayName, teamInitial, teamShortName, teamSlug } from '../utils/teams.js';
+import { FREE_PLUS_THRESHOLD } from '../utils/credits.js';
 
 const fmtDate = (d) => {
   if (!d) return '';
@@ -28,6 +29,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
   const [oppForm, setOppForm] = useState({});
   const [oppRankings, setOppRankings] = useState({});
   const [oppGD, setOppGD] = useState({});
+  const [tierInfo, setTierInfo] = useState({}); // team_id → tier info
 
   useEffect(() => { loadData(); }, [currentUser]);
 
@@ -80,6 +82,16 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
       setTeamTabs(tabs);
 
       fetchLatestRankings().then(r => setLatestRankings(r)).catch(() => {});
+
+      // Fetch tier info for coach's teams
+      supabase.from('team_tiers').select('*').in('team_id', teamIds).then(({ data: tiers }) => {
+        const ti = {};
+        (tiers || []).forEach(tt => {
+          const isOvr = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
+          ti[tt.team_id] = { ...tt, effectiveTier: isOvr ? tt.tier_override : (tt.tier || 'free'), isOverridden: isOvr };
+        });
+        setTierInfo(ti);
+      }).catch(() => {});
 
       // Get recent form for all opponents
       const oppIds = new Set();
@@ -258,6 +270,40 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                     </div>
                   </div>
 
+                  {/* Tier progress bar */}
+                  {(() => {
+                    const ti = tierInfo[team.id];
+                    const avg = ti?.avg_per_match || 0;
+                    const tier = ti?.effectiveTier || 'free';
+                    const pct = Math.min(100, Math.round((avg / FREE_PLUS_THRESHOLD) * 100));
+                    const isPlus = tier === 'free_plus' || tier === 'premium';
+                    const isPremium = tier === 'premium';
+                    const color = isPremium ? '#10B981' : isPlus ? '#F59E0B' : '#3B82F6';
+                    const label = isPremium ? 'Premium' : isPlus ? 'Free Plus' : 'Free';
+                    return (
+                      <div style={{ padding: '0 16px 10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <span style={{ fontSize: 9, color: '#64748B' }}>
+                            {ti ? `${Math.round(avg * 10) / 10} avg credits/match · ${ti.matches_count || 0} matches` : 'No credit data yet'}
+                          </span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 8px', borderRadius: 99, background: color + '22', color }}>
+                            {label}{ti?.isOverridden ? ' (override)' : ''}
+                          </span>
+                        </div>
+                        {!isPremium && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ flex: 1, height: 4, background: '#0B0F1A', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: isPlus ? '#F59E0B' : '#3B82F6', borderRadius: 2 }} />
+                            </div>
+                            <span style={{ fontSize: 8, color: '#64748B' }}>
+                              {isPlus ? 'Free Plus active' : `${Math.round(FREE_PLUS_THRESHOLD - avg)} more to Free Plus`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Tabs */}
                   <div style={{ display: "flex", borderTop: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}` }}>
                     {[['upcoming', `Upcoming${upcoming.length > 0 ? ` (${upcoming.length})` : ''}`], ['results', `Results${results.length > 0 ? ` (${results.length})` : ''}`]].map(([k, label]) => (
@@ -298,8 +344,20 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                               {isLive && <div style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>{m.home_score} - {m.away_score}</div>}
                             </div>
 
-                            {/* Opposition scouting */}
-                            {(form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
+                            {/* Opposition scouting — Free Plus required */}
+                            {(() => {
+                              const ti = tierInfo[team.id];
+                              const tier = ti?.effectiveTier || 'free';
+                              const canSeeOpp = tier === 'free_plus' || tier === 'premium';
+                              if (!canSeeOpp) {
+                                return (form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
+                                  <div style={{ marginTop: 6, padding: "8px 10px", background: "#0B0F1A", borderRadius: 6, textAlign: "center" }}>
+                                    <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 600 }}>🔒 Opposition scouting</div>
+                                    <div style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>Upgrade to Free Plus to see form, rankings & goal difference</div>
+                                  </div>
+                                ) : null;
+                              }
+                              return (form?.played > 0 || oppRankings[oppId]?.length > 0) ? (
                               <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
                                 {form && form.played > 0 && (
                                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -330,7 +388,8 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                               <div style={{ marginTop: 6, padding: "6px 8px", background: "#0B0F1A", borderRadius: 6 }}>
                                 <div style={{ fontSize: 9, color: "#475569", textAlign: "center" }}>No match history available</div>
                               </div>
-                            )}
+                            );
+                            })()}
                           </div>
                         );
                       })}
