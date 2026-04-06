@@ -6,8 +6,8 @@ export const CREDIT_VALUES = {
   live_lite:     10,
   video_same_day: 30,
   video_older:   20,
-  quick_score:   1,
-  schedule:      1,
+  quick_score:   5,
+  schedule:      5,
   submission:    1,  // approved result, upcoming, or team suggestion
   issue:         5,  // confirmed mistake report
 };

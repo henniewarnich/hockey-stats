@@ -179,10 +179,9 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
     const previewColor = editInst.color || TEAM_COLORS[0].hex;
     return (
       <div style={S.app}>
-        <div style={S.nav}>
-          <button style={S.backBtn} onClick={() => { setView('list'); setEditInst(null); }}>←</button>
-          <div style={S.navTitle}>{editInst.id ? 'Edit' : 'Add'} institution</div>
-          <NavLogo />
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => { setView('list'); setEditInst(null); }} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{editInst.id ? 'Edit' : 'Add'} institution</div>
         </div>
         <div style={S.page}>
           <div style={{ marginBottom: 14 }}>
@@ -257,10 +256,9 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
 
     return (
       <div style={S.app}>
-        <div style={S.nav}>
-          <button style={S.backBtn} onClick={() => { setView('list'); setEditTeam(null); }}>←</button>
-          <div style={S.navTitle}>{editTeam.id ? 'Edit' : 'Add'} team — {inst.short_name || inst.name || '?'}</div>
-          <NavLogo />
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => { setView('list'); setEditTeam(null); }} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{editTeam.id ? 'Edit' : 'Add'} team — {inst.short_name || inst.name || '?'}</div>
         </div>
         <div style={S.page}>
           <Pill label="Sport" options={['Hockey']} value={editTeam.sport || 'Hockey'}
@@ -349,11 +347,7 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
   // ════════════════════════════════════════════════════════
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Institutions & teams ({institutions.length})</div>
-        <NavLogo />
-      </div>
+
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => handleEditInst(null)}>+ Add institution</button>
         <div style={{ marginTop: 10, marginBottom: 10 }}>

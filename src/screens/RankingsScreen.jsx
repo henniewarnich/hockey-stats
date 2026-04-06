@@ -116,11 +116,9 @@ export default function RankingsScreen({ onBack, currentUser }) {
 
     return (
       <div style={S.app}>
-        <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", gap: 10 }}>
-          <NavLogo />
-          <button onClick={() => setEditSet(null)} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to sets</button>
-          <div style={{ flex: 1 }} />
-          {currentUser && <span style={{ fontSize: 10, color: theme.textDim }}>{currentUser.firstname}</span>}
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setEditSet(null)} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Back to ranking sets</div>
         </div>
 
         <div style={{ padding: "0 16px 8px" }}>
@@ -208,12 +206,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
   // List view
   return (
     <div style={S.app}>
-      <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", gap: 10 }}>
-        <NavLogo />
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Dashboard</button>
-        <div style={{ flex: 1 }} />
-        {currentUser && <span style={{ fontSize: 10, color: theme.textDim }}>{currentUser.firstname}</span>}
-      </div>
+
 
       <div style={{ padding: "0 16px 12px" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: "#F8FAFC" }}>Rankings</div>

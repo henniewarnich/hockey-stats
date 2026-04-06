@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { MATCH_TYPES } from '../utils/constants.js';
+import { MATCH_TYPES, BREAK_FORMATS } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
+
+const MATCH_LENGTHS = [20, 25, 30, 40, 60];
 
 export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [homeTeamId, setHomeTeamId] = useState(game.teams?.home?.id || null);
@@ -12,6 +14,8 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
   const [matchDate, setMatchDate] = useState(game.date ? new Date(game.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [venue, setVenue] = useState(game.venue || "");
   const [matchType, setMatchType] = useState(game.matchType || "league");
+  const [matchLength, setMatchLength] = useState(game.matchLength || 60);
+  const [breakFormat, setBreakFormat] = useState(game.breakFormat || "quarters");
   const [search, setSearch] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -34,6 +38,8 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
       date: new Date(matchDate).toISOString(),
       venue: venue.trim(),
       matchType,
+      matchLength,
+      breakFormat,
     };
     onSave(updated);
     setSaved(true);
@@ -66,10 +72,6 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Edit Match</div><NavLogo />
-      </div>
       <div style={S.page}>
         {/* Search */}
         <input style={{ ...S.input, fontSize: 12, marginBottom: 12 }} value={search}
@@ -95,13 +97,39 @@ export default function MatchEditScreen({ game, teams, onSave, onBack }) {
           </div>
         </div>
 
-        {/* Date & Venue */}
+        {/* Date & Match Settings */}
         <div style={{ background: theme.surface, borderRadius: 12, padding: 14, marginBottom: 16, border: `1px solid ${theme.border}` }}>
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Date</div>
             <input type="date" style={{ ...S.input, fontSize: 12 }} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
           </div>
-          <div style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Length</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {MATCH_LENGTHS.map(ml => (
+                <button key={ml} onClick={() => setMatchLength(ml)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  border: matchLength === ml ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: matchLength === ml ? theme.accent + "22" : theme.bg,
+                  color: matchLength === ml ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{ml}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Break Format</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {BREAK_FORMATS.map(bf => (
+                <button key={bf.id} onClick={() => setBreakFormat(bf.id)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  border: breakFormat === bf.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: breakFormat === bf.id ? theme.accent + "22" : theme.bg,
+                  color: breakFormat === bf.id ? theme.accent : theme.textMuted, cursor: "pointer",
+                }}>{bf.label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Match Type</div>
             <div style={{ display: "flex", gap: 6 }}>
               {MATCH_TYPES.map(mt => (

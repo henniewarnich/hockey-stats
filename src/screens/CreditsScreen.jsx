@@ -136,12 +136,6 @@ export default function CreditsScreen({ currentUser, onBack }) {
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: '16px 16px 24px' }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 13, cursor: 'pointer', padding: 0 }}>← Back</button>
-        <span style={{ fontSize: 14, fontWeight: 700 }}>My credits</span>
-      </div>
-
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>Loading...</div>
       ) : (

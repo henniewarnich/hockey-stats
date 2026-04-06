@@ -40,6 +40,7 @@ export default function MoreMenu({ currentUser, onLogout }) {
           <MenuItem icon="user_plus" iconColor="#EF4444" title="Users" sub="Roles and assignments" onClick={() => goAdmin('users')} />
           <MenuItem icon="pending" iconColor="#EC4899" title="Pending approvals" sub="Review submissions" onClick={() => goAdmin('pending')} />
           <MenuItem icon="heartbeat" iconColor="#06B6D4" title="System health" sub="Database and activity" onClick={() => goAdmin('health')} />
+          <MenuItem icon="mic" iconColor="#F97316" title="Credits overview" sub="Commentator credits & vouchers" onClick={() => goAdmin('admin_credits')} />
         </>
       )}
 

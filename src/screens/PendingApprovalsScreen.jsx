@@ -162,9 +162,9 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
     return (
       <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16 }}>
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <button onClick={() => setSelectedIssue(null)} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 18, cursor: 'pointer' }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, flex: 1 }}>ISSUE DETAIL</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <button onClick={() => setSelectedIssue(null)} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 16, cursor: 'pointer', padding: 0 }}>←</button>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Issue detail</div>
         </div>
 
         <div style={{ background: '#1E293B', borderRadius: 10, padding: 12, border: '1px solid #334155', marginBottom: 12 }}>
@@ -212,13 +212,6 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
       background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16,
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 18, cursor: 'pointer' }}>←</button>
-        <div style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>PENDING APPROVALS & ISSUES</div>
-        <NavLogo />
-      </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 12, borderRadius: 8, overflow: 'hidden', border: '1px solid #334155' }}>

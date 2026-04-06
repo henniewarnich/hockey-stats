@@ -56,8 +56,8 @@ During registration, users select one of three roles. Each higher role includes 
 | Same-day recorded match | 30 |
 | Older match (video review) | 20 |
 | Live match (Basic) | 10 |
-| Enter score | 1 |
-| Schedule match | 1 |
+| Enter score | 5 |
+| Schedule match | 5 |
 | Spot a confirmed mistake | 5 |
 | **Penalty (wrong score, failed review)** | **-1.5× earned** |
 

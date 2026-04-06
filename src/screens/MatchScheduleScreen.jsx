@@ -355,10 +355,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   // ── CREATE/EDIT VIEW ──
   if (view === "create") return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={() => { resetForm(); setView("list"); }}>←</button>
-        <div style={S.navTitle}>{editMatch ? "Edit Match" : "Schedule Match"}</div>
-        <NavLogo />
+      <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={() => { resetForm(); setView("list"); }} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 16, cursor: 'pointer', padding: 0 }}>←</button>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>{editMatch ? "Edit Match" : "Schedule Match"}</div>
       </div>
       <div style={{ ...S.page, paddingBottom: 30 }}>
         {/* Home Team */}
@@ -489,11 +488,6 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   // ── LIST VIEW ──
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Match Schedule</div>
-        <NavLogo />
-      </div>
       <div style={S.page}>
         {currentUser?.commentator_status === 'apprentice' ? (
           <div style={{ padding: "10px 14px", borderRadius: 8, background: "#F59E0B11", border: "1px solid #F59E0B33", marginBottom: 8 }}>

@@ -79,7 +79,6 @@ export default function MatchSetupScreen({ teams, games, onStart, onImportGame, 
   if (!mode) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>New Match</div><NavLogo /></div>
         <div style={S.page}>
           <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>Choose how to create a match</div>
           {MODES.map(m => (
@@ -118,7 +117,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams, liveMode
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>{navTitle}</div><NavLogo /></div>
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>{navTitle}</div></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -130,7 +129,7 @@ function FullMatchSetup({ teams, games, onStart, onBack, onManageTeams, liveMode
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>{navTitle}</div><NavLogo /></div>
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>{navTitle}</div></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
@@ -231,7 +230,7 @@ function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
   if (teams.length < 2) {
     return (
       <div style={S.app}>
-        <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div><NavLogo /></div>
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>Quick Score</div></div>
         <div style={{ textAlign: "center", padding: "40px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginBottom: 16 }}>You need at least 2 teams</div>
@@ -243,7 +242,7 @@ function QuickScoreSetup({ teams, games, onSave, onBack, onManageTeams }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Quick Score</div><NavLogo /></div>
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>Quick Score</div></div>
       <div style={S.page}>
         <TeamPickerWithSearch label="Home Team" teams={teams} selected={setupHome} onSelect={setSetupHome} otherId={setupAway?.id} />
         <TeamPickerWithSearch label="Away Team" teams={teams} selected={setupAway} onSelect={setSetupAway} otherId={setupHome?.id} />
@@ -345,7 +344,7 @@ function JsonImportSetup({ onImport, onBack }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>JSON Import</div></div>
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>JSON Import</div></div>
       <div style={S.page}>
         <div style={{ textAlign: "center", marginBottom: 16 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📦</div>
@@ -380,7 +379,7 @@ function JsonImportSetup({ onImport, onBack }) {
 function DemoSetup({ onStart, onBack }) {
   return (
     <div style={S.app}>
-      <div style={S.nav}><button style={S.backBtn} onClick={onBack}>←</button><div style={S.navTitle}>Demo Match</div></div>
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}><button onClick={onBack} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button><div style={{ fontSize: 14, fontWeight: 700 }}>Demo Match</div></div>
       <div style={S.page}>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div>

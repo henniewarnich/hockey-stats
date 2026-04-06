@@ -39,6 +39,7 @@ import VoucherManagementScreen from './screens/VoucherManagementScreen.jsx';
 import WhatIfScreen from './components/WhatIfScreen.jsx';
 import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
+import AdminCreditsScreen from './screens/AdminCreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
 import PageHeader from './components/PageHeader.jsx';
@@ -623,7 +624,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   };
 
   // Screens that have their own full-screen UI (no standard header)
-  const fullScreenModes = ['home', 'choose_live_mode', 'live', 'live_lite', 'game_review', 'public_view', 'coach_view', 'match_edit'];
+  const fullScreenModes = ['home', 'choose_live_mode', 'live', 'live_lite', 'game_review', 'public_view', 'coach_view'];
   const needsHeader = !fullScreenModes.includes(screen);
 
   const renderContent = () => {
@@ -653,6 +654,8 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "credits":
       return <CreditsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
+    case "admin_credits":
+      return <AdminCreditsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "match_schedule":
       return <MatchScheduleScreen currentUser={currentUser} onBack={() => navigate("home")} />;

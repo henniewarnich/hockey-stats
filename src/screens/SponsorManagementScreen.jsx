@@ -183,10 +183,9 @@ export default function SponsorManagementScreen({ onBack }) {
 
     return (
       <div style={S.app}>
-        <div style={S.nav}>
-          <button style={S.backBtn} onClick={() => { setEditing(null); resetForm(); }}>←</button>
-          <div style={S.navTitle}>{isNew ? 'Add Sponsor' : 'Edit Sponsor'}</div>
-          <NavLogo />
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => { setEditing(null); resetForm(); }} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{isNew ? 'Add Sponsor' : 'Edit Sponsor'}</div>
         </div>
         <div style={S.page}>
           {/* Logo */}
@@ -296,11 +295,7 @@ export default function SponsorManagementScreen({ onBack }) {
   // ── SPONSOR LIST ──
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Sponsors</div>
-        <NavLogo />
-      </div>
+
       <div style={S.page}>
         <button onClick={startNew} style={{ ...S.btn(theme.accent, theme.bg), marginBottom: 16 }}>
           ➕ Add Sponsor

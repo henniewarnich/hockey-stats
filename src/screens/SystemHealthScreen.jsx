@@ -207,13 +207,6 @@ export default function SystemHealthScreen({ onBack }) {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 18, cursor: 'pointer' }}>←</button>
-        <div style={{ fontSize: 16, fontWeight: 800, flex: 1 }}>SYSTEM HEALTH</div>
-        <NavLogo />
-      </div>
-
       {loading ? (
         <div style={{ textAlign: 'center', color: '#64748B', marginTop: 40 }}>Loading metrics...</div>
       ) : (

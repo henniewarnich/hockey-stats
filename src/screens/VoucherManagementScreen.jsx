@@ -76,9 +76,6 @@ export default function VoucherManagementScreen({ onBack }) {
   return (
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16 }}>
 
-      {/* Title */}
-      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Voucher Management</div>
-
       {msg && (
         <div style={{ padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 12, fontWeight: 600, background: msg.type === 'ok' ? '#10B98122' : '#EF444422', color: msg.type === 'ok' ? '#10B981' : '#EF4444' }}>{msg.text}</div>
       )}

@@ -169,9 +169,9 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   // ── CREATE VIEW ──
   if (view === "create") return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={() => { setView("list"); setSaveError(""); setSaveSuccess(""); }}>←</button>
-        <div style={S.navTitle}>New User</div><NavLogo />
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => { setView("list"); setSaveError(""); setSaveSuccess(""); }} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>New User</div>
       </div>
       <div style={S.page}>
         <div style={{ marginBottom: 12 }}>
@@ -237,9 +237,9 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   // ── EDIT VIEW ──
   if (view === "edit" && editUser) return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={() => { setView("list"); setSaveError(""); }}>←</button>
-        <div style={S.navTitle}>Edit User</div><NavLogo />
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => { setView("list"); setSaveError(""); }} style={{ background: "none", border: "none", color: "#64748B", fontSize: 16, cursor: "pointer", padding: 0 }}>←</button>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Edit User</div>
       </div>
       <div style={S.page}>
         <div style={{ marginBottom: 12 }}>
@@ -388,10 +388,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
 
   return (
     <div style={S.app}>
-      <div style={S.nav}>
-        <button style={S.backBtn} onClick={onBack}>←</button>
-        <div style={S.navTitle}>Users</div><NavLogo />
-      </div>
+
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => setView("create")}>+ New User</button>
 

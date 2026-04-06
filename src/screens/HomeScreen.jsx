@@ -81,6 +81,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               ["health", "heartbeat", "#06B6D4", "System Health", "Database, users & activity"],
               ["sponsors", "layers", "#14B8A6", "Sponsors", "Manage sponsor placements"],
               ["vouchers", "coins", "#10B981", "Vouchers", "Manage voucher pool"],
+              ["admin_credits", "mic", "#F97316", "Credits Overview", "Commentator credits & vouchers"],
             ] : []),
           ].map(([screen, iconName, iconColor, title, sub]) => {
             const disabled = isApprentice && screen === 'match_setup';
