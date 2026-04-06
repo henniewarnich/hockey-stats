@@ -453,8 +453,9 @@ The goal isn't to make sharing impossible — it's to make it not worth the effo
 6. Feature gating (Free / Free Plus / Premium)
 7. Share-to-earn + WhatsApp share
 8. Sponsor integration with viewer metrics
-9. **Kykie AI Scout** — team intelligence metrics + AI-generated scouting reports (Premium)
-10. **Device security + anti-gaming** — device tracking, OTP on new device, velocity caps
+9. **Push notifications** — Web Push via service worker for Android/desktop (goals, match start, voucher issued, pending approvals). Free. iOS gap: only works on home-screen-installed PWAs (iOS 16.4+). Full iOS support needs native wrapper (Capacitor) — park until user base justifies it.
+10. **Kykie AI Scout** — team intelligence metrics + AI-generated scouting reports (Premium)
+11. **Device security + anti-gaming** — device tracking, OTP on new device, velocity caps
 
 ---
 

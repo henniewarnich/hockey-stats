@@ -4,8 +4,11 @@ export default function PageHeader({ currentUser, onLogout, onRoleSwitch, onBack
   return (
     <div style={{
       position: 'sticky', top: 0, zIndex: 30, background: '#0B0F1A',
-      padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       borderBottom: '1px solid #1E293B',
+    }}>
+    <div style={{
+      maxWidth: 430, margin: '0 auto',
+      padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     }}>
       {/* Left: back + logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -34,6 +37,7 @@ export default function PageHeader({ currentUser, onLogout, onRoleSwitch, onBack
           <button onClick={() => { window.location.hash = '#/login'; }} style={{ fontSize: 11, color: '#F59E0B', background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 6, padding: '5px 14px', cursor: 'pointer', fontWeight: 700 }}>Sign in</button>
         )}
       </div>
+    </div>
     </div>
   );
 }

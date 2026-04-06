@@ -358,7 +358,7 @@ export async function createLiveMatch(config, userId) {
   await logAudit('match_start_live', 'match', data.id, { home: config.home?.name, away: config.away?.name, matchType: config.matchType });
   // Record who is commentating this match
   if (userId) {
-    await supabase.from('match_commentators').upsert({ match_id: data.id, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }).catch(() => {});
+    try { await supabase.from('match_commentators').upsert({ match_id: data.id, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }); } catch(e) {}
   }
   return { ...data, pin };
 }
@@ -646,7 +646,7 @@ export async function lockMatch(matchId, userId) {
     await logAudit('match_lock', 'match', matchId);
     // Record who is commentating this match
     if (userId) {
-      await supabase.from('match_commentators').upsert({ match_id: matchId, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }).catch(() => {});
+      try { await supabase.from('match_commentators').upsert({ match_id: matchId, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }); } catch(e) {}
     }
     return data;
   }
@@ -687,7 +687,7 @@ export async function startVideoReview(matchId, userId) {
 
   // Record who is commentating this match
   if (userId) {
-    await supabase.from('match_commentators').upsert({ match_id: matchId, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }).catch(() => {});
+    try { await supabase.from('match_commentators').upsert({ match_id: matchId, commentator_id: userId }, { onConflict: 'match_id,commentator_id' }); } catch(e) {}
   }
 
   // Check for existing events
