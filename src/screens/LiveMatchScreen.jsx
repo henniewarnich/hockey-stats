@@ -623,13 +623,22 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                 )}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
-              <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : isVideoReview ? "End & Save Stats" : "End & Save"}</button>
-            </div>
-            {!isDemo && !isVideoReview && (
-              <button onClick={handleAbandon} style={{ width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #64748B44', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Abandon Match</button>
-            )}
+            {(() => {
+              const realEvents = events.filter(e => e.team !== "commentary" && e.team !== "meta").length;
+              const isPremature = !isDemo && (timer.matchTime < 300 || realEvents < 10);
+              const showSave = !isPremature || isDemo;
+              return (
+                <>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
+                  {showSave && <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : isVideoReview ? "End & Save Stats" : "End & Save"}</button>}
+                </div>
+                {!isDemo && (
+                  <button onClick={handleAbandon} style={{ width: '100%', marginTop: 6, padding: isPremature ? 10 : 8, borderRadius: 8, border: isPremature ? '1px solid #EF444466' : '1px solid #64748B44', background: isPremature ? '#EF444422' : 'transparent', color: isPremature ? '#EF4444' : '#94A3B8', cursor: 'pointer', fontSize: isPremature ? 11 : 10, fontWeight: 700 }}>{isPremature ? 'Discard Recording' : 'Abandon Match'}</button>
+                )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

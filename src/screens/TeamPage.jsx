@@ -191,6 +191,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
   const [top10Agg, setTop10Agg] = useState(null); // aggregated stats for top 10 ranked teams
   const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
+  const [teamTier, setTeamTier] = useState('free');
   const [loadingStats, setLoadingStats] = useState(false);
   const [playPatterns, setPlayPatterns] = useState(null);
   const [prominentZones, setProminentZones] = useState(null);
@@ -401,6 +402,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         if (!found) { setLoading(false); return; }
         setTeam(found);
 
+        // Fetch team tier
+        supabase.from('team_tiers').select('*').eq('team_id', found.id).single().then(({ data: tt }) => {
+          if (!tt) return;
+          const isOvr = tt.tier_override && (!tt.override_expires || new Date(tt.override_expires) > new Date());
+          setTeamTier(isOvr ? tt.tier_override : (tt.tier || 'free'));
+        }).catch(() => {});
         // Load matches + rankings + coach check in parallel
         const matchPromise = supabase
           .from('matches')
@@ -857,6 +864,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 home: seasonAvgForTeam(liveMatch.home_team_id || liveMatch.home_team?.id, matches),
                 away: seasonAvgForTeam(liveMatch.away_team_id || liveMatch.away_team?.id, matches),
               }}
+              teamTier={teamTier}
             />
           ) : (
             /* Public: Commentary */
@@ -921,6 +929,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             matchCount={matches.filter(m => m.duration > 0).length}
             top10Agg={top10Agg}
             top10PM={top10PM}
+            teamTier={teamTier}
           />
           </>
         )
@@ -928,17 +937,27 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
 
       {/* ═══ TRENDS TAB (Coach) — Visual Play Analysis ═══ */}
       {tab === "trends" && isCoach && !selectedMatch && (
-        loadingStats ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading analysis...</div>
-        ) : playPatterns && playPatterns.exit ? (
-          <div style={{ padding: "8px 14px 20px" }}>
-            <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
-              <PlayPatternField patterns={playPatterns} prominentZones={prominentZones} ballLossZones={ballLossZones} />
+        (teamTier === 'free_plus' || teamTier === 'premium') ? (
+          loadingStats ? (
+            <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading analysis...</div>
+          ) : playPatterns && playPatterns.exit ? (
+            <div style={{ padding: "8px 14px 20px" }}>
+              <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Visual Play Analysis</div>
+                <PlayPatternField patterns={playPatterns} prominentZones={prominentZones} ballLossZones={ballLossZones} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No Live Pro matches to analyse</div>
+          )
+        ) : (
+          <div style={{ padding: "8px 14px 20px", textAlign: "center" }}>
+            <div style={{ background: "#1E293B", borderRadius: 10, padding: "24px 16px", border: "1px solid #334155" }}>
+              <div style={{ fontSize: 20, marginBottom: 6 }}>🔒</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Visual play analysis</div>
+              <div style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>Available with Free Plus — increase your team's average credits per match above 20 to unlock</div>
             </div>
           </div>
-        ) : (
-          <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No Live Pro matches to analyse</div>
         )
       )}
 
@@ -1221,6 +1240,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               matchProminentZones={selectedMatchVisuals?.zones}
               ballLossZones={ballLossZones}
               matchBallLossZones={selectedMatchVisuals?.lossZones}
+              teamTier={teamTier}
             />
           ) : (
             <div style={{ padding: "0 14px 20px" }}>

@@ -87,9 +87,10 @@ function MiniTrend({ points, oppAvg, top10Avg, teamColor: tc }) {
   );
 }
 
-export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, teamColor, teamId, allMatches, matchCount, top10Agg, top10PM }) {
+export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, teamColor, teamId, allMatches, matchCount, top10Agg, top10PM, teamTier = 'free' }) {
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  const canSeeOpp = teamTier === 'free_plus' || teamTier === 'premium';
 
   if (!matchStatsList || matchStatsList.length === 0) {
     return <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No match data available yet</div>;
@@ -235,10 +236,15 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   const ValCell = ({ val, suffix, color, detail, avgPM }) => (
     <div style={{ textAlign: "center" }}>
       <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color }}>{val != null ? `${val}${suffix}` : "\u2013"}</div>
-      {detail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{detail}</div>}
       {avgPM != null && <div style={{ fontSize: 8, color: "#64748B", marginTop: 1 }}>{avgPM}/match</div>}
     </div>
   );
+
+  const LockedCell = () => (
+    <div style={{ textAlign: "center", fontSize: 14, color: "#334155" }}>🔒</div>
+  );
+
+  const OppCell = (props) => canSeeOpp ? <ValCell {...props} /> : <LockedCell />;
 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
@@ -249,22 +255,22 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       {/* Detailed Live Pro Stats */}
       <div style={ST.card}>
         <div style={ST.title}>Detailed Live Pro Stats</div>
-        <div style={ST.colH}>
+        <div style={{ ...ST.colH, gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px" }}>
           <div />
           <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
-          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
-          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
+          {canSeeOpp && <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>}
+          {canSeeOpp && <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>}
         </div>
         {rows.map((r, i) => {
           const isExp = expanded[r.key];
           const trend = getTrend(r.trendKey);
           const hasTrend = trend.length >= 2;
-          const cols = rank3(r.tVal, r.oVal, r.t10Val, true);
+          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, true) : ['#F8FAFC', '#64748B', '#64748B'];
           return (
             <div key={r.key}>
               <div
                 onClick={() => hasTrend && toggle(r.key)}
-                style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: hasTrend ? "pointer" : "default" }}
+                style={{ display: "grid", gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: (i < rows.length - 1 && !isExp) ? "1px solid #1a2536" : "none", cursor: hasTrend ? "pointer" : "default" }}
               >
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1", display: "flex", alignItems: "center", gap: 4 }}>
@@ -273,9 +279,9 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
                   </div>
                   <div style={{ fontSize: 8, color: "#475569", marginTop: 1, paddingLeft: hasTrend ? 12 : 0 }}>{r.sub}</div>
                 </div>
-                <ValCell val={r.tVal} suffix={r.suffix} color={cols[0]} detail={r.tDetail} avgPM={r.tAvgPM} />
-                <ValCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />
-                <ValCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />
+                <ValCell val={r.tVal} suffix={r.suffix} color={cols[0]} avgPM={r.tAvgPM} />
+                {canSeeOpp && <OppCell val={r.oVal} suffix={r.suffix} color={cols[1]} avgPM={r.oAvgPM} />}
+                {canSeeOpp && <OppCell val={r.t10Val} suffix={r.suffix} color={cols[2]} avgPM={r.t10AvgPM} />}
               </div>
               {isExp && hasTrend && (
                 <div style={{ borderBottom: i < rows.length - 1 ? "1px solid #1a2536" : "none", paddingBottom: 4 }}>
@@ -290,25 +296,25 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
       {/* Per-match averages */}
       <div style={ST.card}>
         <div style={ST.title}>Per-Match Averages</div>
-        <div style={ST.colH}>
+        <div style={{ ...ST.colH, gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px" }}>
           <div />
           <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>
-          <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>
-          <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>
+          {canSeeOpp && <div style={{ ...ST.hdr, color: "#94A3B8" }}>VS OPP</div>}
+          {canSeeOpp && <div style={{ ...ST.hdr, color: "#8B5CF6", lineHeight: 1.3 }}>Benchmark<br/><span style={{ fontSize: 7 }}>TOP 10</span></div>}
         </div>
         {[
           { label: "Goals For", tVal: gfPM, oVal: oppGF, t10Val: t10GF, higher: true, color: "#F59E0B" },
           { label: "Goals Against", tVal: gaPM, oVal: oppGA, t10Val: t10GA, higher: false },
           { label: "Goal Difference", tVal: gdPM, oVal: oppGD, t10Val: t10GD, higher: true, fmtPlus: true },
         ].map((r, i, arr) => {
-          const cols = rank3(r.tVal, r.oVal, r.t10Val, r.higher);
+          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, r.higher) : ['#F8FAFC', '#64748B', '#64748B'];
           const fmtV = (v, c) => <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, textAlign: "center", color: c }}>{v == null ? "\u2013" : (r.fmtPlus && v > 0 ? "+" : "") + v}</div>;
           return (
-            <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 70px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+            <div key={r.label} style={{ display: "grid", gridTemplateColumns: canSeeOpp ? "1fr 80px 70px 70px" : "1fr 80px", gap: 4, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: r.color || "#CBD5E1" }}>{r.label}</div></div>
               {fmtV(r.tVal, cols[0])}
-              {fmtV(r.oVal, cols[1])}
-              {fmtV(r.t10Val, cols[2])}
+              {canSeeOpp && fmtV(r.oVal, cols[1])}
+              {canSeeOpp && fmtV(r.t10Val, cols[2])}
             </div>
           );
         })}
@@ -319,7 +325,16 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
         )}
       </div>
 
+      {!canSeeOpp && (
+        <div style={{ background: "#1E293B", borderRadius: 10, padding: "14px 16px", marginBottom: 8, border: "1px solid #334155", textAlign: "center" }}>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>🔒</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B" }}>VS OPP and Benchmark comparison</div>
+          <div style={{ fontSize: 9, color: "#64748B", marginTop: 4 }}>Upgrade to Free Plus to compare against opponents and TOP 10 teams</div>
+        </div>
+      )}
+
       {/* Legend */}
+      {canSeeOpp && (
       <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "6px 0" }}>
         {[["#10B981", "Best"], ["#F59E0B", "Second"], ["#64748B", "Lowest"]].map(([c, l]) => (
           <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: "#64748B" }}>
@@ -328,6 +343,7 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
           </div>
         ))}
       </div>
+      )}
       <div style={{ textAlign: "center", fontSize: 9, color: "#334155" }}>
         Tap any metric with trends for per-match chart
       </div>

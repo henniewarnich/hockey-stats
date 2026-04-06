@@ -284,7 +284,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
                       <div style={{ padding: '0 16px 10px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                           <span style={{ fontSize: 9, color: '#64748B' }}>
-                            {ti ? `${Math.round(avg * 10) / 10} avg credits/match · ${ti.matches_count || 0} matches` : 'No credit data yet'}
+                            {ti ? `${Math.round(avg * 10) / 10} avg credits/match` : 'No credit data yet'}
                           </span>
                           <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 8px', borderRadius: 99, background: color + '22', color }}>
                             {label}{ti?.isOverridden ? ' (override)' : ''}

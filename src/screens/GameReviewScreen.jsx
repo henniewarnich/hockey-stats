@@ -4,6 +4,7 @@ import { S, theme } from '../utils/styles.js';
 import { teamShortName, teamColor } from '../utils/teams.js';
 import { supabase } from '../utils/supabase.js';
 import { logAudit } from '../utils/audit.js';
+import NavLogo from '../components/NavLogo.jsx';
 
 export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, currentUser }) {
   const [deleting, setDeleting] = useState(false);

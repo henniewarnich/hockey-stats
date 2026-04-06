@@ -65,15 +65,24 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
                 <div style={{ fontSize: 24 }}>🎓</div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>Apprentice Commentator</div>
-                  <div style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1.4 }}>Complete 1 Live and 1 Recorded match to unlock full access. After 5 matches, start earning credits.</div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1.4 }}>You can schedule matches and try the demo. Complete 1 Live and 1 Recorded match to qualify and start earning credits.</div>
                 </div>
               </div>
             )}
             {[
             ["match_schedule", "calendar", "#F59E0B", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
-            ["match_setup", "bolt", "#10B981", "New Match", isApprentice ? "You will be able to create new matches once you qualify as a Commentator" : "Live match or quick score"],
-            ["teams", "buildings", "#3B82F6", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
+            ["match_setup", "bolt", "#10B981", "New Match", "Live match, quick score or demo"],
+            ...(!['commentator'].includes(currentUser?.role) ? [
+              ["teams", "buildings", "#3B82F6", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
+            ] : []),
             ["history", "bar_chart", "#8B5CF6", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
+            ...(['commentator', 'commentator_admin'].includes(currentUser?.role) ? [
+              ["training", "school", "#06B6D4", "Training", "Training materials & benchmark test"],
+              ["start_demo", "bolt", "#8B5CF6", "Try Demo Match", "Practice the recorder — data is discarded"],
+            ] : []),
+            ...(['commentator', 'commentator_admin'].includes(currentUser?.role) && currentUser?.commentator_status === 'qualified' ? [
+              ["credits", "coins", "#F59E0B", "My Credits", "Your credit statement & vouchers"],
+            ] : []),
             ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
               ["users", "user_plus", "#EF4444", "Users", "Manage user accounts"],
               ["rankings", "trophy", "#F59E0B", "Rankings", "Manage team rankings"],
@@ -84,15 +93,14 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               ["admin_credits", "mic", "#F97316", "Credits Overview", "Commentator credits & vouchers"],
             ] : []),
           ].map(([screen, iconName, iconColor, title, sub]) => {
-            const disabled = isApprentice && screen === 'match_setup';
             return (
-              <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, opacity: disabled ? 0.5 : 1, cursor: disabled ? "default" : "pointer" }} onClick={() => !disabled && onNavigate(screen)}>
+              <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => onNavigate(screen)}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: iconColor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Icon name={iconName} size={20} color={iconColor} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
-                  <div style={{ fontSize: 11, color: disabled ? "#F59E0B" : theme.textDim, marginTop: 2 }}>{sub}</div>
+                  <div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>{sub}</div>
                 </div>
               </div>
             );

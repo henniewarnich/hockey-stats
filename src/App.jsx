@@ -61,6 +61,7 @@ function getHashRoute() {
   if (hash === 'record') return { type: 'record', slug: '' };
   if (hash === 'login') return { type: 'login' };
   if (hash === 'register') return { type: 'register' };
+  if (hash.startsWith('register?')) return { type: 'register' };
   if (hash === 'submit') return { type: 'submit' };
   if (hash.startsWith('submit?')) {
     const params = new URLSearchParams(hash.split('?')[1]);
@@ -519,6 +520,15 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       window.location.hash = '';
       return;
     }
+    if (target === "training") {
+      window.location.hash = '#/training';
+      return;
+    }
+    if (target === "start_demo") {
+      setMatchConfig({ home: { name: "Demo Lions", color: "#1D4ED8", id: "demo-home" }, away: { name: "Demo Eagles", color: "#DC2626", id: "demo-away" }, matchLength: 10, breakFormat: "none", venue: "Demo Pitch", date: new Date().toISOString().slice(0, 10), isDemo: true, liveMode: 'pro' });
+      setScreen("live");
+      return;
+    }
     // Clear hash sub-path so deep-link useEffect doesn't override
     if (window.location.hash.startsWith('#/admin/')) {
       window.history.replaceState(null, '', '#/admin');
@@ -676,7 +686,6 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <TeamsScreen currentUser={currentUser} onSave={store.saveTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
 
     case "match_setup":
-      if (currentUser?.commentator_status === 'apprentice') { navigate("home"); return null; }
       return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
 
     case "what_if":
@@ -731,7 +740,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "coach_view":
       if (!reviewGame) { navigate("history"); return null; }
-      return <CoachLiveScreen match={{ ...reviewGame, status: "ended" }} events={reviewGame.events || []} matchTime={reviewGame.duration || 0} running={false} onBack={() => navigate("game_review", reviewGame)} />;
+      return <CoachLiveScreen match={{ ...reviewGame, status: "ended" }} events={reviewGame.events || []} matchTime={reviewGame.duration || 0} running={false} onBack={() => navigate("game_review", reviewGame)} teamTier={['admin','commentator_admin'].includes(currentUser?.role) ? 'free_plus' : 'free'} />;
 
     case "match_edit":
       if (!reviewGame) { navigate("history"); return null; }

@@ -245,6 +245,9 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
                       <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>
                         {m.home_score}–{m.away_score} · {fmtDate(m.match_date)}
                       </div>
+                      <div style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>
+                        Recorded {new Date(l.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} at {new Date(l.created_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
                   ) : (
                     <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{fmtDate(l.created_at)}</div>

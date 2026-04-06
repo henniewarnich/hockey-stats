@@ -1,159 +1,107 @@
 # kykie.net — Next Session Planning
-**Date: 5 April 2026 | Current Version: 7.14.1**
+**Date: 6 April 2026 | Current Version: 7.17.14**
 
-## Immediate Actions (Before Next Coding Session)
+## Deploy Checklist
+- Push v7.17.14 to GitHub, verify on kykie.net
+- Migrations already run: v7.17.0 (team credits + backfill)
+- Test: info pages, feature gating, commentator home, delete recording
 
-### 1. Deploy v7.14.1
-- Push to GitHub, verify on kykie.net
+## Immediate Priorities
 
-### 2. Run Pending Migrations
-```sql
--- 1. Training/benchmark columns (v7.13.0)
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS benchmark_score NUMERIC;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS benchmark_passed_at TIMESTAMPTZ;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS training_progress JSONB;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS commentator_status TEXT;
+### 1. Prediction System
+- DB: `predictions` table (user_id, match_id, home_score, away_score, created_at)
+- UI: prediction card on upcoming matches (team page + supporter view)
+- Auto-scoring: on match end, check predictions → award team credits (+2 correct result, +5 exact score)
+- Leaderboard: "23 predictions so far" FOMO on match cards
+- Already referenced in Supporter info page and commercialisation-strategy.md
 
--- Set existing commentators to qualified
-UPDATE profiles SET commentator_status = 'qualified'
-WHERE role IN ('commentator', 'commentator_admin') AND commentator_status IS NULL;
+### 2. Training Screen + Benchmark Test
+- Next on commercialisation roadmap
+- Trainee → watch training materials → pass benchmark → apprentice
+- Benchmark: record a sample match from provided video, score against expected events
+- Training menu item already wired for commentators
 
--- 2. User devices table (v7.14.0)
--- Run full script: upgrade-scripts/v7.14.0/migration-user-devices.sql
-```
+### 3. CoachDashboard Results Count
+- Currently shows 6 results vs 27 total on TeamPage
+- May be team assignment mismatch or query filtering issue
+- Investigate: are coach_teams IDs matching the team IDs used in matches?
 
-### 3. Configure Supabase Email Template for OTP
-- Supabase Dashboard → Auth → Email Templates → Confirm signup
-- Add `{{ .Token }}` to show OTP code in email body
+### 4. Desktop Responsive Layout
+- Current mobile-first design needs responsive breakpoints
+- Headers, match cards, and stat grids should adapt
 
-### 4. Test Password Change
-- Log in → tap 🔒 → Password tab → change password
+## Parked Items
+- Personal credits + vouchers (functional, backfill done)
+- Team credits + tiers (functional, backfill done)
+- Coach dashboard progress (functional)
+- Feature gating (functional across all screens)
+- Share-to-earn
+- Sponsor integration (SponsorManagementScreen built)
+- Push notifications (iOS 16.4+ PWA limitation)
+- Staging environment (second Supabase project + test.kykie.net)
+- AI Scout minimum event/duration threshold filter
 
-### 5. Test Device Security
-- Log in on 2 devices (phone + desktop) — should register silently
-- Try a 3rd device — should trigger OTP verification screen
+## Session Summary (v7.16.35 → v7.17.14)
 
-### 6. Test Apprentice Flow
-```sql
--- Reset a test user to trainee:
-UPDATE profiles SET commentator_status = 'trainee',
-  benchmark_score = NULL, benchmark_passed_at = NULL
-WHERE email = 'chris.comey@gmail.com';
-```
-- Clear localStorage `kykie-training-steps` and `kykie-training-practices`
-- Walk through: training → benchmark (use backdoor: double-click header, enter day of month)
-- Verify apprentice dashboard: status banner, no schedule button, Top 10 filtered, penalty hidden
-- Do 1 live + 1 recorded → should auto-promote to qualified
+### Team Credits Backend (v7.17.0)
+- `team_credits` + `team_tiers` tables, `recalc_team_tier` RPC
+- Wired into all 4 award flows (live, video, quick, schedule)
+- Both teams credited equally per match
+- Backfill SQL from audit_log
 
----
+### Feature Gating (v7.17.5+)
+- CoachDashboard: opp scouting locked for Free
+- CoachLiveScreen: visuals tab locked for Free
+- TeamPage Overall: VS OPP + Benchmark columns hidden for Free
+- TeamPage Trends: locked teaser for Free
+- Admin/CommAdmin bypass on game history coach_view
 
-## Completed (This Session — 5 April 2026)
+### Info Landing Pages (v7.17.6)
+- CoachInfoScreen, CommentatorInfoScreen, SupporterInfoScreen
+- Tappable feature cards with visual previews
+- Tier timelines, credit tables, CTAs
+- Predict feature on supporter page
+- Homepage "Get involved" → info pages → register
 
-### Commercialisation Step 2: Training + Benchmark ✅
-- 14-step animated training wizard
-- 37-step interactive benchmark test (match narrative with drag, SC sequence, team popup)
-- Trainee gating (5 redirect points)
-- OTP registration replacing email links
+### Coach Overall Rewrite (v7.17.10)
+- Actual numbers (not offsets) for all 3 columns
+- Green/Yellow/Grey rank3 coloring
+- D-Entry renamed, per-match averages added
+- "x of y" detail removed
 
-### Commentator Progression System ✅
-- Three tiers: trainee → apprentice → qualified
-- CommDashboardPanel with status banners and auto-promote
-- Apprentice restrictions: no scheduling, no Top 10 matches, no penalties, credits at zero
-- MatchScheduleScreen: disabled scheduling + Top 10 lock + no edit
-- HistoryScreen: Top 10 filtered + no penalty button
+### Admin Features
+- Team tier badges + override popup on TeamsScreen
+- Commentator status override (trainee/apprentice/qualified)
+- Delete Recording Only button with audit
+- Credit statement: correct event counts, expandable stats, recording timestamp
+- Match deletion audit trail fixed (RPC first, then local)
 
-### Credits Statement Screen ✅
-- Balance, progression, match history with credit values
-- Three display states (apprentice/qualifying/earning)
+### Bug Fixes
+- Game History multi-word search (cloud team data to local games)
+- Black screen on match detail (missing NavLogo import)
+- 0 events in credit statement (count query vs row fetch)
+- Premature end: discard instead of save for short recordings
+- Register button routes (register?role= parsed)
+- Commentator HomeScreen: removed Teams, added Training + Credits
 
-### Password Change + Device Security ✅
-- SecurityScreen with password change + device management
-- DeviceVerification OTP flow for 3rd device
-- Device tracking in user_devices table
-
-### AI Scout Research ✅
-- 3 metrics validated (accuracy, speed, patience)
-- Team profiles and scouting reports tested
-- Positional analysis methodology proven
-- Added to commercialisation-strategy.md
-
----
-
-## Planned Features (Next Sessions)
-
-### Priority 1: Credit System Activation
-**Goal**: Wire `credit_ledger` to actual match events so credits accrue.
-
-**Changes needed:**
-- After match ends (Live Pro/Lite/Video Review), call `adjustCredits()` from `credits.js`
-- Determine credit amount based on match type (Live Pro=50, Video=20, Lite=10, Quick=1)
-- Only accrue for qualified commentators with 5+ total matches
-- CreditsScreen reads from `credit_ledger` instead of calculating from audit_log
-- Admin: voucher management screen (mark vouchers as sent)
-
-**Depends on:** All v7.14.1 migrations applied and tested.
-
-### Priority 2: Device Security Hardening
-Additional anti-gaming measures:
-- Same-IP detection: flag when 2 accounts earn credits from same IP
-- Credit velocity caps: max 5 live / 10 quick per day per user
-- Voucher claim cooldown: 14 days between claims
-- Phone number required before first voucher claim
-- Admin dashboard flags: device swaps, IP overlap, velocity anomalies
-
-### Priority 3: AI Scout Dashboard
-**Goal**: Premium feature — Claude API generates tactical briefing from match data.
-
-**Implementation:**
-- Coach taps "Scout Report" on opponent team page
-- Frontend sends structured match data (events, stats, zone patterns) to Claude API
-- Claude returns tactical narrative: strengths, weaknesses, how to beat them
-- Rendered as formatted report card
-- Premium tier only (R5,000/team/year)
-
-### Priority 4: Staging Environment
-- Second Supabase project for test.kykie.net
-- Separate GitHub Pages deployment
-- Isolated data for testing without affecting production
-
----
-
-## Commercialisation Roadmap Status
-
-| Step | Status | Version |
-|------|--------|---------|
-| 1. Registration revamp | ✅ Done | v7.12.5-v7.12.11 |
-| 2. Training + benchmark test | ✅ Done | v7.13.0-v7.13.18 |
-| 2b. Apprentice progression | ✅ Done | v7.13.19-v7.14.1 |
-| 2c. Credits statement screen | ✅ Done | v7.13.22 |
-| 2d. Password + device security | ✅ Done | v7.14.0-v7.14.1 |
-| 3. Credit system activation | 🔲 Next | — |
-| 4. Team credits + tiers | 🔲 Planned | — |
-| 5. Coach dashboard progress | 🔲 Planned | — |
-| 6. Feature gating (Free/Plus/Premium) | 🔲 Planned | — |
-| 7. Share-to-earn | 🔲 Planned | — |
-| 8. Sponsor integration | 🔲 Planned | — |
-| 9. AI Scout (Premium) | 🔲 Research done | — |
-
----
-
-## Key Files Reference
-
-| File | Purpose |
-|------|---------|
-| `src/screens/TrainingScreen.jsx` | Trainee training flow (learn + practice + benchmark) |
-| `src/components/TrainingWizard.jsx` | 14-step animated field tutorial |
-| `src/components/BenchmarkTest.jsx` | 37-step match narrative test |
-| `src/components/CommDashboardPanel.jsx` | Commentator dashboard with progression |
-| `src/screens/CreditsScreen.jsx` | Credit statement screen |
-| `src/screens/SecurityScreen.jsx` | Password change + device management |
-| `src/components/DeviceVerification.jsx` | OTP verification for 3rd device |
-| `src/utils/devices.js` | Device ID, check, replace, list |
-| `src/utils/benchmark.js` | saveBenchmarkResult (sets apprentice) |
-| `src/utils/credits.js` | Credit rules (dormant, ready to activate) |
-| `commercialisation-strategy.md` | Full business strategy doc |
-
-## Supabase Project Details
-- **URL**: belveuygzinoipiwanwb.supabase.co
-- **Domain**: kykie.net (Afrihost DNS, GitHub Pages)
-- **Repo**: github.com/henniewarnich/hockey-stats
+## Key Files Changed
+| File | Changes |
+|---|---|
+| `src/utils/credits.js` | Team credit functions, tier logic, FREE_PLUS_THRESHOLD |
+| `src/components/CoachOverall.jsx` | Full rewrite: actual numbers, rank3, gating |
+| `src/screens/TeamPage.jsx` | teamTier state, gated trends tab, passed to CoachLiveScreen |
+| `src/screens/CoachDashboard.jsx` | Progress bar, opp scouting gate, tier fetch |
+| `src/screens/CoachLiveScreen.jsx` | Visuals gate, teamTier prop, D-Entry rename |
+| `src/screens/TeamsScreen.jsx` | Tier badges, override popup |
+| `src/screens/HomeScreen.jsx` | Commentator menu: no Teams, + Training, + Credits |
+| `src/screens/UserManagementScreen.jsx` | Commentator status pills + audit |
+| `src/screens/AdminCreditsScreen.jsx` | Count fix, expandable stats, recording timestamp |
+| `src/screens/GameReviewScreen.jsx` | Delete Recording Only, NavLogo fix |
+| `src/screens/LiveMatchScreen.jsx` | Premature end warning, discard button |
+| `src/screens/HistoryScreen.jsx` | Multi-word search fix, cloud team data merge |
+| `src/screens/CoachInfoScreen.jsx` | NEW — coach landing page |
+| `src/screens/CommentatorInfoScreen.jsx` | NEW — commentator landing page |
+| `src/screens/SupporterInfoScreen.jsx` | NEW — supporter landing page with predict |
+| `src/hooks/useMatchStore.js` | deleteGameLocal() added |
+| `src/App.jsx` | Info routes, register?role=, training nav, deletion fix |
+| `upgrade-scripts/v7.17.0/` | Team credits migration + backfill |

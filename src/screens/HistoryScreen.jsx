@@ -84,7 +84,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     const localEnhanced = games.map(g => {
       const cloud = g.supabase_id ? cloudById[g.supabase_id] : null;
       if (!cloud) return g;
-      return { ...g, homePenalty: cloud.homePenalty, awayPenalty: cloud.awayPenalty, status: cloud.status };
+      return { ...g, teams: cloud.teams, homePenalty: cloud.homePenalty, awayPenalty: cloud.awayPenalty, status: cloud.status };
     });
     const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
     const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
