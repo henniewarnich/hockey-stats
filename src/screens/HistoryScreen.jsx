@@ -13,6 +13,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   const [loadingCloud, setLoadingCloud] = useState(true);
   const [penEdit, setPenEdit] = useState(null); // { id, home, away }
   const [top10TeamIds, setTop10TeamIds] = useState(new Set());
+  const [loadingVideoId, setLoadingVideoId] = useState(null);
 
   const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';
 
@@ -241,26 +242,36 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                   const hasLiveRecording = (g.duration || 0) > 0;
                   // Hide for non-admin if match already has a live recording
                   if (hasLiveRecording && !isAdminRole) return null;
+                  const isLoading = loadingVideoId === g.id;
                   const handleClick = (e) => {
                     e.stopPropagation();
+                    if (isLoading) return;
                     if (hasLiveRecording && isAdminRole) {
                       if (!confirm('⚠️ WARNING: This match has an existing live recording with detailed stats and commentary. Starting a video review will PERMANENTLY DELETE all existing event data.\n\nThis action cannot be undone.\n\nAre you absolutely sure?')) return;
                       if (!confirm('⚠️ FINAL CONFIRMATION: All existing match events, stats, and commentary for this match will be permanently lost. Proceed?')) return;
                     }
+                    setLoadingVideoId(g.id);
                     onVideoReview(g);
                   };
                   return (
                     <button onClick={handleClick} style={{
                       width: 36, height: 36, borderRadius: 8,
                       border: hasLiveRecording ? '1px solid #EF444444' : '1px solid #8B5CF644',
-                      background: hasLiveRecording ? '#EF444411' : '#8B5CF611',
+                      background: isLoading ? '#F59E0B22' : hasLiveRecording ? '#EF444411' : '#8B5CF611',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', flexShrink: 0, padding: 0,
+                      cursor: isLoading ? 'wait' : 'pointer', flexShrink: 0, padding: 0,
+                      opacity: isLoading ? 0.7 : 1,
                     }}>
-                      <span style={{ fontSize: 14, lineHeight: 1 }}>📹</span>
-                      <span style={{ fontSize: 6, fontWeight: 700, color: hasLiveRecording ? '#EF4444' : '#8B5CF6', marginTop: 1 }}>
-                        {hasLiveRecording ? 'Re-record' : 'Video Stats'}
-                      </span>
+                      {isLoading ? (
+                        <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 700, animation: 'pulse 1s infinite' }}>...</span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 14, lineHeight: 1 }}>📹</span>
+                          <span style={{ fontSize: 6, fontWeight: 700, color: hasLiveRecording ? '#EF4444' : '#8B5CF6', marginTop: 1 }}>
+                            {hasLiveRecording ? 'Re-record' : 'Video Stats'}
+                          </span>
+                        </>
+                      )}
                     </button>
                   );
                 })()}
