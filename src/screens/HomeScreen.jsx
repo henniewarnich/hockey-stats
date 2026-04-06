@@ -70,16 +70,16 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               </div>
             )}
             {[
+            ...(['commentator', 'commentator_admin'].includes(currentUser?.role) ? [
+              ["training", "school", "#06B6D4", "Training", "Training materials & benchmark test"],
+              ["start_demo", "bolt", "#8B5CF6", "Try Demo Match", "Practice the recorder — data is discarded"],
+            ] : []),
             ["match_schedule", "calendar", "#F59E0B", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
             ["match_setup", "bolt", "#10B981", "New Match", "Live match, quick score or demo"],
             ...(!['commentator'].includes(currentUser?.role) ? [
               ["teams", "buildings", "#3B82F6", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
             ] : []),
             ["history", "bar_chart", "#8B5CF6", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
-            ...(['commentator', 'commentator_admin'].includes(currentUser?.role) ? [
-              ["training", "school", "#06B6D4", "Training", "Training materials & benchmark test"],
-              ["start_demo", "bolt", "#8B5CF6", "Try Demo Match", "Practice the recorder — data is discarded"],
-            ] : []),
             ...(['commentator', 'commentator_admin'].includes(currentUser?.role) && currentUser?.commentator_status === 'qualified' ? [
               ["credits", "coins", "#F59E0B", "My Credits", "Your credit statement & vouchers"],
             ] : []),

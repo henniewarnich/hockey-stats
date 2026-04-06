@@ -123,9 +123,9 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
             <button onClick={() => onNavigate("match_edit", G)} style={S.btnSm(theme.surface, theme.textMuted)}>✏️ Edit</button>
           </>
         )}
-        <button onClick={() => { if (confirm("Delete this match?")) onDelete(G.id); }}
+        <button onClick={() => { if (confirm("Delete this match permanently?")) onDelete(G.id); }}
           style={{ ...S.btnSm("transparent", theme.danger), border: `1px solid ${theme.danger}44` }}>
-          🗑 Delete
+          🗑 Delete Match
         </button>
       </div>
       {isAdmin && hasRecording && (

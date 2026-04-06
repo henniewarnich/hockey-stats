@@ -89,6 +89,18 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
     const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
     const merged = [...localEnhanced, ...cloudOnly];
+    // Build search string for each game (all possible name variants)
+    const buildSearch = (g) => {
+      const h = g.teams?.home || {};
+      const a = g.teams?.away || {};
+      const parts = [
+        h.name, h.instName, h.institution?.name, h.institution?.short_name, h.short_name,
+        a.name, a.instName, a.institution?.name, a.institution?.short_name, a.short_name,
+        g.venue,
+      ].filter(Boolean);
+      return parts.join(' ').toLowerCase();
+    };
+    merged.forEach(g => { g._search = buildSearch(g); });
     setAllGames(merged);
 
     let list = [...merged];
@@ -98,15 +110,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     const q = search.trim().toLowerCase();
     if (q) {
       const words = q.split(/\s+/).filter(Boolean);
-      list = list.filter(g => {
-        const home = teamShortName(g.teams?.home).toLowerCase();
-        const away = teamShortName(g.teams?.away).toLowerCase();
-        const homeInst = (g.teams?.home?.institution?.name || g.teams?.home?.instName || '').toLowerCase();
-        const awayInst = (g.teams?.away?.institution?.name || g.teams?.away?.instName || '').toLowerCase();
-        const venue = (g.venue || '').toLowerCase();
-        const combined = `${home} ${away} ${homeInst} ${awayInst} ${venue}`;
-        return words.every(w => combined.includes(w));
-      });
+      list = list.filter(g => words.every(w => (g._search || '').includes(w)));
     }
     list.sort((a, b) => {
       const da = new Date(a.date || 0).getTime();

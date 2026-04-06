@@ -686,7 +686,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return <TeamsScreen currentUser={currentUser} onSave={store.saveTeam} onBack={() => navigate("home")} getShareLink={getTeamShareLink} />;
 
     case "match_setup":
-      return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} />;
+      return <MatchSetupScreen teams={store.teams} games={store.games} onStart={handleStartMatch} onImportGame={handleImportGame} onBack={() => navigate("home")} onManageTeams={() => navigate("teams")} currentUser={currentUser} />;
 
     case "what_if":
       return <WhatIfScreen onBack={() => navigate("home")} />;
@@ -710,6 +710,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
           </div>
           <LiveMatchScreen matchConfig={matchConfig} existingMatchId={matchConfig.supabaseId || null}
             onSaveGame={handleSaveGame} onNavigate={navigate}
+            onBack={() => navigate("home")}
             currentUser={currentUser}
             onMatchCreated={(id) => setMatchConfig(prev => ({ ...prev, supabaseId: id }))} />
         </div>

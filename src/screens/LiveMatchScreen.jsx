@@ -23,7 +23,7 @@ const ZONES = [
   { id: "z4", label: "Own Quarter" },
 ];
 
-export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, currentUser, onMatchCreated }) {
+export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, onBack, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(teamColor(home), teamColor(away));
   const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
@@ -382,6 +382,22 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     setLastSavedGame(saved || game);
   };
 
+  // Discard recording — delete events, revert match to upcoming or delete if new
+  const handleDiscard = async () => {
+    setShowEndConfirm(false);
+    timer.end();
+    clearAutoSave();
+    if (liveMatchId) {
+      try {
+        // Delete events
+        await supabase.from('match_events').delete().eq('match_id', liveMatchId);
+        // Revert to upcoming (or delete if it was a brand new match)
+        await supabase.from('matches').update({ status: 'upcoming', duration: 0, locked_by: null }).eq('id', liveMatchId);
+      } catch (e) { console.error('Discard error:', e); }
+    }
+    if (onBack) onBack();
+  };
+
   const finalizeVideoReview = async (updateScore = false) => {
     setShowScoreMismatch(null);
     if (updateScore && videoReviewMatchId) {
@@ -426,6 +442,15 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+      {isDemo && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px' }}>
+          <button onClick={() => { timer.end(); if (onBack) onBack(); }} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+            ← Cancel Demo
+          </button>
+          <span style={{ fontSize: 10, color: '#8B5CF6', fontWeight: 700 }}>DEMO MODE</span>
+        </div>
+      )}
 
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
         matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId} />
@@ -633,8 +658,11 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
                   <button onClick={() => setShowEndConfirm(false)} style={{ flex: 1, padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Cancel</button>
                   {showSave && <button onClick={handleEndMatch} style={{ flex: 1, padding: 10, borderRadius: 8, border: "1px solid #EF444466", background: "#EF444422", color: theme.danger, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{isDemo ? "End & Discard" : isVideoReview ? "End & Save Stats" : "End & Save"}</button>}
                 </div>
-                {!isDemo && (
-                  <button onClick={handleAbandon} style={{ width: '100%', marginTop: 6, padding: isPremature ? 10 : 8, borderRadius: 8, border: isPremature ? '1px solid #EF444466' : '1px solid #64748B44', background: isPremature ? '#EF444422' : 'transparent', color: isPremature ? '#EF4444' : '#94A3B8', cursor: 'pointer', fontSize: isPremature ? 11 : 10, fontWeight: 700 }}>{isPremature ? 'Discard Recording' : 'Abandon Match'}</button>
+                {!isDemo && isPremature && (
+                  <button onClick={handleDiscard} style={{ width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #EF444466', background: '#EF444422', color: '#EF4444', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Discard Recording</button>
+                )}
+                {!isDemo && !isPremature && (
+                  <button onClick={handleAbandon} style={{ width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #64748B44', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Match Abandoned (weather/other)</button>
                 )}
                 </>
               );

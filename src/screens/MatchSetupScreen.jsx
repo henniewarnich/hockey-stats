@@ -57,8 +57,10 @@ function TeamPickerWithSearch({ label, teams, selected, onSelect, otherId }) {
   );
 }
 
-export default function MatchSetupScreen({ teams, games, onStart, onImportGame, onBack, onManageTeams }) {
+export default function MatchSetupScreen({ teams, games, onStart, onImportGame, onBack, onManageTeams, currentUser }) {
   const [mode, setMode] = useState(null);
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
+  const modes = isAdmin ? MODES : MODES.filter(m => m.id !== 'import');
   const [liveMode, setLiveMode] = useState(null); // 'lite' | 'pro'
   const [showChooser, setShowChooser] = useState(false);
 
@@ -81,7 +83,7 @@ export default function MatchSetupScreen({ teams, games, onStart, onImportGame, 
       <div style={S.app}>
         <div style={S.page}>
           <div style={{ fontSize: 12, color: theme.textDim, marginBottom: 12, textAlign: "center" }}>Choose how to create a match</div>
-          {MODES.map(m => (
+          {modes.map(m => (
             <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14 }} onClick={() => handleModeClick(m.id)}>
               <div style={{ fontSize: 28 }}>{m.icon}</div>
               <div><div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div><div style={{ fontSize: 11, color: theme.textDim, marginTop: 2 }}>{m.desc}</div></div>
