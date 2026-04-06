@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, teamShortName } from '../utils/teams.js';
@@ -35,8 +35,8 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
           supabase_id: m.id,
           date: m.match_date,
           teams: {
-            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase() },
-            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase() },
+            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase(), instName: m.home_team?.institution?.name || '' },
+            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase(), instName: m.away_team?.institution?.name || '' },
           },
           homeScore: m.home_score,
           awayScore: m.away_score,
@@ -75,10 +75,9 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   }, []);
 
   // Merge local + cloud, deduplicate by supabase_id
-  const allGames = useMemo(() => {
+  const allGames = (() => {
     const cloudById = {};
     cloudMatches.forEach(cm => { cloudById[cm.id] = cm; });
-    // Local games enhanced with cloud penalty/status data
     const localEnhanced = games.map(g => {
       const cloud = g.supabase_id ? cloudById[g.supabase_id] : null;
       if (!cloud) return g;
@@ -87,13 +86,12 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     const localIds = new Set(games.filter(g => g.supabase_id).map(g => g.supabase_id));
     const cloudOnly = cloudMatches.filter(cm => !localIds.has(cm.id));
     return [...localEnhanced, ...cloudOnly];
-  }, [games, cloudMatches]);
+  })();
 
   const unsyncedCount = games.filter(g => !g.supabase_id).length;
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     let list = [...allGames];
-    // Apprentice: filter out matches involving Top 10 teams
     if (isApprentice && top10TeamIds.size > 0) {
       list = list.filter(g => !top10TeamIds.has(g.teams?.home?.id) && !top10TeamIds.has(g.teams?.away?.id));
     }
@@ -101,12 +99,12 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     if (q) {
       const words = q.split(/\s+/).filter(Boolean);
       list = list.filter(g => {
-        // Build combined searchable string: both teams + venue
         const home = (g.teams?.home?.name || '').toLowerCase();
         const away = (g.teams?.away?.name || '').toLowerCase();
+        const homeInst = (g.teams?.home?.instName || '').toLowerCase();
+        const awayInst = (g.teams?.away?.instName || '').toLowerCase();
         const venue = (g.venue || '').toLowerCase();
-        const combined = `${home} ${away} ${venue}`;
-        // Every word must appear somewhere in the combined string
+        const combined = `${home} ${away} ${homeInst} ${awayInst} ${venue}`;
         return words.every(w => combined.includes(w));
       });
     }
@@ -116,7 +114,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
       return sortDir === "desc" ? db - da : da - db;
     });
     return list;
-  }, [allGames, search, sortDir, top10TeamIds, isApprentice]);
+  })();
 
   const resultColor = (g) => {
     if (g.status === 'abandoned') return "#64748B";
