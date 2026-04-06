@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { APP_VERSION } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import PageHeader from '../components/PageHeader.jsx';
+import Icon from '../components/Icons.jsx';
 
 export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
@@ -69,22 +70,25 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
               </div>
             )}
             {[
-            ["match_schedule", "📅", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
-            ["match_setup", "⚡", "New Match", isApprentice ? "You will be able to create new matches once you qualify as a Commentator" : "Live match or quick score"],
-            ["teams", "🏫", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
-            ["history", "📊", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
+            ["match_schedule", "calendar", "#F59E0B", "Match Schedule", `${scheduledCount} upcoming match${scheduledCount !== 1 ? "es" : ""}`],
+            ["match_setup", "bolt", "#10B981", "New Match", isApprentice ? "You will be able to create new matches once you qualify as a Commentator" : "Live match or quick score"],
+            ["teams", "buildings", "#3B82F6", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
+            ["history", "bar_chart", "#8B5CF6", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
             ...(currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin' ? [
-              ["users", "🔑", "Users", "Manage user accounts"],
-              ["rankings", "🏆", "Rankings", "Manage team rankings"],
-              ["pending", "📋", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
-              ["health", "🩺", "System Health", "Database, users & activity"],
-              ["sponsors", "🤝", "Sponsors", "Manage sponsor placements"],
+              ["users", "user_plus", "#EF4444", "Users", "Manage user accounts"],
+              ["rankings", "trophy", "#F59E0B", "Rankings", "Manage team rankings"],
+              ["pending", "pending", "#EC4899", "Pending Approvals", pendingCount > 0 ? `${pendingCount} awaiting review` : "No pending items"],
+              ["health", "heartbeat", "#06B6D4", "System Health", "Database, users & activity"],
+              ["sponsors", "layers", "#14B8A6", "Sponsors", "Manage sponsor placements"],
+              ["vouchers", "coins", "#10B981", "Vouchers", "Manage voucher pool"],
             ] : []),
-          ].map(([screen, icon, title, sub]) => {
+          ].map(([screen, iconName, iconColor, title, sub]) => {
             const disabled = isApprentice && screen === 'match_setup';
             return (
               <div key={screen} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, opacity: disabled ? 0.5 : 1, cursor: disabled ? "default" : "pointer" }} onClick={() => !disabled && onNavigate(screen)}>
-                <div style={{ fontSize: 28 }}>{icon}</div>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: iconColor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon name={iconName} size={20} color={iconColor} />
+                </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
                   <div style={{ fontSize: 11, color: disabled ? "#F59E0B" : theme.textDim, marginTop: 2 }}>{sub}</div>

@@ -25,6 +25,7 @@ const LEDGER_MAP = {
   submission: { label: 'Submission approved', icon: '📝' },
   penalty: { label: 'Penalty', icon: '⚠️' },
   voucher_claim: { label: 'Voucher claimed', icon: '🎁' },
+  voucher_issued: { label: 'Voucher issued', icon: '🎁' },
 };
 
 export default function CreditsScreen({ currentUser, onBack }) {
@@ -32,7 +33,10 @@ export default function CreditsScreen({ currentUser, onBack }) {
   const [matchHistory, setMatchHistory] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [progress, setProgress] = useState({ live: 0, recorded: 0, total: 0 });
-  const [stats, setStats] = useState(null); // contributor_stats row
+  const [stats, setStats] = useState(null);
+  const [myVouchers, setMyVouchers] = useState([]);
+  const [revealedId, setRevealedId] = useState(null);
+  const [copied, setCopied] = useState(null);
 
   const isApprentice = currentUser?.commentator_status === 'apprentice';
   const isEarning = !isApprentice && progress.total >= 5;
@@ -103,6 +107,14 @@ export default function CreditsScreen({ currentUser, onBack }) {
 
     setLedger(led);
     setStats(cs);
+
+    // Fetch user's vouchers
+    const { data: vouchers } = await supabase.from('vouchers')
+      .select('*')
+      .eq('issued_to', currentUser.id)
+      .order('issued_at', { ascending: false });
+    setMyVouchers(vouchers || []);
+
     setLoading(false);
   };
 
@@ -259,6 +271,55 @@ export default function CreditsScreen({ currentUser, onBack }) {
                 </div>
               </div>
             ))
+          )}
+
+          {/* My Vouchers */}
+          {myVouchers.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>My Vouchers</div>
+              {myVouchers.map(v => {
+                const isRevealed = revealedId === v.id;
+                return (
+                  <div key={v.id} style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, color: '#64748B' }}>
+                        {new Date(v.issued_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981' }}>R{v.value}</div>
+                    </div>
+                    {isRevealed ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{
+                          flex: 1, fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#F59E0B',
+                          background: '#0B0F1A', padding: '8px 12px', borderRadius: 8, border: '1px solid #F59E0B44',
+                          letterSpacing: 1,
+                        }}>{v.code}</div>
+                        <button onClick={async () => {
+                          try { await navigator.clipboard.writeText(v.code); setCopied(v.id); setTimeout(() => setCopied(null), 2000); } catch { }
+                        }} style={{
+                          padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', flexShrink: 0,
+                          background: copied === v.id ? '#10B981' : '#F59E0B', color: '#0B0F1A', fontSize: 11, fontWeight: 700,
+                        }}>{copied === v.id ? 'Copied!' : 'Copy'}</button>
+                      </div>
+                    ) : (
+                      <button onClick={async () => {
+                        setRevealedId(v.id);
+                        if (v.status === 'issued') {
+                          await supabase.from('vouchers').update({ status: 'viewed', viewed_at: new Date().toISOString() }).eq('id', v.id);
+                        }
+                      }} style={{
+                        width: '100%', padding: '10px', borderRadius: 8, cursor: 'pointer',
+                        background: '#F59E0B22', border: '1px solid #F59E0B44', color: '#F59E0B',
+                        fontSize: 12, fontWeight: 700,
+                      }}>Reveal Voucher Code</button>
+                    )}
+                    {v.status === 'viewed' && !isRevealed && (
+                      <div style={{ fontSize: 9, color: '#64748B', marginTop: 4 }}>Viewed {new Date(v.viewed_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* Footer */}

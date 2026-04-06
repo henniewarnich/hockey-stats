@@ -14,6 +14,8 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
   const [pendingMatches, setPendingMatches] = useState([]);
   const [pendingTeams, setPendingTeams] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [eligibleUsers, setEligibleUsers] = useState([]);
+  const [voucherPool, setVoucherPool] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('matches');
   const [actionLoading, setActionLoading] = useState(null);
@@ -26,15 +28,23 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
 
   const load = async () => {
     setLoading(true);
-    const [pending, { data: allIssues }] = await Promise.all([
+    const [pending, { data: allIssues }, { data: eligibleStats }, { count: availableCount }] = await Promise.all([
       fetchPending(),
       supabase.from('issues')
         .select('*, reporter:profiles!issues_user_id_fkey(firstname, lastname, alias_nickname)')
         .order('created_at', { ascending: false }),
+      supabase.from('contributor_stats')
+        .select('*, user:profiles!contributor_stats_user_id_fkey(firstname, lastname, alias_nickname, email)')
+        .gte('credits', 100),
+      supabase.from('vouchers')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'available'),
     ]);
     setPendingMatches(pending.pendingMatches);
     setPendingTeams(pending.pendingTeams);
     setIssues(allIssues || []);
+    setEligibleUsers(eligibleStats || []);
+    setVoucherPool(availableCount || 0);
     setLoading(false);
   };
 
@@ -126,6 +136,25 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
   const reporterName = (i) => i.reporter?.alias_nickname || (i.reporter ? `${i.reporter.firstname} ${i.reporter.lastname}` : 'Unknown');
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }) : '';
 
+  const handleIssueVoucher = async (userId) => {
+    if (voucherPool <= 0) { alert('No vouchers available in pool. Add vouchers first.'); return; }
+    setActionLoading(userId);
+    const { data, error } = await supabase.rpc('issue_voucher', { p_user_id: userId, p_admin_id: currentUser.id });
+    if (error) {
+      alert('Error issuing voucher: ' + error.message);
+    } else if (data?.error) {
+      alert(data.error);
+    } else {
+      await load();
+    }
+    setActionLoading(null);
+  };
+
+  const eligibleUserName = (eu) => {
+    const u = eu.user;
+    return u?.alias_nickname || u?.firstname || u?.email || 'Unknown';
+  };
+
   // ═══ ISSUE DETAIL VIEW ═══
   if (selectedIssue) {
     const it = ISSUE_TYPES[selectedIssue.issue_type] || ISSUE_TYPES.other;
@@ -196,11 +225,12 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
         {[
           { id: 'matches', label: 'Matches', count: pendingMatches.length },
           { id: 'teams', label: 'Teams', count: pendingTeams.length },
+          { id: 'vouchers', label: 'Vouchers', count: eligibleUsers.length },
           { id: 'issues', label: 'Issues', count: issues.length },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer',
-            background: tab === t.id ? (t.id === 'issues' ? '#8B5CF6' : '#F59E0B') : '#0F172A',
+            background: tab === t.id ? (t.id === 'issues' ? '#8B5CF6' : t.id === 'vouchers' ? '#10B981' : '#F59E0B') : '#0F172A',
             color: tab === t.id ? '#fff' : '#94A3B8',
             fontSize: 11, fontWeight: tab === t.id ? 800 : 500,
           }}>
@@ -298,6 +328,61 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
                 </div>
               ))
             )
+          )}
+
+          {tab === 'vouchers' && (
+            <>
+              {voucherPool <= 0 && (
+                <div style={{ background: '#EF444422', border: '1px solid #EF444444', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 11, color: '#EF4444', fontWeight: 600 }}>
+                  No vouchers available in pool. Add vouchers in Voucher Management first.
+                </div>
+              )}
+              {voucherPool > 0 && eligibleUsers.length > voucherPool && (
+                <div style={{ background: '#F59E0B22', border: '1px solid #F59E0B44', borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>
+                  {eligibleUsers.length} eligible but only {voucherPool} voucher{voucherPool !== 1 ? 's' : ''} available.
+                </div>
+              )}
+              {voucherPool > 0 && (
+                <div style={{ fontSize: 10, color: '#64748B', marginBottom: 8 }}>{voucherPool} voucher{voucherPool !== 1 ? 's' : ''} available in pool</div>
+              )}
+              {eligibleUsers.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#475569', marginTop: 30, fontSize: 12 }}>No commentators at 100+ credits right now</div>
+              ) : (
+                eligibleUsers.map(eu => {
+                  const vouchersEarnable = Math.floor(eu.credits / 100);
+                  return (
+                    <div key={eu.user_id} style={{ background: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{eligibleUserName(eu)}</div>
+                          <div style={{ fontSize: 10, color: '#64748B' }}>{eu.user?.email}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: '#10B981' }}>{Math.round(eu.credits)}</div>
+                          <div style={{ fontSize: 9, color: '#64748B' }}>credits</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                        <div style={{ fontSize: 10, color: '#94A3B8' }}>
+                          Eligible for {vouchersEarnable} × R100 voucher{vouchersEarnable !== 1 ? 's' : ''}
+                          {' · '}R{Math.round(eu.credits % 100)} carries forward
+                        </div>
+                        <button onClick={() => handleIssueVoucher(eu.user_id)} disabled={actionLoading === eu.user_id || voucherPool <= 0} style={{
+                          padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                          background: '#10B981', color: '#0B0F1A', fontSize: 11, fontWeight: 700,
+                          opacity: (actionLoading === eu.user_id || voucherPool <= 0) ? 0.5 : 1,
+                        }}>{actionLoading === eu.user_id ? '...' : 'Issue'}</button>
+                      </div>
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 9, color: '#475569' }}>
+                          Vouchers earned: {eu.vouchers_earned || 0} · Live: {eu.total_live || 0} · Quick: {eu.total_quicks || 0}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </>
           )}
 
           {tab === 'issues' && (

@@ -1,9 +1,11 @@
+import Icon from './Icons.jsx';
+
 const tabs = [
-  { id: 'home', icon: '🏠', label: 'Home' },
-  { id: 'scores', icon: '🏑', label: 'Scores' },
-  { id: 'teams', icon: '🏫', label: 'Teams' },
-  { id: 'rankings', icon: '🏆', label: 'Rankings' },
-  { id: 'more', icon: '☰', label: 'More' },
+  { id: 'home', icon: 'home', label: 'Home' },
+  { id: 'scores', icon: 'scoreboard', label: 'Scores' },
+  { id: 'teams', icon: 'teams', label: 'Teams' },
+  { id: 'rankings', icon: 'trophy', label: 'Rankings' },
+  { id: 'more', icon: 'more_dots', label: 'More' },
 ];
 
 export default function BottomNav({ active, onChange, liveBadge }) {
@@ -19,8 +21,9 @@ export default function BottomNav({ active, onChange, liveBadge }) {
           <div key={t.id} onClick={() => onChange(t.id)} style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', gap: 2, cursor: 'pointer', position: 'relative',
+            color: isActive ? '#F59E0B' : '#475569',
           }}>
-            <span style={{ fontSize: 16, opacity: isActive ? 1 : 0.6 }}>{t.icon}</span>
+            <Icon name={t.icon} size={22} filled={isActive} />
             <span style={{ fontSize: 9, fontWeight: isActive ? 700 : 600, color: isActive ? '#F59E0B' : '#64748B' }}>{t.label}</span>
             {t.id === 'scores' && liveBadge > 0 && (
               <div style={{
@@ -28,6 +31,7 @@ export default function BottomNav({ active, onChange, liveBadge }) {
                 width: 14, height: 14, borderRadius: 7, background: '#EF4444',
                 fontSize: 8, fontWeight: 800, color: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid #0F172A',
               }}>{liveBadge}</div>
             )}
           </div>

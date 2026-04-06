@@ -1,15 +1,16 @@
 import { APP_VERSION } from '../utils/constants.js';
+import Icon from './Icons.jsx';
 
 function goAdmin(screen) {
   window.location.hash = screen ? `#/admin/${screen}` : '#/admin';
 }
 
-const MenuItem = ({ icon, title, sub, onClick }) => (
+const MenuItem = ({ icon, iconColor, title, sub, onClick }) => (
   <div onClick={onClick} style={{
-    background: '#1E293B', borderRadius: 10, padding: '12px 14px', marginBottom: 6,
+    background: '#1E293B', borderRadius: 10, padding: '10px 14px', marginBottom: 6,
     display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
   }}>
-    <span style={{ fontSize: 20 }}>{icon}</span>
+    <Icon name={icon} size={18} color={iconColor || '#94A3B8'} />
     <div>
       <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: '#64748B' }}>{sub}</div>}
@@ -29,16 +30,16 @@ export default function MoreMenu({ currentUser, onLogout }) {
   return (
     <div style={{ padding: '16px 16px 20px' }}>
 
-      {/* ── ADMIN / COMM ADMIN — clean manage-only menu ── */}
+      {/* ── ADMIN / COMM ADMIN ── */}
       {isAdmin && (
         <>
           <SectionLabel>Manage</SectionLabel>
-          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
-          <MenuItem icon="📊" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
-          <MenuItem icon="🏫" title="Institutions & Teams" sub="Schools and team setup" onClick={() => goAdmin('teams')} />
-          <MenuItem icon="👥" title="Users" sub="Roles and assignments" onClick={() => goAdmin('users')} />
-          <MenuItem icon="📋" title="Pending approvals" sub="Review submissions" onClick={() => goAdmin('pending')} />
-          <MenuItem icon="🩺" title="System health" sub="Database and activity" onClick={() => goAdmin('health')} />
+          <MenuItem icon="calendar" iconColor="#F59E0B" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
+          <MenuItem icon="bar_chart" iconColor="#8B5CF6" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
+          <MenuItem icon="buildings" iconColor="#3B82F6" title="Institutions & Teams" sub="Schools and team setup" onClick={() => goAdmin('teams')} />
+          <MenuItem icon="user_plus" iconColor="#EF4444" title="Users" sub="Roles and assignments" onClick={() => goAdmin('users')} />
+          <MenuItem icon="pending" iconColor="#EC4899" title="Pending approvals" sub="Review submissions" onClick={() => goAdmin('pending')} />
+          <MenuItem icon="heartbeat" iconColor="#06B6D4" title="System health" sub="Database and activity" onClick={() => goAdmin('health')} />
         </>
       )}
 
@@ -49,7 +50,7 @@ export default function MoreMenu({ currentUser, onLogout }) {
             background: '#F59E0B11', border: '1px solid #F59E0B44', borderRadius: 10,
             padding: '12px 14px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
           }}>
-            <span style={{ fontSize: 20 }}>🎙️</span>
+            <Icon name="mic" size={20} color="#F59E0B" />
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>Commentator dashboard</div>
               <div style={{ fontSize: 11, color: '#94A3B8' }}>Match schedule, recording, credits</div>
@@ -57,31 +58,31 @@ export default function MoreMenu({ currentUser, onLogout }) {
           </div>
 
           <SectionLabel>Quick access</SectionLabel>
-          <MenuItem icon="📅" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
-          <MenuItem icon="📊" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
-          <MenuItem icon="💰" title="My credits" sub="Credit statement and vouchers" onClick={() => goAdmin('credits')} />
+          <MenuItem icon="calendar" iconColor="#F59E0B" title="Match schedule" sub="Create, edit, start live" onClick={() => goAdmin('match_schedule')} />
+          <MenuItem icon="bar_chart" iconColor="#8B5CF6" title="Game history" sub="Past matches and stats" onClick={() => goAdmin('history')} />
+          <MenuItem icon="coins" iconColor="#F59E0B" title="My credits" sub="Credit statement and vouchers" onClick={() => goAdmin('credits')} />
         </>
       )}
 
       {/* ── COACH ── */}
       {isCoach && !isComm && (
         <>
-          <MenuItem icon="📊" title="Coach dashboard" sub="Team analytics and trends"
+          <MenuItem icon="coach" iconColor="#3B82F6" title="Coach dashboard" sub="Team analytics and trends"
             onClick={() => { window.location.hash = '#/coach'; }} />
         </>
       )}
 
-      {/* ── CONTRIBUTE (non-admin users) ── */}
+      {/* ── CONTRIBUTE (non-admin) ── */}
       {!isAdmin && (
         <>
           <SectionLabel>Contribute</SectionLabel>
-          <MenuItem icon="📝" title="Submit a result" sub="Know a score? Add it"
+          <MenuItem icon="edit" iconColor="#10B981" title="Submit a result" sub="Know a score? Add it"
             onClick={() => { window.location.hash = '#/submit?mode=result'; }} />
-          <MenuItem icon="📅" title="Add upcoming match" sub="Fixture not yet listed"
+          <MenuItem icon="calendar_plus" iconColor="#3B82F6" title="Add upcoming match" sub="Fixture not yet listed"
             onClick={() => { window.location.hash = '#/submit?mode=upcoming'; }} />
-          <MenuItem icon="🏫" title="Suggest a team" sub="Add a school not yet listed"
+          <MenuItem icon="school" iconColor="#8B5CF6" title="Suggest a team" sub="Add a school not yet listed"
             onClick={() => { window.location.hash = '#/submit?mode=team'; }} />
-          <MenuItem icon="⚠️" title="Report a mistake" sub="Flag incorrect data"
+          <MenuItem icon="alert_triangle" iconColor="#F59E0B" title="Report a mistake" sub="Flag incorrect data"
             onClick={() => { window.location.hash = '#/issues'; }} />
         </>
       )}
@@ -90,7 +91,7 @@ export default function MoreMenu({ currentUser, onLogout }) {
       {currentUser && (
         <>
           <SectionLabel>Account</SectionLabel>
-          <MenuItem icon="🔒" title="Security" sub="Password and devices"
+          <MenuItem icon="lock" iconColor="#94A3B8" title="Security" sub="Password and devices"
             onClick={() => { window.location.hash = '#/security'; }} />
           <div style={{ textAlign: 'center', marginTop: 16 }}>
             <span onClick={onLogout} style={{ fontSize: 12, color: '#EF4444', fontWeight: 600, cursor: 'pointer' }}>Sign out</span>

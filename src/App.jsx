@@ -35,6 +35,7 @@ import LiveLiteScreen from './screens/LiveLiteScreen.jsx';
 import LiveModeChooser from './components/LiveModeChooser.jsx';
 import RankingsScreen from './screens/RankingsScreen.jsx';
 import SponsorManagementScreen from './screens/SponsorManagementScreen.jsx';
+import VoucherManagementScreen from './screens/VoucherManagementScreen.jsx';
 import WhatIfScreen from './components/WhatIfScreen.jsx';
 import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
@@ -646,6 +647,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "sponsors":
       return <SponsorManagementScreen onBack={() => navigate("home")} />;
+
+    case "vouchers":
+      return <VoucherManagementScreen onBack={() => navigate("home")} />;
 
     case "credits":
       return <CreditsScreen currentUser={currentUser} onBack={() => navigate("home")} />;
