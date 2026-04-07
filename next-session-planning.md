@@ -1,107 +1,123 @@
 # kykie.net — Next Session Planning
-**Date: 6 April 2026 | Current Version: 7.17.14**
+**Date: 7 April 2026 | Current Version: 7.17.30**
 
-## Deploy Checklist
-- Push v7.17.14 to GitHub, verify on kykie.net
-- Migrations already run: v7.17.0 (team credits + backfill)
-- Test: info pages, feature gating, commentator home, delete recording
+## Immediate Actions (Before Next Session)
 
-## Immediate Priorities
+### 1. Deploy v7.17.30
+- Push to GitHub, verify on kykie.net
 
-### 1. Prediction System
-- DB: `predictions` table (user_id, match_id, home_score, away_score, created_at)
-- UI: prediction card on upcoming matches (team page + supporter view)
-- Auto-scoring: on match end, check predictions → award team credits (+2 correct result, +5 exact score)
-- Leaderboard: "23 predictions so far" FOMO on match cards
-- Already referenced in Supporter info page and commercialisation-strategy.md
+### 2. Run Pending Migrations
+```sql
+-- Run in order:
+-- 1. Fix tier calculation RPC (uses ALL ended matches)
+upgrade-scripts/v7.17.20/fix-tier-calculation.sql
 
-### 2. Training Screen + Benchmark Test
-- Next on commercialisation roadmap
-- Trainee → watch training materials → pass benchmark → apprentice
-- Benchmark: record a sample match from provided video, score against expected events
-- Training menu item already wired for commentators
+-- 2. Rebuild team credits from matches (catches Outeniqua etc.)
+upgrade-scripts/v7.17.20/backfill-team-credits-v2.sql
 
-### 3. CoachDashboard Results Count
-- Currently shows 6 results vs 27 total on TeamPage
-- May be team assignment mismatch or query filtering issue
-- Investigate: are coach_teams IDs matching the team IDs used in matches?
+-- 3. Coach approval flow
+upgrade-scripts/v7.17.24/migration-coach-approval.sql
+```
 
-### 4. Desktop Responsive Layout
-- Current mobile-first design needs responsive breakpoints
-- Headers, match cards, and stat grids should adapt
+### 3. Verify After Migrations
+- Oranje should show ~17 avg (not 44) → Free tier
+- Paarl Girls should show ~30 avg → Free Plus
+- PMB should show ~23 avg → Free Plus
+- Outeniqua should now have credits (was 0, has 1 Live Pro match)
+- Existing coaches should have `coach_status = 'approved'`
 
-## Parked Items
-- Personal credits + vouchers (functional, backfill done)
-- Team credits + tiers (functional, backfill done)
-- Coach dashboard progress (functional)
-- Feature gating (functional across all screens)
-- Share-to-earn
-- Sponsor integration (SponsorManagementScreen built)
-- Push notifications (iOS 16.4+ PWA limitation)
-- Staging environment (second Supabase project + test.kykie.net)
-- AI Scout minimum event/duration threshold filter
+---
 
-## Session Summary (v7.16.35 → v7.17.14)
+## Session Summary: v7.17.0 → v7.17.30
 
-### Team Credits Backend (v7.17.0)
-- `team_credits` + `team_tiers` tables, `recalc_team_tier` RPC
-- Wired into all 4 award flows (live, video, quick, schedule)
-- Both teams credited equally per match
-- Backfill SQL from audit_log
+### Coach Experience Overhaul
+- CoachDashboard rewritten as thin redirector (354 → 47 lines)
+- Single-team coaches land directly on stats (zero clicks)
+- Multi-team coaches get dropdown at top of TeamPage
+- Stats strip (P/W/D/L/GF/GA/GD) inside Overall tab
+- Contribute grid (Submit result, Add fixture, Suggest team, Report issue)
+- Practical unlock message with credit shortfall + suggestion
 
-### Feature Gating (v7.17.5+)
-- CoachDashboard: opp scouting locked for Free
-- CoachLiveScreen: visuals tab locked for Free
-- TeamPage Overall: VS OPP + Benchmark columns hidden for Free
-- TeamPage Trends: locked teaser for Free
-- Admin/CommAdmin bypass on game history coach_view
+### Feature Gating
+- Free tier: blurred VS OPP + Benchmark columns (blur(6px))
+- Free Plus: all columns clear with green/yellow/grey ranking
+- Trends/Visuals tab locked behind Free Plus
+- Lock teaser cards with upgrade messaging
+- Tier computed client-side from credits / ALL ended matches
 
-### Info Landing Pages (v7.17.6)
-- CoachInfoScreen, CommentatorInfoScreen, SupporterInfoScreen
-- Tappable feature cards with visual previews
-- Tier timelines, credit tables, CTAs
-- Predict feature on supporter page
-- Homepage "Get involved" → info pages → register
+### D-Entry Stat Rewrite
+- New `computeAtkChances()` — sequential event stream analysis
+- Counts zone crossings, set pieces, turnovers as distinct chances
+- New "Atk chances" row (raw number) + "Attack → D" row (%)
+- PAA: 48% → 51%, VS OPP: 79% → 52% (major correction)
 
-### Coach Overall Rewrite (v7.17.10)
-- Actual numbers (not offsets) for all 3 columns
-- Green/Yellow/Grey rank3 coloring
-- D-Entry renamed, per-match averages added
-- "x of y" detail removed
+### Coach Approval Flow
+- `coach_status` column (pending/approved)
+- Register as coach → pending → admin approves
+- Pending coach sees awaiting screen
+- Admin sees status pills + email domain for vetting
 
-### Admin Features
-- Team tier badges + override popup on TeamsScreen
-- Commentator status override (trainee/apprentice/qualified)
-- Delete Recording Only button with audit
-- Credit statement: correct event counts, expandable stats, recording timestamp
-- Match deletion audit trail fixed (RPC first, then local)
+### Commentator Dashboard
+- Training + Demo at top of menu
+- Cancel Demo button on LiveMatchScreen
+- My Credits for qualified commentators
+- No "Institutions & Teams" for plain commentators
+- Apprentice unlocked for Match Schedule + New Match
+- JSON Import hidden for non-admin
 
-### Bug Fixes
-- Game History multi-word search (cloud team data to local games)
-- Black screen on match detail (missing NavLogo import)
-- 0 events in credit statement (count query vs row fetch)
-- Premature end: discard instead of save for short recordings
-- Register button routes (register?role= parsed)
-- Commentator HomeScreen: removed Teams, added Training + Credits
+### Tier Calculation Fix
+- `recalc_team_tier` RPC now uses ALL ended matches (not just credited)
+- Frontend computes tier client-side as belt-and-suspenders
+- Comprehensive backfill from matches table (not audit_log)
 
-## Key Files Changed
-| File | Changes |
-|---|---|
-| `src/utils/credits.js` | Team credit functions, tier logic, FREE_PLUS_THRESHOLD |
-| `src/components/CoachOverall.jsx` | Full rewrite: actual numbers, rank3, gating |
-| `src/screens/TeamPage.jsx` | teamTier state, gated trends tab, passed to CoachLiveScreen |
-| `src/screens/CoachDashboard.jsx` | Progress bar, opp scouting gate, tier fetch |
-| `src/screens/CoachLiveScreen.jsx` | Visuals gate, teamTier prop, D-Entry rename |
-| `src/screens/TeamsScreen.jsx` | Tier badges, override popup |
-| `src/screens/HomeScreen.jsx` | Commentator menu: no Teams, + Training, + Credits |
-| `src/screens/UserManagementScreen.jsx` | Commentator status pills + audit |
-| `src/screens/AdminCreditsScreen.jsx` | Count fix, expandable stats, recording timestamp |
-| `src/screens/GameReviewScreen.jsx` | Delete Recording Only, NavLogo fix |
-| `src/screens/LiveMatchScreen.jsx` | Premature end warning, discard button |
-| `src/screens/HistoryScreen.jsx` | Multi-word search fix, cloud team data merge |
-| `src/screens/CoachInfoScreen.jsx` | NEW — coach landing page |
-| `src/screens/CommentatorInfoScreen.jsx` | NEW — commentator landing page |
-| `src/screens/SupporterInfoScreen.jsx` | NEW — supporter landing page with predict |
-| `src/hooks/useMatchStore.js` | deleteGameLocal() added |
-| `src/App.jsx` | Info routes, register?role=, training nav, deletion fix |
-| `upgrade-scripts/v7.17.0/` | Team credits migration + backfill |
+### Other Fixes
+- Multi-word search hardened (try-catch, inline computation)
+- Black screen fix (missing NavLogo import)
+- Delete Recording Only + Delete Match buttons
+- Premature end: Discard Recording (no abandoned match created)
+- Match Abandoned: renamed from "Abandon Match"
+- Recording date/time in admin credit statement
+- TeamPage header uses PageHeader for coaches
+
+---
+
+## Planned Features (Next Sessions)
+
+### Priority 1: Training Screen + Benchmark Test
+- Training materials for commentators
+- Online benchmark test to graduate from trainee → apprentice
+- Already have migration (v7.13.0) but screen needs building
+
+### Priority 2: Personal Credits + Vouchers
+- Commentator credit statement (partially done — CreditsScreen exists)
+- Voucher claim flow (20 credits = R100 Takealot)
+- Admin voucher management screen
+
+### Priority 3: Email Notifications
+- Coach approval notification (Resend API)
+- Admin alerts via ntfy.sh (new user, match live, voucher due)
+- Coach outreach letters (rich HTML via Resend API)
+
+### Priority 4: Stats Normalisation
+- Parked until more 60-min matches recorded
+- Volume stats (D entries/match) × (60 / actual_duration)
+- Ratios unchanged (conversion %, accuracy)
+- Match duration badge on cards
+
+### Parked Items
+- Prediction auto-scoring
+- Video playback speed
+- Coach TOP10 bug (filter by sport/gender/age_group)
+- Staging environment
+- Organisation → Team hierarchy for multi-sport
+- LocalStorage full phase-out
+- WhatsApp Business API (R750-2000/mo — too early)
+- Embeddable widgets for school websites
+- Sponsorship & advertising system
+
+---
+
+## Supabase Project Details
+- **URL**: belveuygzinoipiwanwb.supabase.co
+- **Domain**: kykie.net (Afrihost DNS, GitHub Pages)
+- **Repo**: github.com/henniewarnich/hockey-stats
