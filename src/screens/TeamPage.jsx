@@ -727,10 +727,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {isCoach && coachProfile ? (
         <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout}
-          onBack={() => {
-            const count = parseInt(sessionStorage.getItem('kykie-coach-team-count') || '1');
-            window.location.hash = count > 1 ? '#/coach' : '';
-          }} />
+          onBack={() => { window.location.hash = ''; }} />
       ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.location.hash = ''; }} style={{
@@ -760,6 +757,29 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       </div>
       )}
       </div>
+
+      {/* Coach team switcher (multi-team only) */}
+      {isCoach && (() => {
+        const count = parseInt(sessionStorage.getItem('kykie-coach-team-count') || '1');
+        if (count <= 1) return null;
+        let coachTeams = [];
+        try { coachTeams = JSON.parse(sessionStorage.getItem('kykie-coach-teams') || '[]'); } catch {}
+        if (coachTeams.length <= 1) return null;
+        const currentSlug = window.location.hash.replace('#/team/', '');
+        return (
+          <div style={{ padding: "8px 14px 0" }}>
+            <select
+              value={currentSlug}
+              onChange={(e) => { window.location.hash = '#/team/' + e.target.value; window.location.reload(); }}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 13, fontWeight: 700 }}
+            >
+              {coachTeams.map(t => (
+                <option key={t.slug} value={t.slug}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        );
+      })()}
 
       {/* Team Header */}
       <div style={{ padding: "12px 14px 8px" }}>
