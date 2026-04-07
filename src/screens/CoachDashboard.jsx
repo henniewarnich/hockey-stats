@@ -3,7 +3,7 @@ import { getCoachTeams } from '../utils/auth.js';
 import { S } from '../utils/styles.js';
 import KykieSpinner from '../components/KykieSpinner.jsx';
 import PageHeader from '../components/PageHeader.jsx';
-import { teamSlug } from '../utils/teams.js';
+import { teamDisplayName, teamSlug } from '../utils/teams.js';
 
 export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [loading, setLoading] = useState(true);
@@ -20,10 +20,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
       // Store team count + all slugs for TeamPage dropdown
       sessionStorage.setItem('kykie-coach-team-count', String(teams.length));
       sessionStorage.setItem('kykie-coach-teams', JSON.stringify(teams.map(t => {
-        const instName = t.institution?.name || t.institution?.short_name || '';
-        const desc = t.name || '';
-        const full = instName ? `${instName} ${desc}` : desc;
-        return { id: t.id, slug: teamSlug(t), name: full, short_name: t.short_name, color: t.color };
+        return { id: t.id, slug: teamSlug(t), name: teamDisplayName(t), short_name: t.short_name, color: t.color };
       })));
       // Always redirect to first team
       window.location.hash = '#/team/' + teamSlug(teams[0]);

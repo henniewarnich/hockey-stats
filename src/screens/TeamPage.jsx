@@ -766,7 +766,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         const isMulti = count > 1 && coachTeams.length > 1;
         const currentSlug = window.location.hash.replace('#/team/', '');
         return (
-          <div style={{ padding: "10px 14px 0" }}>
+          <div style={{ padding: "10px 14px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: teamColor(team), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{teamInitial(team)}</div>
               {isMulti ? (

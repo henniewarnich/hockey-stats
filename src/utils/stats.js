@@ -36,6 +36,7 @@ export function computeStats(events, team, startTime, endTime) {
     scGoals: real.filter(e => e.event === "Goal! (SC)").length,
     dEntries: real.filter(e => e.event === "D Entry").length,
     atkZoneEntries: real.filter(e => e.zone?.includes("Opp Quarter")).length,
+    atkChances: 0, // computed separately via computeAtkChances
     shotsOn: real.filter(e => e.event === "Shot on Goal").length,
     shotsOff: real.filter(e => e.event === "Shot Off Target").length,
     shortCorners: real.filter(e => e.event === "Short Corner").length,
@@ -44,6 +45,66 @@ export function computeStats(events, team, startTime, endTime) {
     possLost: real.filter(e => e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out")).length,
     territory: Math.round(teamCount / totalCount * 100),
   };
+}
+
+// Compute attacking chances by walking the event stream sequentially.
+// A "chance" = a distinct opportunity to enter the D:
+//   1. Ball crosses into attack zone from another zone
+//   2. Ball goes straight into D from outside attack zone (D Entry where prev wasn't atk)
+//   3. Ball dead / restart in the attack zone
+//   4. Long Corner awarded to the team
+//   5. Short Corner awarded to the team
+//   6. Turnover Won in the attack zone
+function computeAtkChances(events, teamSide, startTime, endTime) {
+  const sorted = events
+    .filter(e => e.time >= startTime && e.time <= endTime && e.team !== 'commentary' && e.team !== 'meta')
+    .sort((a, b) => (a.time || 0) - (b.time || 0) || (a.seq || 0) - (b.seq || 0));
+
+  const isAtk = (zone) => {
+    if (!zone) return false;
+    return teamSide === 'home' ? zone.includes('Opp Quarter') : zone.includes('Own Quarter');
+  };
+  const isD = (zone) => zone && zone.includes(' D');
+
+  let chances = 0;
+  let prevZone = null;
+
+  for (const e of sorted) {
+    const isUs = e.team === teamSide;
+    const zone = e.zone || '';
+    const event = e.event || '';
+    const inAtk = isAtk(zone);
+    const prevInAtk = isAtk(prevZone);
+    const prevInD = isD(prevZone);
+
+    // 1. D Entry from outside attack zone = chance + D entry
+    if (isUs && event === 'D Entry' && !prevInAtk && !prevInD) {
+      chances++;
+    }
+    // 2. Ball crosses into attack zone from non-attack zone
+    else if (isUs && inAtk && !prevInAtk && !prevInD && prevZone) {
+      chances++;
+    }
+    // 3. Ball dead in attack zone (restart opportunity)
+    else if (event === 'Ball Dead' && inAtk) {
+      chances++;
+    }
+    // 4. Long Corner for us
+    else if (isUs && event === 'Long Corner') {
+      chances++;
+    }
+    // 5. Short Corner for us
+    else if (isUs && event === 'Short Corner') {
+      chances++;
+    }
+    // 6. Turnover Won in attack zone
+    else if (isUs && event === 'Turnover Won' && inAtk) {
+      chances++;
+    }
+
+    if (zone) prevZone = zone;
+  }
+  return chances;
 }
 
 /**
@@ -125,6 +186,9 @@ export function computeMatchStats(events, teamId, homeTeamId) {
   const oppSide = teamSide === "home" ? "away" : "home";
   const team = computeStats(events, teamSide, 0, 999999);
   const opp = computeStats(events, oppSide, 0, 999999);
+  // Sequential analysis for attacking chances
+  team.atkChances = computeAtkChances(events, teamSide, 0, 999999);
+  opp.atkChances = computeAtkChances(events, oppSide, 0, 999999);
   return { team, opp, teamSide, oppSide };
 }
 
@@ -187,14 +251,14 @@ export function aggregateStats(matchStatsList) {
 
   return {
     team: {
-      goals: sum("goals"), scGoals: sum("scGoals"), dEntries: sum("dEntries"), atkZoneEntries: sum("atkZoneEntries"),
+      goals: sum("goals"), scGoals: sum("scGoals"), dEntries: sum("dEntries"), atkZoneEntries: sum("atkZoneEntries"), atkChances: sum("atkChances"),
       shotsOn: sum("shotsOn"), shotsOff: sum("shotsOff"), shortCorners: sum("shortCorners"),
       longCorners: sum("longCorners"), turnoversWon: sum("turnoversWon"), possLost: sum("possLost"),
       territory: avgTerritory, possessionTimePct: avgPossTime, territoryTimePct: avgTerritoryTime,
       scOutcomes: teamSCO,
     },
     opp: {
-      goals: sumOpp("goals"), scGoals: sumOpp("scGoals"), dEntries: sumOpp("dEntries"), atkZoneEntries: sumOpp("atkZoneEntries"),
+      goals: sumOpp("goals"), scGoals: sumOpp("scGoals"), dEntries: sumOpp("dEntries"), atkZoneEntries: sumOpp("atkZoneEntries"), atkChances: sumOpp("atkChances"),
       shotsOn: sumOpp("shotsOn"), shotsOff: sumOpp("shotsOff"), shortCorners: sumOpp("shortCorners"),
       longCorners: sumOpp("longCorners"), turnoversWon: sumOpp("turnoversWon"), possLost: sumOpp("possLost"),
       territory: avgOppTerritory, possessionTimePct: avgOppPossTime, territoryTimePct: avgOppTerritoryTime,
@@ -224,6 +288,7 @@ export function statsFromArchive(rows, teamId, homeTeamId) {
     scGoals: row?.sc_goals || 0,
     dEntries: row?.d_entries || 0,
     atkZoneEntries: row?.atk_zone_entries || 0,
+    atkChances: row?.atk_chances || row?.atk_zone_entries || 0,
     shotsOn: row?.shots_on || 0,
     shotsOff: row?.shots_off || 0,
     shortCorners: row?.short_corners || 0,
