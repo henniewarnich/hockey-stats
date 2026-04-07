@@ -251,9 +251,6 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
-      <div style={{ fontSize: 10, color: "#64748B", textAlign: "center", marginBottom: 10 }}>
-        Aggregated across {n} recorded match{n !== 1 ? "es" : ""} · {totalMatches} total
-      </div>
 
       {/* Detailed Live Pro Stats */}
       <div style={ST.card}>

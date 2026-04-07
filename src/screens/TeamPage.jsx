@@ -785,23 +785,6 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                 </div>
               )}
             </div>
-            {/* Season stats strip */}
-            <div style={{ display: "flex", justifyContent: "center", background: "#1E293B", borderRadius: 10, marginTop: 10, border: "1px solid #334155", overflow: "hidden" }}>
-              {[
-                { v: seasonStats.played, l: "P", c: "#F8FAFC" },
-                { v: seasonStats.won, l: "W", c: "#10B981" },
-                { v: seasonStats.drawn, l: "D", c: "#F8FAFC" },
-                { v: seasonStats.lost, l: "L", c: "#EF4444" },
-                { v: seasonStats.gf, l: "GF", c: "#F8FAFC" },
-                { v: seasonStats.ga, l: "GA", c: "#F8FAFC" },
-                { v: seasonStats.gf - seasonStats.ga, l: "GD", c: (seasonStats.gf - seasonStats.ga) >= 0 ? "#10B981" : "#EF4444" },
-              ].map(s => (
-                <div key={s.l} style={{ flex: 1, padding: "10px 2px", textAlign: "center", borderRight: "1px solid #33415533" }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color: s.c }}>{s.l === "GD" && s.v > 0 ? "+" : ""}{s.v}</div>
-                  <div style={{ fontSize: 8, color: "#64748B", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</div>
-                </div>
-              ))}
-            </div>
           </div>
         );
       })()}
@@ -973,6 +956,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading stats...</div>
         ) : (
           <>
+          {/* Season stats strip */}
+          <div style={{ padding: "8px 14px 0" }}>
+            <div style={{ display: "flex", background: "#1E293B", borderRadius: 10, border: "1px solid #334155", overflow: "hidden" }}>
+              {[
+                { v: seasonStats.played, l: "P", c: "#F8FAFC" },
+                { v: seasonStats.won, l: "W", c: "#10B981" },
+                { v: seasonStats.drawn, l: "D", c: "#F8FAFC" },
+                { v: seasonStats.lost, l: "L", c: "#EF4444" },
+                { v: seasonStats.gf, l: "GF", c: "#F8FAFC" },
+                { v: seasonStats.ga, l: "GA", c: "#F8FAFC" },
+                { v: seasonStats.gf - seasonStats.ga, l: "GD", c: (seasonStats.gf - seasonStats.ga) >= 0 ? "#10B981" : "#EF4444" },
+              ].map(s => (
+                <div key={s.l} style={{ flex: 1, padding: "10px 2px", textAlign: "center", borderRight: "1px solid #33415533" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color: s.c }}>{s.l === "GD" && s.v > 0 ? "+" : ""}{s.v}</div>
+                  <div style={{ fontSize: 8, color: "#64748B", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
           <CoachOverall
             matchStatsList={Object.values(matchStatsMap)}
             matchStatsMap={matchStatsMap}
