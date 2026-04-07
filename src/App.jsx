@@ -214,12 +214,13 @@ export default function App() {
     }
 
     if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
-      // Trainee commentators go to training, qualified go to admin
       if (profile.role === 'commentator' && profile.commentator_status === 'trainee') {
         window.location.hash = '#/training';
       } else {
         window.location.hash = '#/admin';
       }
+    } else if (profile.role === 'coach') {
+      window.location.hash = '#/coach';
     } else {
       window.location.hash = '';
     }
@@ -467,6 +468,31 @@ export default function App() {
   if (route.type === 'coach') {
     if (!currentUser || !['admin', 'commentator_admin', 'coach'].includes(currentUser.role)) {
       return <LoginPage onLogin={handleLogin} />;
+    }
+    // Pending coach — awaiting admin approval
+    if (currentUser.role === 'coach' && currentUser.coach_status === 'pending') {
+      return (
+        <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: '#F59E0B22', border: '1px solid #F59E0B44', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 16 }}>⏳</div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Registration received</div>
+          <div style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>
+            Hi {currentUser.firstname}, your coach registration is being reviewed.<br/>
+            You'll receive an email once an admin has approved your access.
+          </div>
+          <div style={{ background: '#1E293B', borderRadius: 10, padding: 14, width: '100%', marginBottom: 20 }}>
+            <div style={{ fontSize: 10, color: '#64748B', marginBottom: 6 }}>While you wait, you can:</div>
+            <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.6 }}>
+              • Browse team pages and match results<br/>
+              • Follow live matches as a supporter<br/>
+              • React to match events
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button onClick={() => { window.location.hash = ''; }} style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid #334155', background: 'transparent', color: '#94A3B8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Browse kykie</button>
+            <button onClick={handleLogout} style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid #EF444444', background: 'transparent', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Sign out</button>
+          </div>
+        </div>
+      );
     }
     return <CoachDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
   }

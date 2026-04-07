@@ -63,6 +63,14 @@ export default function RegisterPage() {
   useEffect(() => {
     fetchTeams().then(t => { if (t) setTeams(t); });
     fetchInstitutions().then(setInstitutions);
+    // Pre-select role from URL param (?role=coach, ?role=commentator, ?role=supporter)
+    const hash = window.location.hash || '';
+    const qs = hash.split('?')[1];
+    if (qs) {
+      const params = new URLSearchParams(qs);
+      const r = params.get('role');
+      if (['supporter', 'commentator', 'coach'].includes(r)) setRegRole(r);
+    }
   }, []);
 
   const checkEmail = async () => {
@@ -394,7 +402,7 @@ export default function RegisterPage() {
                 <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.5, marginTop: 8, padding: '8px 10px', background: '#1E293B', borderRadius: 8 }}>
                   {regRole === 'supporter' && "Pick this if you want to follow the teams you support and get access to match schedules, live commentary and more. You can always apply to be a Commentator or Coach later."}
                   {regRole === 'commentator' && "You will enjoy all Supporter access immediately, but will need to graduate to unlock Commentator features. Graduation involves some training and an online test. Relax, it's easy!"}
-                  {regRole === 'coach' && "You will enjoy all Supporter access immediately, but will need admin approval for Coach features. To also act as a Commentator, you'll need to complete the training and online test. Relax, it's easy!"}
+                  {regRole === 'coach' && "Register as coach and select your team. Your request will be reviewed by an admin — you'll receive an email once approved."}
                 </div>
               </div>
               {(regRole === 'commentator' || regRole === 'coach') && (
