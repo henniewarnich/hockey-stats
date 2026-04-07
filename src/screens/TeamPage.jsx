@@ -761,27 +761,53 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* Coach team switcher (multi-team only) */}
       {isCoach && (() => {
         const count = parseInt(sessionStorage.getItem('kykie-coach-team-count') || '1');
-        if (count <= 1) return null;
         let coachTeams = [];
         try { coachTeams = JSON.parse(sessionStorage.getItem('kykie-coach-teams') || '[]'); } catch {}
-        if (coachTeams.length <= 1) return null;
+        const isMulti = count > 1 && coachTeams.length > 1;
         const currentSlug = window.location.hash.replace('#/team/', '');
         return (
-          <div style={{ padding: "8px 14px 0" }}>
-            <select
-              value={currentSlug}
-              onChange={(e) => { window.location.hash = '#/team/' + e.target.value; window.location.reload(); }}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 13, fontWeight: 700 }}
-            >
-              {coachTeams.map(t => (
-                <option key={t.slug} value={t.slug}>{t.name}</option>
+          <div style={{ padding: "10px 14px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: teamColor(team), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{teamInitial(team)}</div>
+              {isMulti ? (
+                <select
+                  value={currentSlug}
+                  onChange={(e) => { window.location.hash = '#/team/' + e.target.value; window.location.reload(); }}
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #334155", background: "#1E293B", color: "#F8FAFC", fontSize: 14, fontWeight: 700 }}
+                >
+                  {coachTeams.map(t => (
+                    <option key={t.slug} value={t.slug}>{t.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 900 }}>{teamDisplayName(team)}</div>
+                </div>
+              )}
+            </div>
+            {/* Season stats strip */}
+            <div style={{ display: "flex", justifyContent: "center", background: "#1E293B", borderRadius: 10, marginTop: 10, border: "1px solid #334155", overflow: "hidden" }}>
+              {[
+                { v: seasonStats.played, l: "P", c: "#F8FAFC" },
+                { v: seasonStats.won, l: "W", c: "#10B981" },
+                { v: seasonStats.drawn, l: "D", c: "#F8FAFC" },
+                { v: seasonStats.lost, l: "L", c: "#EF4444" },
+                { v: seasonStats.gf, l: "GF", c: "#F8FAFC" },
+                { v: seasonStats.ga, l: "GA", c: "#F8FAFC" },
+                { v: seasonStats.gf - seasonStats.ga, l: "GD", c: (seasonStats.gf - seasonStats.ga) >= 0 ? "#10B981" : "#EF4444" },
+              ].map(s => (
+                <div key={s.l} style={{ flex: 1, padding: "10px 2px", textAlign: "center", borderRight: "1px solid #33415533" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1, color: s.c }}>{s.l === "GD" && s.v > 0 ? "+" : ""}{s.v}</div>
+                  <div style={{ fontSize: 8, color: "#64748B", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.l}</div>
+                </div>
               ))}
-            </select>
+            </div>
           </div>
         );
       })()}
 
-      {/* Team Header */}
+      {/* Team Header (non-coach) */}
+      {!isCoach && (
       <div style={{ padding: "12px 14px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: teamColor(team), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#fff", flexShrink: 0 }}>{teamInitial(team)}</div>
@@ -796,6 +822,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           </div>
         </div>
       </div>
+      )}
       {team?.id && <SponsorBanner tier="team" targetId={team.id} size="md" />}
 
       {/* Tabs */}

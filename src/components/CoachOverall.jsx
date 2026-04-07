@@ -252,12 +252,12 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   return (
     <div style={{ padding: "8px 14px 20px" }}>
       <div style={{ fontSize: 10, color: "#64748B", textAlign: "center", marginBottom: 10 }}>
-        Aggregated across {n} recorded match{n !== 1 ? "es" : ""}{totalMatches > n ? ` \u00b7 ${totalMatches} total` : ""}
+        Aggregated across {n} recorded match{n !== 1 ? "es" : ""} · {totalMatches} total
       </div>
 
       {/* Detailed Live Pro Stats */}
       <div style={ST.card}>
-        <div style={ST.title}>Detailed Live Pro Stats</div>
+        <div style={ST.title}>Detailed Live Pro Stats <span style={{ fontWeight: 400, color: "#64748B" }}>— based on {n}/{totalMatches} matches</span></div>
         <div style={ST.colH}>
           <div />
           <div style={{ ...ST.hdr, color: teamColor }}>{abbr}</div>

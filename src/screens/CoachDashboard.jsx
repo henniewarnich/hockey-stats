@@ -19,7 +19,12 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
       }
       // Store team count + all slugs for TeamPage dropdown
       sessionStorage.setItem('kykie-coach-team-count', String(teams.length));
-      sessionStorage.setItem('kykie-coach-teams', JSON.stringify(teams.map(t => ({ id: t.id, slug: teamSlug(t), name: t.institution?.name || t.name, short_name: t.short_name, color: t.color }))));
+      sessionStorage.setItem('kykie-coach-teams', JSON.stringify(teams.map(t => {
+        const instName = t.institution?.name || t.institution?.short_name || '';
+        const desc = t.name || '';
+        const full = instName ? `${instName} ${desc}` : desc;
+        return { id: t.id, slug: teamSlug(t), name: full, short_name: t.short_name, color: t.color };
+      })));
       // Always redirect to first team
       window.location.hash = '#/team/' + teamSlug(teams[0]);
     });
