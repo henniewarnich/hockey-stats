@@ -139,6 +139,8 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
         matchId, date: d, label,
         poss: stats.team.possessionTimePct != null ? stats.team.possessionTimePct : stats.team.territory,
         terr: stats.team.territoryTimePct != null ? stats.team.territoryTimePct : stats.team.territory,
+        turnoversWon: stats.team.turnoversWon || null,
+        possLost: stats.team.possLost || null,
         atkChances: stats.team.atkChances || null,
         dEntry: stats.team.atkChances > 0 ? pct(stats.team.dEntries, stats.team.atkChances) : null,
         dToSC: stats.team.dEntries > 0 ? Math.round(stats.team.shortCorners / stats.team.dEntries * 100) : null,
@@ -163,6 +165,16 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
   const rows = [
     { key: 'poss', label: "Possession", sub: "% of play", tVal: tPoss, oVal: oPoss, t10Val: t10Poss, suffix: "%", trendKey: 'poss' },
     { key: 'terr', label: "Territory", sub: "% in opp half", tVal: tTerr, oVal: oTerr, t10Val: t10Terr, suffix: "%", trendKey: 'terr' },
+    { key: 'turnoversWon', label: "Turnovers Won", sub: "per match",
+      tVal: avgPM(agg.team.turnoversWon, n), oVal: avgPM(agg.opp.turnoversWon, n),
+      t10Val: t10 ? avgPM(t10.team.turnoversWon, t10n) : null,
+      suffix: "", trendKey: 'turnoversWon',
+    },
+    { key: 'possLost', label: "Possession Lost", sub: "per match",
+      tVal: avgPM(agg.team.possLost, n), oVal: avgPM(agg.opp.possLost, n),
+      t10Val: t10 ? avgPM(t10.team.possLost, t10n) : null,
+      suffix: "", trendKey: 'possLost', higher: false,
+    },
     { key: 'atkChances', label: "Attack Chances", sub: "per match",
       tVal: avgPM(agg.team.atkChances, n), oVal: avgPM(agg.opp.atkChances, n),
       t10Val: t10 ? avgPM(t10.team.atkChances, t10n) : null,
@@ -272,7 +284,7 @@ export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, 
           const trend = getTrend(r.trendKey);
           const hasTrend = trend.length >= 2;
           const canExpand = canSeeOpp ? hasTrend : true; // locked rows always expandable
-          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, true) : ['#F8FAFC', '#94A3B8', '#8B5CF6'];
+          const cols = canSeeOpp ? rank3(r.tVal, r.oVal, r.t10Val, r.higher !== false) : ['#F8FAFC', '#94A3B8', '#8B5CF6'];
           return (
             <div key={r.key}>
               <div
