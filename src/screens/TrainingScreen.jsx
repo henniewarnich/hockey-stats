@@ -317,7 +317,7 @@ export default function TrainingScreen({ currentUser, onLogout, onRoleSwitch, on
       </div>
 
       {/* Home link */}
-      <button onClick={() => { window.location.hash = ''; }} style={{
+      <button onClick={() => { window.location.hash = '#/browse'; }} style={{
         width: '100%', padding: 10, borderRadius: 10, border: '1px solid #334155',
         background: 'none', color: '#64748B', fontSize: 11, cursor: 'pointer', marginBottom: 8,
       }}>

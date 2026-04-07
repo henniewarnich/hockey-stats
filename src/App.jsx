@@ -48,6 +48,7 @@ import { checkDevice, getDeviceId } from './utils/devices.js';
 import CoachInfoScreen from './screens/CoachInfoScreen.jsx';
 import CommentatorInfoScreen from './screens/CommentatorInfoScreen.jsx';
 import SupporterInfoScreen from './screens/SupporterInfoScreen.jsx';
+import SupporterDashboard from './screens/SupporterDashboard.jsx';
 
 function getHashRoute() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -76,11 +77,24 @@ function getHashRoute() {
   if (hash === 'info/coach') return { type: 'info_coach' };
   if (hash === 'info/commentator') return { type: 'info_commentator' };
   if (hash === 'info/supporter') return { type: 'info_supporter' };
+  if (hash === 'home') return { type: 'home' };
+  if (hash === 'browse') return { type: 'browse' };
   if (hash === 'admin' || hash.startsWith('admin/') || hash.startsWith('admin?')) {
     const sub = hash.includes('/') ? hash.split('/')[1] : null;
     return { type: 'admin', screen: sub || null };
   }
   return { type: 'landing' };
+}
+
+function getHomeHash(user) {
+  if (!user) return '#/';
+  if (user.role === 'coach') return '#/coach';
+  if (['admin', 'commentator_admin'].includes(user.role)) return '#/admin';
+  if (user.role === 'commentator') {
+    return user.commentator_status === 'trainee' ? '#/training' : '#/admin';
+  }
+  // supporter, crowd, or any other role
+  return '#/home';
 }
 
 export default function App() {
@@ -111,6 +125,13 @@ export default function App() {
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
   }, []);
+
+  // Redirect logged-in users away from public landing page
+  useEffect(() => {
+    if (route.type === 'landing' && currentUser && !authLoading) {
+      window.location.hash = getHomeHash(currentUser);
+    }
+  }, [route.type, currentUser, authLoading]);
 
   // Deep-link to admin screens via hash (e.g. #/admin/match_schedule)
   useEffect(() => {
@@ -180,8 +201,8 @@ export default function App() {
 
           if (isEmailConfirmation) {
             setEmailConfirmed(true);
-            // Clean the hash to remove tokens
-            window.location.hash = '';
+            // Clean the hash to remove tokens — redirect to role home
+            window.location.hash = getHomeHash(profile);
             setTimeout(() => setEmailConfirmed(false), 5000);
           }
         }
@@ -219,10 +240,8 @@ export default function App() {
       } else {
         window.location.hash = '#/admin';
       }
-    } else if (profile.role === 'coach') {
-      window.location.hash = '#/coach';
     } else {
-      window.location.hash = '';
+      window.location.hash = getHomeHash(profile);
     }
   };
 
@@ -238,12 +257,11 @@ export default function App() {
   const handleRoleSwitch = (newRole) => {
     if (!currentUser) return;
     sessionStorage.setItem('kykie-active-role', newRole);
-    const isAdmin = newRole === 'admin' || newRole === 'commentator_admin' || newRole === 'commentator';
     // Trainee commentators go to training
     if (newRole === 'commentator' && currentUser.commentator_status === 'trainee') {
       window.location.hash = '#/training';
     } else {
-      window.location.hash = isAdmin ? '#/admin' : '';
+      window.location.hash = getHomeHash({ ...currentUser, role: newRole });
     }
     window.location.reload();
   };
@@ -267,15 +285,7 @@ export default function App() {
           setDeviceBlock(null);
           // Continue to normal destination
           const profile = deviceBlock.user;
-          if (['admin', 'commentator_admin', 'commentator'].includes(profile.role)) {
-            if (profile.role === 'commentator' && profile.commentator_status === 'trainee') {
-              window.location.hash = '#/training';
-            } else {
-              window.location.hash = '#/admin';
-            }
-          } else {
-            window.location.hash = '';
-          }
+          window.location.hash = getHomeHash(profile);
         }}
         onCancel={async () => {
           setDeviceBlock(null);
@@ -366,13 +376,13 @@ export default function App() {
   // ── PUBLIC ROUTES (no auth needed) ──
 
   if (route.type === 'team') {
-    return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = ''; setRoute({ type: 'landing' }); }} />;
+    return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; setRoute(getHashRoute()); }} />;
   }
 
   if (route.type === 'login') {
     if (currentUser) {
-      // Already logged in — redirect to landing (dashboard tab auto-selects)
-      const target = ['admin', 'commentator_admin', 'commentator'].includes(currentUser.role) ? '#/admin' : '#/';
+      // Already logged in — redirect to role dashboard
+      const target = getHomeHash(currentUser);
       if (window.location.hash !== target) {
         window.location.hash = target;
         return <LoginPage onLogin={handleLogin} />;
@@ -396,7 +406,7 @@ export default function App() {
     if (!currentUser) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} initialMode={route.mode || null} />;
+    return <CrowdSubmitScreen currentUser={currentUser} onBack={() => { window.location.hash = getHomeHash(currentUser); }} initialMode={route.mode || null} />;
   }
 
   // Pending approvals (admin/comm_admin)
@@ -412,7 +422,7 @@ export default function App() {
     if (!currentUser) {
       return <LoginPage onLogin={handleLogin} />;
     }
-    return <IssuesScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
+    return <IssuesScreen currentUser={currentUser} onBack={() => { window.location.hash = getHomeHash(currentUser); }} />;
   }
 
   // Security (any authenticated user)
@@ -426,6 +436,22 @@ export default function App() {
   if (route.type === 'info_coach') return <CoachInfoScreen />;
   if (route.type === 'info_commentator') return <CommentatorInfoScreen />;
   if (route.type === 'info_supporter') return <SupporterInfoScreen />;
+
+  // Supporter dashboard
+  if (route.type === 'home') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <SupporterDashboard currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch} />;
+  }
+
+  // Browse mode — LandingPage with back to role dashboard
+  if (route.type === 'browse') {
+    return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
+      onNavigate={currentUser ? (target) => setSubScreen(target) : null}
+      onRoleSwitch={handleRoleSwitch}
+      onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; }} />;
+  }
 
   // Commentator training (trainee commentators)
   if (route.type === 'training') {
@@ -461,7 +487,7 @@ export default function App() {
       return <CommentatorPage teamSlug={route.slug} currentUser={currentUser} onBack={() => { window.location.hash = '#/record'; }} onLogout={handleLogout} />;
     }
     // Match Schedule — same view as admin, with role-gated actions
-    return <MatchScheduleScreen currentUser={currentUser} onBack={() => { window.location.hash = ''; }} />;
+    return <MatchScheduleScreen currentUser={currentUser} onBack={() => { window.location.hash = getHomeHash(currentUser); }} />;
   }
 
   // Coach area — standalone coach dashboard for team detail views
@@ -488,7 +514,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <button onClick={() => { window.location.hash = ''; }} style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid #334155', background: 'transparent', color: '#94A3B8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Browse kykie</button>
+            <button onClick={() => { window.location.hash = '#/browse'; }} style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid #334155', background: 'transparent', color: '#94A3B8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Browse kykie</button>
             <button onClick={handleLogout} style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid #EF444444', background: 'transparent', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Sign out</button>
           </div>
         </div>
@@ -535,15 +561,21 @@ export default function App() {
   const defaultNavigate = (target) => {
     setSubScreen(target);
   };
+
+  // Logged-in users should never see the public landing page — redirect effect handles it
+  if (currentUser) {
+    return <KykieLoadingScreen />;
+  }
+
   return <LandingPage currentUser={currentUser} onLogout={handleLogout} emailConfirmed={emailConfirmed}
-    onNavigate={currentUser ? defaultNavigate : null}
+    onNavigate={null}
     onRoleSwitch={handleRoleSwitch} />;
 }
 
 function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, reviewGame, setReviewGame, currentUser, onLogout, onRoleSwitch }) {
   const navigate = (target, data) => {
     if (target === "home" && currentUser && !['admin', 'commentator_admin', 'commentator'].includes(currentUser.role)) {
-      window.location.hash = '';
+      window.location.hash = getHomeHash(currentUser);
       return;
     }
     if (target === "training") {

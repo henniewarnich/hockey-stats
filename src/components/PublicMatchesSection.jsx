@@ -101,7 +101,7 @@ export default function PublicMatchesSection() {
         })
       )}
       {data.length > 5 && (
-        <div onClick={() => { window.location.hash = ''; }} style={{ textAlign: 'center', padding: 6, fontSize: 10, color: theme.accent, fontWeight: 700, cursor: 'pointer' }}>
+        <div onClick={() => { window.location.hash = '#/browse'; }} style={{ textAlign: 'center', padding: 6, fontSize: 10, color: theme.accent, fontWeight: 700, cursor: 'pointer' }}>
           View all on kykie →
         </div>
       )}

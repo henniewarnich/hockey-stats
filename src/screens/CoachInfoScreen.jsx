@@ -62,7 +62,7 @@ export default function CoachInfoScreen() {
   return (
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: '16px 20px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => { window.location.hash = ''; }} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 16, cursor: 'pointer', padding: 0 }}>←</button>
+        <button onClick={() => { window.history.back(); }} style={{ background: 'none', border: 'none', color: '#64748B', fontSize: 16, cursor: 'pointer', padding: 0 }}>←</button>
         <span style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B' }}>kykie</span>
       </div>
 

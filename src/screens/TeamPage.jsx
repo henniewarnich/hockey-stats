@@ -727,10 +727,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {isCoach && coachProfile ? (
         <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout}
-          onBack={() => { window.location.hash = ''; }} />
+          onBack={() => { window.location.hash = '#/coach'; }} />
       ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={() => { window.location.hash = ''; }} style={{
+        <button onClick={() => { window.history.back(); }} style={{
           background: "none", border: "none", color: "#F59E0B", fontSize: 13, cursor: "pointer", padding: 0,
           display: "flex", alignItems: "center", gap: 5, fontWeight: 700,
         }}>

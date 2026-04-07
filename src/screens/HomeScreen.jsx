@@ -55,7 +55,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch}
-        onBack={() => { window.location.hash = ''; }} />
+        onBack={() => { window.location.hash = '#/browse'; }} />
       <div style={{ padding: "0 16px 20px" }}>
         {(() => {
           const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';

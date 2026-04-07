@@ -22,7 +22,7 @@ import MoreMenu from '../components/MoreMenu.jsx';
 
 import PageHeader from '../components/PageHeader.jsx';
 
-export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch }) {
+export default function LandingPage({ currentUser, onLogout, emailConfirmed, initialTab, onNavigate, onRoleSwitch, onBack }) {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
@@ -422,7 +422,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       {/* Hero - scrolls away */}
       {/* Header */}
       <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch}
-        onBack={activeTab !== 'home' ? () => setActiveTab('home') : null} />
+        onBack={activeTab !== 'home' ? () => setActiveTab('home') : (onBack || null)} />
 
       <SponsorBanner tier="platform" size="lg" />
 
@@ -1152,7 +1152,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
       )}
 
       {/* Bottom Navigation */}
-      <BottomNav active={activeTab} onChange={(tab) => { window.location.hash = ''; setActiveTab(tab); }} liveBadge={liveMatches.length} />
+      <BottomNav active={activeTab} onChange={(tab) => { if (!onBack) window.location.hash = ''; setActiveTab(tab); }} liveBadge={liveMatches.length} />
     </div>
   );
 }

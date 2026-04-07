@@ -31,7 +31,7 @@ export default function CoachDashboard({ currentUser, onLogout, onRoleSwitch }) 
     return (
       <div style={S.app}>
         <PageHeader currentUser={currentUser} onLogout={onLogout} onRoleSwitch={onRoleSwitch}
-          onBack={() => { window.location.hash = ''; }} />
+          onBack={() => { window.location.hash = '#/browse'; }} />
         <div style={{ textAlign: "center", padding: 60, color: "#64748B" }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🏑</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>No teams assigned yet</div>
