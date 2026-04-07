@@ -727,7 +727,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {isCoach && coachProfile ? (
         <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout}
-          onBack={() => { window.location.hash = '#/coach'; }} />
+          onBack={() => {
+            const count = parseInt(sessionStorage.getItem('kykie-coach-team-count') || '1');
+            window.location.hash = count > 1 ? '#/coach' : '';
+          }} />
       ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.location.hash = ''; }} style={{
@@ -1398,10 +1401,51 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
         </div>
       )}
 
-      {/* Version footer */}
+      {/* ═══ COACH: Contribute + Account ═══ */}
+      {isCoach && !selectedMatch && (
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ borderTop: `1px solid #1E293B`, paddingTop: 14, marginTop: 8 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>Contribute</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                ["#/submit?mode=result", "📋", "Submit result", "Add a score"],
+                ["#/submit?mode=upcoming", "📅", "Add fixture", "Upcoming match"],
+                ["#/submit?mode=team", "🏫", "Suggest team", "New school"],
+                ["#/issues", "⚠️", "Report issue", "Flag mistake"],
+              ].map(([href, icon, title, sub]) => (
+                <div key={href} onClick={() => { window.location.hash = href; }} style={{
+                  background: "#1E293B", borderRadius: 8, padding: "10px", border: "1px solid #334155",
+                  display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                }}>
+                  <span style={{ fontSize: 14 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700 }}>{title}</div>
+                    <div style={{ fontSize: 9, color: "#64748B" }}>{sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ borderTop: `1px solid #1E293B`, paddingTop: 10, marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div onClick={() => { window.location.hash = '#/login?forgot=1'; }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <span style={{ fontSize: 14 }}>🔐</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>Security</div>
+                <div style={{ fontSize: 9, color: "#64748B" }}>Password & devices</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 9, color: "#334155" }}>v{APP_VERSION}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Version footer (non-coach) */}
+      {!isCoach && (
       <div style={{ padding: "12px 14px", textAlign: "center", fontSize: 9, color: "#334155" }}>
         v{APP_VERSION}
       </div>
+      )}
 
       <style>{`
         @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
