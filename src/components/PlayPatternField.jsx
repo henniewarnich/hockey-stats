@@ -89,13 +89,26 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
           </defs>
           <rect width="300" height="400" rx="12" fill="#7cc47c" />
           <g clipPath={`url(#ppf${id})`}>
-            {/* Zone shading: dark=prominent, red=ball loss, red+white border=overlap */}
+            {/* Zone shading: dark=prominent, red=ball loss, diagonal split=both */}
             {allZoneKeys.map(z => {
               const r = ZONE_RECTS[z];
               if (!r) return null;
               const isProm = zoneSet.has(z);
               const isLoss = lossSet.has(z);
-              if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" stroke={isProm ? '#fff' : 'none'} strokeWidth={isProm ? 3 : 0} />;
+              if (isProm && isLoss) {
+                const clipTL = `ppf-tl-${id}-${z}`;
+                const clipBR = `ppf-br-${id}-${z}`;
+                return <g key={z}>
+                  <defs>
+                    <clipPath id={clipTL}><polygon points={`${r[0]},${r[1]} ${r[0]+r[2]},${r[1]} ${r[0]},${r[1]+r[3]}`} /></clipPath>
+                    <clipPath id={clipBR}><polygon points={`${r[0]+r[2]},${r[1]} ${r[0]+r[2]},${r[1]+r[3]} ${r[0]},${r[1]+r[3]}`} /></clipPath>
+                  </defs>
+                  <rect x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#000" opacity="0.22" clipPath={`url(#${clipTL})`} />
+                  <rect x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" clipPath={`url(#${clipBR})`} />
+                  <line x1={r[0]} y1={r[1]+r[3]} x2={r[0]+r[2]} y2={r[1]} stroke="#fff" strokeWidth="1.5" opacity="0.4" />
+                </g>;
+              }
+              if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" />;
               return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#000" opacity="0.22" />;
             })}
             {/* Grid */}
@@ -148,6 +161,9 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
         </span>
         <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
           <span style={{ display: 'inline-block', width: 12, height: 12, background: 'rgba(220,38,38,0.22)', borderRadius: 2 }} /> Ball Lost
+        </span>
+        <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+          <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="0,0 12,0 0,12" fill="rgba(0,0,0,0.22)" /><polygon points="12,0 12,12 0,12" fill="rgba(220,38,38,0.22)" /><line x1="0" y1="12" x2="12" y2="0" stroke="#fff" strokeWidth="1" opacity="0.4" /></svg> Both
         </span>
         {compare && (
           <span style={{ fontSize: 8, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>

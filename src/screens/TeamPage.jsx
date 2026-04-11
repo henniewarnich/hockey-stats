@@ -1240,12 +1240,20 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.homeColor }}>{teamDisplayName(selectedMatch.home_team)} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#F8FAFC' }}>{teamShortName(selectedMatch.home_team)}</div>
+                  <div style={{ fontSize: 9, color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 2, background: selectedColors.homeColor, display: 'inline-block', flexShrink: 0 }} />
+                    {teamDerivedName(selectedMatch.home_team)} <RankBadge rank={selectedMatch.home_rank} prevRank={selectedMatch.home_prev_rank} />
+                  </div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.home_score}</div>
                 </div>
                 <div style={{ fontSize: 14, color: "#94A3B8", padding: "0 8px" }}>–</div>
                 <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: selectedColors.awayColor }}>{teamDisplayName(selectedMatch.away_team)} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} /></div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#F8FAFC' }}>{teamShortName(selectedMatch.away_team)}</div>
+                  <div style={{ fontSize: 9, color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 2, background: selectedColors.awayColor, display: 'inline-block', flexShrink: 0 }} />
+                    {teamDerivedName(selectedMatch.away_team)} <RankBadge rank={selectedMatch.away_rank} prevRank={selectedMatch.away_prev_rank} />
+                  </div>
                   <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1 }}>{selectedMatch.away_score}</div>
                 </div>
               </div>
@@ -1310,12 +1318,18 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
                   const home = isHome ? stats.team : stats.opp;
                   const away = isHome ? stats.opp : stats.team;
                   const rows = [
-                    { label: 'Territory', h: `${home.territoryTimePct ?? home.territory}%`, a: `${away.territoryTimePct ?? away.territory}%`, hv: home.territoryTimePct ?? home.territory, av: away.territoryTimePct ?? away.territory },
                     { label: 'Possession', h: `${home.possessionTimePct ?? home.territory}%`, a: `${away.possessionTimePct ?? away.territory}%`, hv: home.possessionTimePct ?? home.territory, av: away.possessionTimePct ?? away.territory },
+                    { label: 'Territory', h: `${home.territoryTimePct ?? home.territory}%`, a: `${away.territoryTimePct ?? away.territory}%`, hv: home.territoryTimePct ?? home.territory, av: away.territoryTimePct ?? away.territory },
+                    { label: 'Turnovers Won', h: home.turnoversWon, a: away.turnoversWon, hv: home.turnoversWon, av: away.turnoversWon },
+                    { label: 'Possession Lost', h: home.possLost, a: away.possLost, hv: home.possLost, av: away.possLost, inverted: true },
+                    ...(home.atkChances > 0 || away.atkChances > 0 ? [
+                      { label: 'Attack Chances', h: home.atkChances, a: away.atkChances, hv: home.atkChances, av: away.atkChances },
+                    ] : []),
                     { label: 'D Entries', h: home.dEntries, a: away.dEntries, hv: home.dEntries, av: away.dEntries },
                     { label: 'Short Corners', h: home.shortCorners, a: away.shortCorners, hv: home.shortCorners, av: away.shortCorners },
-                    { label: 'Shots on Goal', h: home.shotsOn, a: away.shotsOn, hv: home.shotsOn, av: away.shotsOn },
-                    { label: 'Shots off Target', h: home.shotsOff, a: away.shotsOff, hv: home.shotsOff, av: away.shotsOff },
+                    { label: 'SC Goals', h: home.scGoals || 0, a: away.scGoals || 0, hv: home.scGoals || 0, av: away.scGoals || 0 },
+                    { label: 'Shots', h: (home.shotsOn || 0) + (home.shotsOff || 0), a: (away.shotsOn || 0) + (away.shotsOff || 0), hv: (home.shotsOn || 0) + (home.shotsOff || 0), av: (away.shotsOn || 0) + (away.shotsOff || 0) },
+                    { label: 'Shots on Target', h: home.shotsOn, a: away.shotsOn, hv: home.shotsOn, av: away.shotsOn },
                   ];
                   return (<>
                     <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match stats</div>

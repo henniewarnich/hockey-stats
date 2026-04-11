@@ -312,17 +312,23 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
             {[
               { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
               { label: "Territory", sub: "% in opp half", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+              { label: "Turnovers Won", sub: "", hVal: totalStat("home", "turnoversWon"), aVal: totalStat("away", "turnoversWon"), suffix: "" },
+              { label: "Possession Lost", sub: "", hVal: totalStat("home", "possLost"), aVal: totalStat("away", "possLost"), suffix: "", inverted: true },
               ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
-                ? [{ label: "D-Entry", sub: "all entries into D", hVal: atkConv("home"), aVal: atkConv("away"), hDetail: `${totalStat("home", "dEntries")} of ${totalStat("home", "atkZoneEntries")}`, aDetail: `${totalStat("away", "dEntries")} of ${totalStat("away", "atkZoneEntries")}`, suffix: "%" }]
+                ? [{ label: "Attack Chances", sub: "", hVal: totalStat("home", "atkZoneEntries"), aVal: totalStat("away", "atkZoneEntries"), suffix: "" }]
                 : []),
-              { label: "D → Short Crnr", sub: "% of D entries", hVal: dToSC("home"), aVal: dToSC("away"), hDetail: `${totalStat("home", "shortCorners")} of ${totalStat("home", "dEntries")}`, aDetail: `${totalStat("away", "shortCorners")} of ${totalStat("away", "dEntries")}`, suffix: "%" },
-              { label: "SC → Goal", sub: "% of short corners", hVal: scToGoal("home"), aVal: scToGoal("away"), hDetail: `${totalStat("home", "scGoals")} of ${totalStat("home", "shortCorners")}`, aDetail: `${totalStat("away", "scGoals")} of ${totalStat("away", "shortCorners")}`, suffix: "%" },
-              { label: "Shots taken", sub: "D Entry → Shot", hVal: dConv("home"), aVal: dConv("away"), hDetail: `${shotsTaken("home")} of ${totalStat("home", "dEntries")}`, aDetail: `${shotsTaken("away")} of ${totalStat("away", "dEntries")}`, suffix: "%" },
-              { label: "On target", sub: "% of shots", hVal: onTargetPct("home"), aVal: onTargetPct("away"), hDetail: `${totalStat("home", "shotsOn")} of ${shotsTaken("home")}`, aDetail: `${totalStat("away", "shotsOn")} of ${shotsTaken("away")}`, suffix: "%" },
-              { label: "Goals", sub: "% of shots on target", hVal: goalPct("home"), aVal: goalPct("away"), hDetail: `${homeScore} of ${totalStat("home", "shotsOn")}`, aDetail: `${awayScore} of ${totalStat("away", "shotsOn")}`, suffix: "%", color: "#F59E0B" },
+              { label: "D Entries", sub: "", hVal: totalStat("home", "dEntries"), aVal: totalStat("away", "dEntries"), suffix: "" },
+              { label: "Short Corners", sub: "", hVal: totalStat("home", "shortCorners"), aVal: totalStat("away", "shortCorners"), suffix: "" },
+              { label: "SC Goals", sub: "", hVal: totalStat("home", "scGoals"), aVal: totalStat("away", "scGoals"), suffix: "" },
+              { label: "Shots", sub: "", hVal: shotsTaken("home"), aVal: shotsTaken("away"), suffix: "" },
+              { label: "Shots on Target", sub: "", hVal: totalStat("home", "shotsOn"), aVal: totalStat("away", "shotsOn"), suffix: "" },
             ].map((r, i, arr) => {
-              const hColor = r.hVal > r.aVal ? "#10B981" : r.hVal < r.aVal ? "#EF4444" : "#F59E0B";
-              const aColor = r.aVal > r.hVal ? "#10B981" : r.aVal < r.hVal ? "#EF4444" : "#F59E0B";
+              const higher = r.inverted ? r.hVal < r.aVal : r.hVal > r.aVal;
+              const lower = r.inverted ? r.hVal > r.aVal : r.hVal < r.aVal;
+              const hColor = higher ? "#10B981" : lower ? "#EF4444" : "#F59E0B";
+              const aHigher = r.inverted ? r.aVal < r.hVal : r.aVal > r.hVal;
+              const aLower = r.inverted ? r.aVal > r.hVal : r.aVal < r.hVal;
+              const aColor = aHigher ? "#10B981" : aLower ? "#EF4444" : "#F59E0B";
               return (
                 <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
                   <div style={{ textAlign: "center" }}>

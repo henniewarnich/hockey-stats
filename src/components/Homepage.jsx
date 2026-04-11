@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplayName, teamSlug } from '../utils/teams.js';
-import MatchCardTeams from './MatchCardTeams.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
 
 const CACHE_KEY = 'kykie-homepage-v5';
@@ -24,7 +23,6 @@ function saveCache(data) {
 export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [featuredTeam, setFeaturedTeam] = useState(null);
-  const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const loaded = useRef(false);
 
@@ -34,7 +32,6 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     if (cached) {
       setStats(cached.stats);
       setFeaturedTeam(null); // always pick fresh
-      setRecentResults(cached.recentResults || []);
       setLoading(false);
     }
     load(!!cached);
@@ -209,18 +206,9 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       newFeatured = { ...pick, recentMatches: recentMatchRows };
     }
     setFeaturedTeam(newFeatured);
-
-    // ── Recent results (global) ──
-    const { data: recent } = await supabase.from('matches')
-      .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
-      .eq('status', 'ended')
-      .order('match_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(3);
-    setRecentResults(recent || []);
     setLoading(false);
 
-    saveCache({ stats: newStats, featuredTeam: newFeatured, recentResults: recent || [] });
+    saveCache({ stats: newStats, featuredTeam: newFeatured });
   };
 
   const fmtNum = (n) => {
@@ -351,42 +339,6 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
           </div>
         );
       })()}
-
-      {/* Recent results */}
-      <div style={{ padding: '0 16px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Recent results</div>
-        {!stats && loading ? (
-          <div style={{ textAlign: 'center', padding: 20, color: '#475569' }}>Loading...</div>
-        ) : recentResults.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 20, color: '#475569', fontSize: 12 }}>No results yet</div>
-        ) : (
-          recentResults.map(m => {
-            const hw = m.home_score > m.away_score;
-            const aw = m.away_score > m.home_score;
-            const badge = hw ? { label: 'W', bg: '#10B981' } : aw ? { label: 'L', bg: '#EF4444' } : { label: 'D', bg: '#F59E0B' };
-            const d = parseSASTDate(m.match_date);
-            return (
-              <div key={m.id} onClick={() => { window.location.hash = `#/team/${teamSlug(m.home_team)}?match=${m.id}`; }}
-                style={{ display: 'flex', alignItems: 'center', background: '#1E293B', borderRadius: 10, padding: '10px 12px', marginBottom: 4, gap: 10, border: '1px solid #1E293B', cursor: 'pointer' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: badge.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{badge.label}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <MatchCardTeams home={m.home_team} away={m.away_team}
-                    meta={`${d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}${m.match_type ? ` · ${m.match_type}` : ''}`} />
-                </div>
-                <div style={{ textAlign: 'center', minWidth: 44 }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: '#F8FAFC' }}>{m.home_score}–{m.away_score}</div>
-                  {m.home_penalty_score != null && (
-                    <div style={{ fontSize: 9, color: '#F59E0B', fontWeight: 700 }}>{m.home_penalty_score}-{m.away_penalty_score} pen</div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div onClick={() => onNavigate('scores')} style={{ textAlign: 'center', padding: '6px 0', cursor: 'pointer' }}>
-          <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>View all results &gt;</span>
-        </div>
-      </div>
 
       {/* Get involved CTA */}
       {!currentUser && (
