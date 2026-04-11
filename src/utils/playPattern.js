@@ -253,8 +253,10 @@ export function getProminentZones(matches, eventsByMatch, teamId, topN = 2) {
     for (const e of events) {
       const isMine = (e.team === 'home' && isHome) || (e.team === 'away' && !isHome);
       if (!isMine) continue;
-      const g = toGrid(e.zone, isHome, ownNames, oppNames);
-      if (!g || g === 'Own D' || g === 'Opp D' || g === 'Centre') continue;
+      let g = toGrid(e.zone, isHome, ownNames, oppNames);
+      if (!g || g === 'Centre') continue;
+      if (g === 'Own D') g = 'DQ C';
+      if (g === 'Opp D') g = 'OQ C';
       zoneCounts[g] = (zoneCounts[g] || 0) + 1;
     }
   }
@@ -287,17 +289,19 @@ export function getBallLossZones(matches, eventsByMatch, teamId, topN = 2) {
       const isMine = (e.team === 'home' && isHome) || (e.team === 'away' && !isHome);
       // My explicit Poss Conceded
       if (isMine && LOSS_EVENTS.some(le => e.event.includes(le))) {
-        const g = toGrid(e.zone, isHome, ownNames, oppNames);
-        if (g && g !== 'Own D' && g !== 'Opp D' && g !== 'Centre') {
-          zoneCounts[g] = (zoneCounts[g] || 0) + 1;
-        }
+        let g = toGrid(e.zone, isHome, ownNames, oppNames);
+        if (!g || g === 'Centre') continue;
+        if (g === 'Own D') g = 'DQ C';
+        if (g === 'Opp D') g = 'OQ C';
+        zoneCounts[g] = (zoneCounts[g] || 0) + 1;
       }
       // Opponent Turnover Won = my ball loss at that zone
       if (!isMine && e.event === 'Turnover Won') {
-        const g = toGrid(e.zone, isHome, ownNames, oppNames);
-        if (g && g !== 'Own D' && g !== 'Opp D' && g !== 'Centre') {
-          zoneCounts[g] = (zoneCounts[g] || 0) + 1;
-        }
+        let g = toGrid(e.zone, isHome, ownNames, oppNames);
+        if (!g || g === 'Centre') continue;
+        if (g === 'Own D') g = 'DQ C';
+        if (g === 'Opp D') g = 'OQ C';
+        zoneCounts[g] = (zoneCounts[g] || 0) + 1;
       }
     }
   }
