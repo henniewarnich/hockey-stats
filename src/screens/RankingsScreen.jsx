@@ -26,7 +26,8 @@ export default function RankingsScreen({ onBack, currentUser }) {
       supabase.from('teams').select(TEAM_SELECT).order('name'),
     ]);
     setSets(allSets || []);
-    setTeams(allTeams || []);
+    const sorted = (allTeams || []).sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)));
+    setTeams(sorted);
     setLoading(false);
   };
 
@@ -106,7 +107,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
   if (editSet) {
     const q = search.toLowerCase();
     const filtered = teams.filter(t => {
-      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (q && !teamDisplayName(t).toLowerCase().includes(q)) return false;
       if (filter === "ranked" && !rankings[t.id]?.position) return false;
       if (filter === "unranked" && rankings[t.id]?.position) return false;
       return true;

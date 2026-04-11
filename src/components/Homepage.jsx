@@ -21,41 +21,11 @@ function saveCache(data) {
 }
 
 // SVG icons — clean, professional
-const Icon = ({ type }) => {
-  const s = { width: 20, height: 20, display: 'block' };
-  if (type === 'target') return (
-    <svg style={s} viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke="#EF4444" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="4" stroke="#EF4444" strokeWidth="1.5"/>
-      <circle cx="10" cy="10" r="1.5" fill="#EF4444"/>
-    </svg>
-  );
-  if (type === 'bolt') return (
-    <svg style={s} viewBox="0 0 20 20" fill="none">
-      <path d="M11 2L5 11h4l-1 7 6-9h-4l1-7z" fill="#F59E0B"/>
-    </svg>
-  );
-  if (type === 'clock') return (
-    <svg style={s} viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke="#3B82F6" strokeWidth="1.5"/>
-      <path d="M10 5v5l3.5 2" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  );
-  if (type === 'shield') return (
-    <svg style={s} viewBox="0 0 20 20" fill="none">
-      <path d="M10 2L3 6v4c0 4.4 3 7.5 7 9 4-1.5 7-4.6 7-9V6l-7-4z" stroke="#10B981" strokeWidth="1.5" fill="#10B98122"/>
-    </svg>
-  );
-  return null;
-};
-
 export default function Homepage({ currentUser, liveMatches, onNavigate }) {
   const [stats, setStats] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
-  const [spotlight, setSpotlight] = useState(null);
+  const [featuredTeam, setFeaturedTeam] = useState(null);
   const [recentResults, setRecentResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [scoutPage, setScoutPage] = useState(0);
   const loaded = useRef(false);
 
   useEffect(() => {
@@ -63,23 +33,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     const cached = loadCache();
     if (cached) {
       setStats(cached.stats);
-      setAnalysis(cached.analysis);
-      setSpotlight(cached.spotlight || null);
+      setFeaturedTeam(cached.featuredTeam || null);
       setRecentResults(cached.recentResults || []);
       setLoading(false);
     }
     load(!!cached);
   }, []);
 
-  // Auto-rotate AI Scout carousel
-  useEffect(() => {
-    if (!analysis && !spotlight) return;
-    const spotPages = spotlight ? Math.ceil(spotlight.length / 3) : 0;
-    const totalPages = (analysis ? 1 : 0) + spotPages;
-    if (totalPages <= 1) return;
-    const timer = setInterval(() => setScoutPage(p => (p + 1) % totalPages), 8000);
-    return () => clearInterval(timer);
-  }, [analysis, spotlight]);
 
   const load = async (hasCache) => {
     if (!hasCache) setLoading(true);
@@ -165,45 +125,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       a.durationSec += mt.duration;
     });
 
-    // 3. Build analysis — qualify with positive GD from ALL matches
-    const qualifiedOverall = Object.entries(overallRecord).filter(([, r]) => r.total >= 10 && (r.gf - r.ga) > 0 && r.w / r.total >= 0.4);
-    const qualifiedScout = Object.entries(scoutAgg).filter(([tid, a]) => {
-      const rec = overallRecord[tid];
-      return a.lpMatches >= 1 && rec && rec.total >= 10 && (rec.gf - rec.ga) > 0 && rec.w / rec.total >= 0.4;
-    });
-
-    let newAnalysis = null;
-    if (qualifiedScout.length >= 3 || qualifiedOverall.length >= 3) {
-      const sortScout = (fn) => [...qualifiedScout].sort(fn).slice(0, 3).map(([, a]) => a);
-      const sortOverall = (fn) => [...qualifiedOverall].sort(fn).slice(0, 3).map(([, r]) => r);
-
-      newAnalysis = {
-        // AI Scout: Accuracy = D entries / (D entries + poss_lost)
-        mostAccurate: qualifiedScout.length >= 3 ? sortScout((a, b) => {
-          const ra = a[1].dEntries / (a[1].dEntries + a[1].possLost + 0.01);
-          const rb = b[1].dEntries / (b[1].dEntries + b[1].possLost + 0.01);
-          return rb - ra;
-        }) : null,
-        // AI Scout: Speed = actions per minute
-        quickest: qualifiedScout.length >= 3 ? sortScout((a, b) => {
-          const ma = a[1].durationSec / 60 || 1;
-          const mb = b[1].durationSec / 60 || 1;
-          return ((b[1].dEntries + b[1].shotsOn + b[1].shotsOff + b[1].turnoversWon) / mb) -
-                 ((a[1].dEntries + a[1].shotsOn + a[1].shotsOff + a[1].turnoversWon) / ma);
-        }) : null,
-        // AI Scout: Patience = avg possession %
-        mostPatient: qualifiedScout.length >= 3 ? sortScout((a, b) =>
-          (b[1].possessionSum / b[1].lpMatches) - (a[1].possessionSum / a[1].lpMatches)
-        ) : null,
-        // ALL matches: Defence = lowest GA/match
-        strongestDef: qualifiedOverall.length >= 3 ? sortOverall((a, b) =>
-          (a[1].ga / a[1].total) - (b[1].ga / b[1].total)
-        ) : null,
-      };
-    }
-    setAnalysis(newAnalysis);
-
-    // ── Spotlight: team summaries with traits ──
+    // ── Featured team: single spotlight with rich prose ──
     const spotTeams = [];
     Object.entries(scoutAgg).forEach(([tid, a]) => {
       const rec = overallRecord[tid];
@@ -216,33 +138,80 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       const gaPerM = rec.ga / rec.total;
       const wr = rec.w / rec.total;
       const gd = rec.gf - rec.ga;
+      const gdStr = gd >= 0 ? `+${gd}` : `${gd}`;
       const traits = [];
-      if (accuracy >= 0.55) traits.push({ label: 'efficient', bg: '#10B98122', color: '#10B981' });
-      if (avgTerr >= 55) traits.push({ label: 'territorial', bg: '#8B5CF622', color: '#8B5CF6' });
-      if (tempo >= 1.2) traits.push({ label: 'high-tempo', bg: '#3B82F622', color: '#3B82F6' });
-      if (gaPerM <= 0.5) traits.push({ label: 'solid defence', bg: '#F59E0B22', color: '#F59E0B' });
-      if (conv >= 0.15) traits.push({ label: 'clinical', bg: '#10B98122', color: '#10B981' });
-      if (accuracy < 0.35) traits.push({ label: 'turnover-prone', bg: '#EF444422', color: '#EF4444' });
-      if (conv < 0.05 && a.dEntries > 5) traits.push({ label: 'needs conversion', bg: '#EF444422', color: '#EF4444' });
-      let summary;
-      if (accuracy >= 0.55 && avgTerr >= 55 && gaPerM <= 0.5) summary = 'Dominant force. Controls territory, efficient in possession, barely concedes.';
-      else if (accuracy >= 0.55 && tempo >= 1.2 && gaPerM <= 0.5) summary = 'Efficient and relentless. Keeps the ball well at a punishing pace.';
-      else if (avgTerr >= 55 && gaPerM <= 0.5) summary = 'Territorial and defensively rock-solid. Owns the opposition half.';
-      else if (tempo >= 1.2 && accuracy < 0.35) summary = 'Energetic but loose. High tempo offset by frequent turnovers.';
-      else if (gaPerM <= 0.5) summary = 'Defensively disciplined. Hard to break down and gives away very little.';
-      else if (conv >= 0.15) summary = 'Clinical finishers. Makes the most of every chance in the circle.';
-      else if (accuracy >= 0.55) summary = 'Composed in possession. Rarely wastes the ball, builds patiently.';
-      else if (tempo >= 1.2) summary = 'High-energy side. Plays at pace and generates constant pressure.';
-      else if (avgTerr >= 55) summary = 'Territorially dominant. Spends most of the game in the opposition half.';
-      else if (conv < 0.05 && a.dEntries > 5) summary = 'Creates chances but struggles to convert. The final touch needs work.';
-      else summary = 'Balanced profile across all metrics. A solid all-round side.';
-      spotTeams.push({ team: a.team, record: `P${rec.total} W${rec.w} D${rec.d} L${rec.l}`, gd: gd >= 0 ? `+${gd}` : `${gd}`, wr: Math.round(wr * 100), lpMatches: a.lpMatches, traits: traits.slice(0, 4), summary });
-    });
-    spotTeams.sort((a, b) => b.wr - a.wr);
-    const newSpotlight = spotTeams.length >= 3 ? spotTeams : null;
-    setSpotlight(newSpotlight);
+      if (accuracy >= 0.55) traits.push({ label: 'efficient', color: '#10B981' });
+      if (avgTerr >= 55) traits.push({ label: 'territorial', color: '#8B5CF6' });
+      if (tempo >= 1.2) traits.push({ label: 'high-tempo', color: '#3B82F6' });
+      if (gaPerM <= 0.5) traits.push({ label: 'solid defence', color: '#F59E0B' });
+      if (conv >= 0.15) traits.push({ label: 'clinical', color: '#10B981' });
+      if (a.turnoversWon / a.lpMatches >= 20) traits.push({ label: 'high-press', color: '#10B981' });
+      if (accuracy < 0.35) traits.push({ label: 'turnover-prone', color: '#EF4444' });
+      if (conv < 0.05 && a.dEntries > 5) traits.push({ label: 'needs conversion', color: '#EF4444' });
+      if (a.shotsOn > 0 && a.goals / a.shotsOn < 0.15) traits.push({ label: 'set-piece weakness', color: '#EF4444' });
 
-    // ── Recent results ──
+      // Build abstract prose
+      const parts = [];
+      // Opening — public record (ok to quote)
+      const unbeaten = rec.l === 0;
+      if (unbeaten && gd > 20) parts.push(`Unbeaten through ${rec.total} matches with a dominant goal difference of ${gdStr}.`);
+      else if (unbeaten) parts.push(`Unbeaten through ${rec.total} matches with a goal difference of ${gdStr}.`);
+      else if (wr >= 0.6) parts.push(`Strong season with ${rec.w} wins from ${rec.total} matches and a goal difference of ${gdStr}.`);
+      else if (wr >= 0.4) parts.push(`Competitive season so far with ${rec.total} matches played and a ${rec.w}W ${rec.d}D ${rec.l}L record.`);
+      else parts.push(`A developing side with ${rec.total} matches played this season (GD ${gdStr}).`);
+
+      // Style — abstract, from analysis
+      const intro = `From an in-depth analysis of ${a.lpMatches} match${a.lpMatches > 1 ? 'es' : ''}`;
+      if (tempo >= 1.2 && a.turnoversWon / a.lpMatches >= 20) parts.push(`${intro}, they play a high-pressure transition game — winning the ball back frequently and attacking at pace to create a high volume of chances.`);
+      else if (accuracy >= 0.55 && avgTerr >= 55) parts.push(`${intro}, they control possession well and dominate territory, building attacks patiently from the back.`);
+      else if (accuracy >= 0.55 && tempo >= 1.2) parts.push(`${intro}, they combine efficient possession with a relentless pace, rarely wasting the ball.`);
+      else if (accuracy >= 0.55) parts.push(`${intro}, they are composed in possession and rarely give the ball away cheaply.`);
+      else if (tempo >= 1.2) parts.push(`${intro}, they play at a high tempo, generating constant pressure through intensity and work rate.`);
+      else if (avgTerr >= 55) parts.push(`${intro}, they spend the majority of the game in the opposition half, dominating territory.`);
+      else parts.push(`${intro}, they show a balanced approach across all areas of the game.`);
+
+      // Defence
+      if (gaPerM <= 0.3) parts.push(`Their defence is among the best in the tournament, rarely allowing opponents into the circle.`);
+      else if (gaPerM <= 0.5) parts.push(`Defensively solid — they are difficult to break down and concede very little.`);
+      else if (gaPerM <= 1.0) parts.push(`Their defence is reasonable but can be exposed by direct, pacy attacks.`);
+      else parts.push(`Defensively they can be vulnerable, conceding regularly.`);
+
+      // Finishing/attack weakness
+      if (conv >= 0.15) parts.push(`Clinical in front of goal, they make the most of their chances in the circle.`);
+      else if (conv >= 0.08) parts.push(`However, their finishing is only average, and set pieces are not yet a weapon.`);
+      else if (a.dEntries > 5) parts.push(`However, converting chances remains a challenge — they create opportunities but struggle to finish.`);
+
+      const summary = parts.join(' ');
+      spotTeams.push({ team: a.team, record: `P${rec.total} W${rec.w} D${rec.d} L${rec.l}`, gd: gdStr, wr: Math.round(wr * 100), lpMatches: a.lpMatches, traits: traits.slice(0, 4), summary });
+    });
+
+    // Pick one random team (seeded by day so it's stable within a session)
+    let newFeatured = null;
+    if (spotTeams.length > 0) {
+      // Weight toward higher win-rate teams
+      spotTeams.sort((a, b) => b.wr - a.wr);
+      const top = spotTeams.slice(0, Math.max(5, Math.ceil(spotTeams.length * 0.5)));
+      const seed = new Date().getDate() + new Date().getMonth() * 31;
+      const pick = top[seed % top.length];
+      // Get recent matches for this team
+      const tid = pick.team.id;
+      const teamMatches = (allMatches || [])
+        .filter(m => m.home_team_id === tid || m.away_team_id === tid)
+        .sort((a, b) => (b.match_date || b.created_at || '').localeCompare(a.match_date || a.created_at || ''))
+        .slice(0, 3);
+      const recentMatchRows = teamMatches.map(m => {
+        const isHome = m.home_team_id === tid;
+        const gf = isHome ? m.home_score : m.away_score;
+        const ga = isHome ? m.away_score : m.home_score;
+        const oppTeam = isHome ? m.away_team : m.home_team;
+        const res = gf > ga ? 'W' : gf < ga ? 'L' : 'D';
+        return { id: m.id, res, gf, ga, homeScore: m.home_score, awayScore: m.away_score, opp: oppTeam, date: m.match_date || m.created_at, matchType: m.match_type };
+      });
+      newFeatured = { ...pick, recentMatches: recentMatchRows };
+    }
+    setFeaturedTeam(newFeatured);
+
+    // ── Recent results (global) ──
     const { data: recent } = await supabase.from('matches')
       .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
       .eq('status', 'ended')
@@ -252,42 +221,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     setRecentResults(recent || []);
     setLoading(false);
 
-    // Cache (strip deep objects for serialisation)
-    saveCache({ stats: newStats, analysis: newAnalysis, spotlight: newSpotlight, recentResults: recent || [] });
+    saveCache({ stats: newStats, featuredTeam: newFeatured, recentResults: recent || [] });
   };
 
   const fmtNum = (n) => {
     if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
     if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
     return String(n);
-  };
-
-  const AnalysisCard = ({ icon, label, teams }) => {
-    if (!teams || teams.length === 0) return null;
-    return (
-      <div style={{ background: '#1E293B', borderRadius: 8, padding: '8px 10px', minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-          <Icon type={icon} />
-          <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 700 }}>{label}</span>
-        </div>
-        {teams.map((t, i) => {
-          const c = teamColor(t.team) || '#64748B';
-          return (
-            <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 0', cursor: 'pointer', minWidth: 0 }}>
-              <div style={{
-                width: 16, height: 16, borderRadius: 3, fontSize: 9, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                background: c, color: '#fff', opacity: i === 0 ? 1 : 0.7,
-              }}>{i + 1}</div>
-              <div style={{ fontSize: i === 0 ? 11 : 10, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#F8FAFC' : '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                {teamDisplayName(t.team)}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
   };
 
   return (
@@ -351,68 +291,64 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         ))}
       </div>
 
-      {/* AI Scout carousel — metrics + team spotlight */}
-      {(analysis || spotlight) && (() => {
-        const spotPages = spotlight ? [] : [];
-        if (spotlight) {
-          for (let i = 0; i < spotlight.length; i += 3) {
-            spotPages.push(spotlight.slice(i, i + 3));
-          }
-        }
-        const totalPages = (analysis ? 1 : 0) + spotPages.length;
-        const page = totalPages > 0 ? scoutPage % totalPages : 0;
+      {/* AI Scout — Featured Team */}
+      {featuredTeam && (() => {
+        const ft = featuredTeam;
+        const c = teamColor(ft.team) || '#64748B';
+        const initials = teamDisplayName(ft.team)?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
         return (
           <div style={{ padding: '0 16px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>
-                Kykie AI Scout — {page === 0 && analysis ? 'team analysis' : 'team spotlight'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0B0F1A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>
+                </svg>
               </div>
-              {totalPages > 1 && (
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <div key={i} onClick={() => setScoutPage(i)} style={{
-                      width: 7, height: 7, borderRadius: '50%', cursor: 'pointer',
-                      background: i === page ? '#F59E0B' : '#334155',
-                    }} />
-                  ))}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 }}>Kykie AI Scout</div>
+            </div>
+            <div onClick={() => { window.location.hash = `#/team/${teamSlug(ft.team)}`; }}
+              style={{ background: '#1E293B', borderRadius: 14, border: '1px solid #334155', overflow: 'hidden', cursor: 'pointer' }}>
+              <div style={{ height: 3, background: `linear-gradient(90deg, ${c}, ${c}66)` }} />
+              <div style={{ padding: '14px 16px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0, letterSpacing: -0.5 }}>{initials}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#F8FAFC' }}>{teamDisplayName(ft.team)}</div>
+                    <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginTop: 1 }}>{ft.record} · GD {ft.gd} · {ft.wr}% win rate</div>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div style={{ fontSize: 12, color: '#CBD5E1', lineHeight: 1.65, marginBottom: 12 }}>{ft.summary}</div>
+                {ft.traits.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {ft.traits.map(tr => (
+                      <span key={tr.label} style={{ fontSize: 9, padding: '3px 8px', borderRadius: 10, background: tr.color + '18', color: tr.color, fontWeight: 700, border: `1px solid ${tr.color}33`, whiteSpace: 'nowrap' }}>{tr.label}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {ft.recentMatches && ft.recentMatches.length > 0 && (
+                <div style={{ borderTop: '1px solid #334155', padding: '10px 16px 12px' }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Latest results</div>
+                  {ft.recentMatches.map((rm, i) => {
+                    const bg = rm.res === 'W' ? '#10B981' : rm.res === 'L' ? '#EF4444' : '#F59E0B';
+                    const d = parseSASTDate(rm.date);
+                    const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+                    const oppName = rm.opp ? (teamDisplayName(rm.opp)?.replace(/Girls Hockey 1st$/i, '').trim() || teamDisplayName(rm.opp)) : '?';
+                    return (
+                      <div key={rm.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < ft.recentMatches.length - 1 ? '1px solid #1a2536' : 'none', gap: 8 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: 5, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{rm.res}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>vs {oppName}</div>
+                          <div style={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>{dateStr}{rm.matchType ? ` · ${rm.matchType}` : ''}</div>
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: '#F8FAFC' }}>{rm.homeScore}–{rm.awayScore}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-            {page === 0 && analysis ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, overflow: 'hidden' }}>
-                <AnalysisCard icon="target" label="Most accurate" teams={analysis.mostAccurate} />
-                <AnalysisCard icon="bolt" label="Quickest" teams={analysis.quickest} />
-                <AnalysisCard icon="clock" label="Most patient" teams={analysis.mostPatient} />
-                <AnalysisCard icon="shield" label="Strongest defence" teams={analysis.strongestDef} />
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(spotPages[analysis ? page - 1 : page] || []).map(t => {
-                  const c = teamColor(t.team) || '#64748B';
-                  const initials = teamDisplayName(t.team)?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-                  return (
-                    <div key={t.team.id} onClick={() => { window.location.hash = `#/team/${teamSlug(t.team)}`; }}
-                      style={{ background: '#1E293B', borderRadius: 10, padding: 12, cursor: 'pointer' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: c, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{initials}</div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{teamDisplayName(t.team)}</div>
-                          <div style={{ fontSize: 9, color: '#64748B' }}>{t.record} · GD {t.gd} · {t.wr}% WR</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5, marginBottom: t.traits.length ? 6 : 0 }}>{t.summary}</div>
-                      {t.traits.length > 0 && (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {t.traits.map(tr => (
-                            <span key={tr.label} style={{ fontSize: 9, padding: '2px 8px', borderRadius: 10, background: tr.bg, color: tr.color, fontWeight: 600 }}>{tr.label}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         );
       })()}
