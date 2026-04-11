@@ -398,15 +398,15 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[
-                { icon: '👀', label: 'Follow', desc: 'Supporter', href: '#/info/supporter' },
-                { icon: '🎙️', label: 'Commentate', desc: 'Earn vouchers', href: '#/info/commentator' },
-                { icon: '📊', label: 'Coach', desc: 'Team analytics', href: '#/info/coach' },
+                { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>, label: 'Follow', desc: 'Supporter', href: '#/info/supporter' },
+                { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>, label: 'Commentate', desc: 'Earn vouchers', href: '#/info/commentator' },
+                { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M6 10l3-3 2 2 4-4 3 3"/></svg>, label: 'Coach', desc: 'Team analytics', href: '#/info/coach' },
               ].map(r => (
                 <div key={r.label} onClick={() => { window.location.hash = r.href; }}
-                  style={{ flex: 1, padding: 8, borderRadius: 8, background: '#0B0F1A', textAlign: 'center', border: '1px solid #33415566', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 18 }}>{r.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>{r.label}</div>
-                  <div style={{ fontSize: 9, color: '#475569' }}>{r.desc}</div>
+                  style={{ flex: 1, padding: '10px 8px 8px', borderRadius: 8, background: '#0B0F1A', textAlign: 'center', border: '1px solid #33415566', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ marginBottom: 4 }}>{r.icon}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#F8FAFC', marginTop: 2 }}>{r.label}</div>
+                  <div style={{ fontSize: 9, color: '#64748B' }}>{r.desc}</div>
                 </div>
               ))}
             </div>

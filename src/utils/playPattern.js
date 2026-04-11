@@ -237,7 +237,7 @@ function findDominant(paths, type) {
  * Get top 3 prominent player zones — zones with most passing/possession events.
  * Returns array of grid zone names e.g. ['DM C', 'OM C', 'DM L']
  */
-export function getProminentZones(matches, eventsByMatch, teamId, topN = 3) {
+export function getProminentZones(matches, eventsByMatch, teamId, topN = 2) {
   const zoneCounts = {};
 
   for (const m of matches) {
@@ -266,10 +266,10 @@ export function getProminentZones(matches, eventsByMatch, teamId, topN = 3) {
 }
 
 /**
- * Get top 3 ball-loss zones — zones with most possession conceded events.
- * Returns array of grid zone names e.g. ['OM L', 'DM R', 'DQ C']
+ * Get top 2 ball-loss zones — zones with most possession conceded events.
+ * Returns array of grid zone names e.g. ['OM L', 'DM R']
  */
-export function getBallLossZones(matches, eventsByMatch, teamId, topN = 3) {
+export function getBallLossZones(matches, eventsByMatch, teamId, topN = 2) {
   const LOSS_EVENTS = ['Poss Conceded', 'Poss Conceded (LC)'];
   const zoneCounts = {};
 
