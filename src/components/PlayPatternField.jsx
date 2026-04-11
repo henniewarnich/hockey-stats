@@ -133,11 +133,6 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
             {!isDotted && <path d={d} fill="none" stroke="#fff" strokeWidth={Math.max(1.2, w*0.2)} strokeLinecap="round" opacity="0.4" markerEnd={`url(#wa${id})`} />}
             </g>
           ))}
-          {/* Overlap diagonal lines — rendered on top of arrows */}
-          {allZoneKeys.filter(z => zoneSet.has(z) && lossSet.has(z) && ZONE_RECTS[z]).map(z => {
-            const [x, y, w, h] = ZONE_RECTS[z];
-            return <line key={`diag-${z}`} x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="3" opacity="0.85" />;
-          })}
         </svg>
       </div>
     );

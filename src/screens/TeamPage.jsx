@@ -668,6 +668,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
     setCoachProfile(null);
   };
 
+  const handleRoleSwitch = (role) => {
+    sessionStorage.setItem('kykie-active-role', role);
+    if (role === 'coach') window.location.hash = '#/coach';
+    else if (role === 'commentator') window.location.hash = '#/admin';
+    else if (role === 'admin' || role === 'commentator_admin') window.location.hash = '#/admin';
+    else window.location.hash = '#/home';
+    window.location.reload();
+  };
+
   if (loading) return (
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -726,7 +735,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* Sticky header */}
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0B0F1A" }}>
       {isCoach && coachProfile ? (
-        <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout}
+        <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout} onRoleSwitch={handleRoleSwitch}
           onBack={() => { window.location.hash = '#/coach'; }} />
       ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
