@@ -33,7 +33,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
     const cached = loadCache();
     if (cached) {
       setStats(cached.stats);
-      setFeaturedTeam(cached.featuredTeam || null);
+      setFeaturedTeam(null); // always pick fresh
       setRecentResults(cached.recentResults || []);
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
 
     // 1. Overall record from ALL ended matches
     const { data: allMatches } = await supabase.from('matches')
-      .select(`id, home_team_id, away_team_id, home_score, away_score, duration, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+      .select(`id, home_team_id, away_team_id, home_score, away_score, duration, match_date, created_at, match_type, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
       .eq('status', 'ended');
 
     const overallRecord = {};
@@ -185,14 +185,13 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       spotTeams.push({ team: a.team, record: `P${rec.total} W${rec.w} D${rec.d} L${rec.l}`, gd: gdStr, wr: Math.round(wr * 100), lpMatches: a.lpMatches, traits: traits.slice(0, 4), summary });
     });
 
-    // Pick one random team (seeded by day so it's stable within a session)
+    // Pick one random team on each page load
     let newFeatured = null;
     if (spotTeams.length > 0) {
       // Weight toward higher win-rate teams
       spotTeams.sort((a, b) => b.wr - a.wr);
       const top = spotTeams.slice(0, Math.max(5, Math.ceil(spotTeams.length * 0.5)));
-      const seed = new Date().getDate() + new Date().getMonth() * 31;
-      const pick = top[seed % top.length];
+      const pick = top[Math.floor(Math.random() * top.length)];
       // Get recent matches for this team
       const tid = pick.team.id;
       const teamMatches = (allMatches || [])
@@ -334,7 +333,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
                     const bg = rm.res === 'W' ? '#10B981' : rm.res === 'L' ? '#EF4444' : '#F59E0B';
                     const d = parseSASTDate(rm.date);
                     const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
-                    const oppName = rm.opp ? (teamDisplayName(rm.opp)?.replace(/Girls Hockey 1st$/i, '').trim() || teamDisplayName(rm.opp)) : '?';
+                    const oppName = rm.opp?.institution?.name || rm.opp?.institution?.short_name || teamDisplayName(rm.opp) || '?';
                     return (
                       <div key={rm.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < ft.recentMatches.length - 1 ? '1px solid #1a2536' : 'none', gap: 8 }}>
                         <div style={{ width: 22, height: 22, borderRadius: 5, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{rm.res}</div>
