@@ -100,7 +100,6 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
                 return <g key={z}>
                   <polygon points={`${x},${y} ${x+w},${y} ${x},${y+h}`} fill="#000" opacity="0.35" />
                   <polygon points={`${x+w},${y} ${x+w},${y+h} ${x},${y+h}`} fill="#DC2626" opacity="0.35" />
-                  <line x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="2.5" opacity="0.7" />
                 </g>;
               }
               if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" />;
@@ -133,6 +132,11 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
             {!isDotted && <path d={d} fill="none" stroke="#fff" strokeWidth={Math.max(1.2, w*0.2)} strokeLinecap="round" opacity="0.4" markerEnd={`url(#wa${id})`} />}
             </g>
           ))}
+          {/* Overlap diagonal lines — rendered on top of arrows */}
+          {allZoneKeys.filter(z => zoneSet.has(z) && lossSet.has(z) && ZONE_RECTS[z]).map(z => {
+            const [x, y, w, h] = ZONE_RECTS[z];
+            return <line key={`diag-${z}`} x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="3" opacity="0.85" />;
+          })}
         </svg>
       </div>
     );
