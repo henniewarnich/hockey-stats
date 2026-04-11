@@ -3,7 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName, teamColor, teamDisplayName, teamSlug } from '../utils/teams.js';
 import { parseSASTDate } from '../utils/helpers.js';
 
-const CACHE_KEY = 'kykie-homepage-v5';
+const CACHE_KEY = 'kykie-homepage-v6';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function loadCache() {
@@ -69,7 +69,7 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
 
     // 1. Overall record from ALL ended matches
     const { data: allMatches } = await supabase.from('matches')
-      .select(`id, home_team_id, away_team_id, home_score, away_score, duration, match_date, created_at, match_type, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
+      .select(`id, home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score, duration, match_date, created_at, match_type, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
       .eq('status', 'ended');
 
     const overallRecord = {};
@@ -204,8 +204,10 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
         const gf = isHome ? m.home_score : m.away_score;
         const ga = isHome ? m.away_score : m.home_score;
         const oppTeam = isHome ? m.away_team : m.home_team;
-        const res = gf > ga ? 'W' : gf < ga ? 'L' : 'D';
-        return { id: m.id, res, gf, ga, homeScore: m.home_score, awayScore: m.away_score, opp: oppTeam, date: m.match_date || m.created_at, matchType: m.match_type };
+        const penFor = isHome ? m.home_penalty_score : m.away_penalty_score;
+        const penAgainst = isHome ? m.away_penalty_score : m.home_penalty_score;
+        const res = gf > ga ? 'W' : gf < ga ? 'L' : (penFor != null && penFor > penAgainst ? 'W' : penFor != null && penFor < penAgainst ? 'L' : 'D');
+        return { id: m.id, res, gf, ga, penFor, penAgainst, opp: oppTeam, date: m.match_date || m.created_at, matchType: m.match_type };
       });
       newFeatured = { ...pick, recentMatches: recentMatchRows };
     }
@@ -333,7 +335,10 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
                           <div style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>vs {oppName}</div>
                           <div style={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>{dateStr}{rm.matchType ? ` · ${rm.matchType}` : ''}</div>
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: '#F8FAFC' }}>{rm.homeScore}–{rm.awayScore}</div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: '#F8FAFC' }}>{rm.gf}–{rm.ga}</div>
+                          {rm.penFor != null && <div style={{ fontSize: 8, color: '#F59E0B', fontWeight: 700 }}>{rm.penFor}-{rm.penAgainst} pen</div>}
+                        </div>
                       </div>
                     );
                   })}

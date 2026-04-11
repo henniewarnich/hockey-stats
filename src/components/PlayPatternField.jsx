@@ -98,9 +98,9 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
               if (isProm && isLoss) {
                 const [x, y, w, h] = r;
                 return <g key={z}>
-                  <polygon points={`${x},${y} ${x+w},${y} ${x},${y+h}`} fill="#000" opacity="0.22" />
-                  <polygon points={`${x+w},${y} ${x+w},${y+h} ${x},${y+h}`} fill="#DC2626" opacity="0.22" />
-                  <line x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="1.5" opacity="0.4" />
+                  <polygon points={`${x},${y} ${x+w},${y} ${x},${y+h}`} fill="#000" opacity="0.35" />
+                  <polygon points={`${x+w},${y} ${x+w},${y+h} ${x},${y+h}`} fill="#DC2626" opacity="0.35" />
+                  <line x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="2.5" opacity="0.7" />
                 </g>;
               }
               if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" />;
