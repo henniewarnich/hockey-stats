@@ -144,8 +144,8 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       if (conv >= 0.15) traits.push({ label: 'clinical', color: '#10B981' });
       if (a.turnoversWon / a.lpMatches >= 20) traits.push({ label: 'high-press', color: '#10B981' });
       if (accuracy < 0.35) traits.push({ label: 'turnover-prone', color: '#EF4444' });
-      if (conv < 0.05 && a.dEntries > 5) traits.push({ label: 'needs conversion', color: '#EF4444' });
-      if (a.shotsOn > 0 && a.goals / a.shotsOn < 0.15) traits.push({ label: 'set-piece weakness', color: '#EF4444' });
+      if (conv < 0.05 && a.dEntries > 5 && rec.gf / rec.total < 1.0) traits.push({ label: 'needs conversion', color: '#EF4444' });
+      if (rec.gf / rec.total >= 2.0) traits.push({ label: 'prolific', color: '#10B981' });
 
       // Build abstract prose
       const parts = [];
@@ -173,10 +173,14 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       else if (gaPerM <= 1.0) parts.push(`Their defence is reasonable but can be exposed by direct, pacy attacks.`);
       else parts.push(`Defensively they can be vulnerable, conceding regularly.`);
 
-      // Finishing/attack weakness
+      // Finishing/attack
+      const gfPerM = rec.gf / rec.total;
       if (conv >= 0.15) parts.push(`Clinical in front of goal, they make the most of their chances in the circle.`);
-      else if (conv >= 0.08) parts.push(`However, their finishing is only average, and set pieces are not yet a weapon.`);
-      else if (a.dEntries > 5) parts.push(`However, converting chances remains a challenge — they create opportunities but struggle to finish.`);
+      else if (gfPerM >= 2.0) parts.push(`A prolific attack that finds the net regularly, relying on volume of chances to outscore opponents.`);
+      else if (gfPerM >= 1.0) parts.push(`An effective attack that generally finds a way to score, though there is room to improve conversion rates.`);
+      else if (conv >= 0.08) parts.push(`Their finishing is steady but not yet clinical — set pieces could become a bigger weapon.`);
+      else if (a.dEntries > 5 && gfPerM < 0.5) parts.push(`Converting chances remains a key area for growth — they create opportunities but the final ball needs work.`);
+      else if (a.dEntries > 5) parts.push(`They create enough chances but could be more ruthless in the circle.`);
 
       const summary = parts.join(' ');
       spotTeams.push({ team: a.team, record: `P${rec.total} W${rec.w} D${rec.d} L${rec.l}`, gd: gdStr, wr: Math.round(wr * 100), lpMatches: a.lpMatches, traits: traits.slice(0, 4), summary });

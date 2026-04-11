@@ -96,16 +96,11 @@ export default function PlayPatternField({ patterns, matchPatterns, prominentZon
               const isProm = zoneSet.has(z);
               const isLoss = lossSet.has(z);
               if (isProm && isLoss) {
-                const clipTL = `ppf-tl-${id}-${z}`;
-                const clipBR = `ppf-br-${id}-${z}`;
+                const [x, y, w, h] = r;
                 return <g key={z}>
-                  <defs>
-                    <clipPath id={clipTL}><polygon points={`${r[0]},${r[1]} ${r[0]+r[2]},${r[1]} ${r[0]},${r[1]+r[3]}`} /></clipPath>
-                    <clipPath id={clipBR}><polygon points={`${r[0]+r[2]},${r[1]} ${r[0]+r[2]},${r[1]+r[3]} ${r[0]},${r[1]+r[3]}`} /></clipPath>
-                  </defs>
-                  <rect x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#000" opacity="0.22" clipPath={`url(#${clipTL})`} />
-                  <rect x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" clipPath={`url(#${clipBR})`} />
-                  <line x1={r[0]} y1={r[1]+r[3]} x2={r[0]+r[2]} y2={r[1]} stroke="#fff" strokeWidth="1.5" opacity="0.4" />
+                  <polygon points={`${x},${y} ${x+w},${y} ${x},${y+h}`} fill="#000" opacity="0.22" />
+                  <polygon points={`${x+w},${y} ${x+w},${y+h} ${x},${y+h}`} fill="#DC2626" opacity="0.22" />
+                  <line x1={x} y1={y+h} x2={x+w} y2={y} stroke="#fff" strokeWidth="1.5" opacity="0.4" />
                 </g>;
               }
               if (isLoss) return <rect key={z} x={r[0]} y={r[1]} width={r[2]} height={r[3]} fill="#DC2626" opacity="0.22" />;
