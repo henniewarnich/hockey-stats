@@ -254,7 +254,7 @@ export function getProminentZones(matches, eventsByMatch, teamId, topN = 2) {
       const isMine = (e.team === 'home' && isHome) || (e.team === 'away' && !isHome);
       if (!isMine) continue;
       const g = toGrid(e.zone, isHome, ownNames, oppNames);
-      if (!g || g === 'Own D' || g === 'Opp D') continue;
+      if (!g || g === 'Own D' || g === 'Opp D' || g === 'Centre') continue;
       zoneCounts[g] = (zoneCounts[g] || 0) + 1;
     }
   }
@@ -288,7 +288,7 @@ export function getBallLossZones(matches, eventsByMatch, teamId, topN = 2) {
       if (!isMine) continue;
       if (!LOSS_EVENTS.some(le => e.event.includes(le))) continue;
       const g = toGrid(e.zone, isHome, ownNames, oppNames);
-      if (!g || g === 'Own D' || g === 'Opp D') continue;
+      if (!g || g === 'Own D' || g === 'Opp D' || g === 'Centre') continue;
       zoneCounts[g] = (zoneCounts[g] || 0) + 1;
     }
   }
