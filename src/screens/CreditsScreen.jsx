@@ -4,6 +4,7 @@ import { S, theme } from '../utils/styles.js';
 import { MATCH_HOME_TEAM, MATCH_AWAY_TEAM, teamShortName } from '../utils/teams.js';
 import { getCreditLedger, getContributorStats, CREDIT_VALUES as CV, VOUCHER_THRESHOLD } from '../utils/credits.js';
 import KykieSpinner from '../components/KykieSpinner.jsx';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 
 const AUDIT_MAP = {
   match_start_live: { label: 'Live Pro', icon: '🔴', credits: CV.live_pro },
@@ -134,8 +135,10 @@ export default function CreditsScreen({ currentUser, onBack }) {
       : `${toNextVoucher} more credits to your next voucher`;
 
   return (
-    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: '16px 16px 24px' }}>
+    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 0 }}>
+      <AdminBackBar title="My Credits" onBack={onBack} />
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      <div style={{ padding: '16px 16px 24px' }}>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner text message='Loading credits...' /></div>
@@ -323,6 +326,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

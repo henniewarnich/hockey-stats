@@ -61,14 +61,19 @@ export function teamDisplayName(team) {
 
 /**
  * Short display name: "PG" or "Paarl Girls"
+ * For non-standard variants (Festival XV, 2nd etc), appends: "St Mary's Waverley (Festival XV)"
  * Used in: scoreboards, prediction buttons, compact views
  */
 export function teamShortName(team) {
   if (!team) return '?';
   const inst = team.institution;
-  if (inst?.short_name) return inst.short_name;
-  if (inst?.name) return inst.name;
-  return team.short_name || team.name || '?';
+  const base = inst?.short_name || inst?.name || team.short_name || team.name || '?';
+  // Append variant if it's a non-standard team (not 1st / not default)
+  const variant = team.variant;
+  if (variant) return `${base} (${variant})`;
+  const age = team.age_group;
+  if (age && age !== '1st') return `${base} (${age})`;
+  return base;
 }
 
 /**

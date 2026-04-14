@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { archiveMatchStats, retrofitPredictions } from '../utils/sync.js';
 import { exportAllData, exportTeamData } from '../utils/export.js';
 import { APP_VERSION } from '../utils/constants.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import { TEAM_SELECT, teamDisplayName } from '../utils/teams.js';
 import NavLogo from '../components/NavLogo.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
@@ -204,10 +205,12 @@ export default function SystemHealthScreen({ onBack }) {
   return (
     <div style={{
       fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto',
-      background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16,
+      background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 0,
     }}>
+      <AdminBackBar title="System Health" onBack={onBack} />
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
+      <div style={{ padding: 16 }}>
       {loading ? (
         <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner text message='Loading metrics...' /></div>
       ) : (
@@ -625,6 +628,7 @@ export default function SystemHealthScreen({ onBack }) {
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 9, color: '#334155' }}>v{APP_VERSION}</div>
         </>
       )}
+      </div>
     </div>
   );
 }

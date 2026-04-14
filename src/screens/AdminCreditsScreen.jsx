@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { VOUCHER_THRESHOLD, CREDIT_VALUES as CV } from '../utils/credits.js';
 import Icon from '../components/Icons.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 
 export default function AdminCreditsScreen({ currentUser, onBack }) {
   const [loading, setLoading] = useState(true);
@@ -316,7 +317,9 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
 
   // ── MAIN VIEW ──
   return (
-    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16 }}>
+    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 0 }}>
+      <AdminBackBar title="Admin Credits" onBack={onBack} />
+      <div style={{ padding: 16 }}>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner text message='Loading credits...' /></div>
@@ -462,6 +465,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import Icon from '../components/Icons.jsx';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 
 export default function VoucherManagementScreen({ onBack }) {
   const [vouchers, setVouchers] = useState([]);
@@ -74,7 +75,9 @@ export default function VoucherManagementScreen({ onBack }) {
   };
 
   return (
-    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16 }}>
+    <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 0 }}>
+      <AdminBackBar title="Vouchers" onBack={onBack} />
+      <div style={{ padding: 16 }}>
 
       {msg && (
         <div style={{ padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 12, fontWeight: 600, background: msg.type === 'ok' ? '#10B98122' : '#EF444422', color: msg.type === 'ok' ? '#10B981' : '#EF4444' }}>{msg.text}</div>
@@ -186,6 +189,7 @@ export default function VoucherManagementScreen({ onBack }) {
           );
         })
       )}
+      </div>
     </div>
   );
 }

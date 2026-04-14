@@ -68,6 +68,8 @@ function ScoutCard({ team, rec, rank, color }) {
   );
 }
 
+import AdminBackBar from './AdminBackBar.jsx';
+
 export default function WhatIfScreen({ onBack }) {
   const [teams, setTeams] = useState([]);
   const [records, setRecords] = useState({});
@@ -138,10 +140,7 @@ export default function WhatIfScreen({ onBack }) {
 
   return (
     <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#F8FAFC" }}>
-      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#8B5CF6", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>← Back</button>
-        <span style={{ fontSize: 14, fontWeight: 800 }}>🔮 What-If Match</span>
-      </div>
+      <AdminBackBar title="🔮 What-If Match" onBack={onBack} />
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading teams...</div>

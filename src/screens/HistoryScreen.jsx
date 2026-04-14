@@ -6,6 +6,8 @@ import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
 
+import AdminBackBar from '../components/AdminBackBar.jsx';
+
 // Build searchable string from all possible name fields
 function gameSearchStr(g) {
   try {
@@ -170,6 +172,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
 
   return (
     <div style={S.app}>
+      <AdminBackBar title="Game History" onBack={onBack} />
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 12, color: "#475569" }}>{loadingCloud ? <KykieSpinner size={20} /> : `${allGames.length} matches`}</div>
         <button onClick={() => { setLoadingCloud(true); fetchCloud(); }} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, color: "#94A3B8", fontSize: 10, cursor: "pointer", padding: "3px 10px", fontWeight: 600 }}>↻ Refresh</button>

@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { fetchPending, approvePendingMatch, rejectPendingMatch, approvePendingTeam, rejectPendingTeam } from '../utils/sync.js';
 import { onQuickScoreApproved, onQuickScoreRejected, onLiveMatchApproved, onLiveMatchRejected, awardSubmissionCredits } from '../utils/credits.js';
 import { parseSASTDate } from '../utils/helpers.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import NavLogo from '../components/NavLogo.jsx';
 import { teamColor, teamDisplayName, teamShortName } from '../utils/teams.js';
 import KykieSpinner from '../components/KykieSpinner.jsx';
@@ -210,9 +211,11 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
   return (
     <div style={{
       fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: '0 auto',
-      background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 16,
+      background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', padding: 0,
     }}>
+      <AdminBackBar title="Pending Approvals" onBack={onBack} />
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      <div style={{ padding: 16 }}>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 12, borderRadius: 8, overflow: 'hidden', border: '1px solid #334155' }}>
@@ -433,6 +436,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import RankBadge from '../components/RankBadge.jsx';
 import NavLogo from '../components/NavLogo.jsx';
 import LiveModeChooser from '../components/LiveModeChooser.jsx';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
@@ -46,6 +47,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [matchType, setMatchType] = useState("league");
   const [venue, setVenue] = useState("");
   const [selectedComms, setSelectedComms] = useState([]);
+  const [pastDateMode, setPastDateMode] = useState(false); // true = entering result for past date
+  const [pastHomeScore, setPastHomeScore] = useState(0);
+  const [pastAwayScore, setPastAwayScore] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editMatch, setEditMatch] = useState(null);
   const [matchComms, setMatchComms] = useState({}); // matchId -> [commentator profiles]
@@ -107,6 +111,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     setMatchDate(new Date().toISOString().slice(0, 10)); setScheduledTime("");
     setMatchLength("60"); setBreakFormat("quarters"); setMatchType("league");
     setVenue(""); setSelectedComms([]); setEditMatch(null);
+    setPastDateMode(false); setPastHomeScore(0); setPastAwayScore(0);
   };
 
   const filteredHome = homeSearch.trim()
@@ -117,11 +122,34 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
     : allTeams.filter(t => t.id !== homeTeam?.id);
 
   const canSave = homeTeam && awayTeam && homeTeam.id !== awayTeam.id && matchDate;
+  const isPastDate = matchDate && matchDate < new Date().toISOString().slice(0, 10);
 
   const handleSave = async () => {
     if (!canSave) return;
+    // Block scheduling upcoming matches in the past (unless pastDateMode)
+    if (isPastDate && !pastDateMode && !editMatch) {
+      setPastDateMode(true);
+      return;
+    }
     setSaving(true);
-    if (editMatch) {
+    if (pastDateMode && !editMatch) {
+      // Save as ended result directly
+      const scheduled = await scheduleMatch({
+        homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
+        matchDate, scheduledTime: scheduledTime || null,
+        matchLength: ml, breakFormat, matchType,
+        venue: venue.trim() || null, commentatorIds: [],
+        createdBy: currentUser?.id,
+      });
+      if (scheduled?.id) {
+        await updateScheduledMatch(scheduled.id, {
+          home_score: pastHomeScore, away_score: pastAwayScore,
+          status: 'ended', duration: 0, locked_by: currentUser?.id,
+        });
+        await snapshotRankings(scheduled.id);
+        if (currentUser?.id) awardQuickScoreCredits(currentUser.id, scheduled.id).catch(() => {});
+      }
+    } else if (editMatch) {
       await updateScheduledMatch(editMatch.id, {
         home_team_id: homeTeam.id, away_team_id: awayTeam.id,
         match_date: matchDate, scheduled_time: scheduledTime || null,
@@ -399,13 +427,51 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Date</div>
-            <input type="date" style={inputStyle} value={matchDate} onChange={e => setMatchDate(e.target.value)} />
+            <input type="date" style={inputStyle} value={matchDate} onChange={e => { setMatchDate(e.target.value); setPastDateMode(false); }} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Time</div>
             <input type="time" style={inputStyle} value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} />
           </div>
         </div>
+
+        {/* Past date warning */}
+        {isPastDate && !editMatch && !pastDateMode && (
+          <div style={{ padding: 10, borderRadius: 8, background: '#F59E0B11', border: '1px solid #F59E0B33', marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>This date is in the past</div>
+            <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>You cannot schedule an upcoming match with a past date. Would you like to enter the result instead?</div>
+            <button onClick={() => setPastDateMode(true)} style={{
+              marginTop: 8, padding: '6px 14px', borderRadius: 6, border: '1px solid #10B98144',
+              background: '#10B98122', color: '#10B981', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+            }}>Enter Result Instead</button>
+          </div>
+        )}
+
+        {/* Past date mode: score entry */}
+        {pastDateMode && (
+          <div style={{ padding: 12, borderRadius: 10, background: '#10B98111', border: '1px solid #10B98133', marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#10B981', fontWeight: 700, marginBottom: 8 }}>Enter Final Score</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: '#94A3B8', marginBottom: 4 }}>{homeTeam ? teamShortName(homeTeam) : 'Home'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setPastHomeScore(s => Math.max(0, s - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#F8FAFC', minWidth: 24, textAlign: 'center' }}>{pastHomeScore}</span>
+                  <button onClick={() => setPastHomeScore(s => s + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                </div>
+              </div>
+              <span style={{ fontSize: 14, color: '#64748B', fontWeight: 700 }}>–</span>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: '#94A3B8', marginBottom: 4 }}>{awayTeam ? teamShortName(awayTeam) : 'Away'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setPastAwayScore(s => Math.max(0, s - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #334155', background: '#0B0F1A', color: '#F8FAFC', fontSize: 14, cursor: 'pointer' }}>–</button>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#F8FAFC', minWidth: 24, textAlign: 'center' }}>{pastAwayScore}</span>
+                  <button onClick={() => setPastAwayScore(s => s + 1)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #F59E0B44', background: '#F59E0B22', color: '#F59E0B', fontSize: 14, cursor: 'pointer' }}>+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Settings */}
         <div style={{ background: theme.surface, borderRadius: 10, padding: 12, marginBottom: 12, border: `1px solid ${theme.border}` }}>
@@ -453,7 +519,8 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
           </div>
         </div>
 
-        {/* Assign Commentators */}
+        {/* Assign Commentators — hide in past date mode */}
+        {!pastDateMode && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Assign Commentators</div>
           {commentators.length === 0 ? (
@@ -478,10 +545,11 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
             </div>
           )}
         </div>
+        )}
 
-        <button onClick={handleSave} disabled={!canSave || saving} style={{
-          ...S.btn(theme.accent, theme.bg), opacity: (!canSave || saving) ? 0.5 : 1,
-        }}>{saving ? "Saving..." : editMatch ? "Update Match" : "Schedule Match"}</button>
+        <button onClick={handleSave} disabled={(!canSave || saving || (isPastDate && !pastDateMode && !editMatch))} style={{
+          ...S.btn(theme.accent, theme.bg), opacity: ((!canSave || saving || (isPastDate && !pastDateMode && !editMatch))) ? 0.5 : 1,
+        }}>{saving ? "Saving..." : pastDateMode ? "Save Result" : editMatch ? "Update Match" : "Schedule Match"}</button>
       </div>
     </div>
   );
@@ -489,6 +557,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   // ── LIST VIEW ──
   return (
     <div style={S.app}>
+      <AdminBackBar title="Match Schedule" onBack={onBack} />
       <div style={S.page}>
         {currentUser?.commentator_status === 'apprentice' ? (
           <div style={{ padding: "10px 14px", borderRadius: 8, background: "#F59E0B11", border: "1px solid #F59E0B33", marginBottom: 8 }}>

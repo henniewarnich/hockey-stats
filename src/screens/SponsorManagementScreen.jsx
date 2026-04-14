@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { logAudit } from '../utils/audit.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamDisplayName, teamShortName } from '../utils/teams.js';
 
 const TIERS = [
@@ -295,7 +296,7 @@ export default function SponsorManagementScreen({ onBack }) {
   // ── SPONSOR LIST ──
   return (
     <div style={S.app}>
-
+      <AdminBackBar title="Sponsors" onBack={onBack} />
       <div style={S.page}>
         <button onClick={startNew} style={{ ...S.btn(theme.accent, theme.bg), marginBottom: 16 }}>
           ➕ Add Sponsor

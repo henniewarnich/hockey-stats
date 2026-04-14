@@ -3,6 +3,7 @@ import { listUsers, createUser, updateProfile, toggleBlockUser, resetPassword, g
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { logAudit } from '../utils/audit.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import { TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
 
 const timeAgo = (ts) => {
@@ -467,7 +468,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
 
   return (
     <div style={S.app}>
-
+      <AdminBackBar title="User Management" onBack={onBack} />
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => setView("create")}>+ New User</button>
 

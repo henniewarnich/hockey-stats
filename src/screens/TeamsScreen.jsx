@@ -6,6 +6,7 @@ import { fetchInstitutions, upsertInstitution, deleteInstitution, fetchTeams, de
 import { getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/auth.js';
 import { supabase } from '../utils/supabase.js';
 import { setTeamTierOverride, FREE_PLUS_THRESHOLD } from '../utils/credits.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 
 const GENDERS = ['Girls', 'Boys'];
 const AGE_GROUPS = ['U14', 'U16', '1st', '2nd', '3rd'];
@@ -363,7 +364,7 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
   // ════════════════════════════════════════════════════════
   return (
     <div style={S.app}>
-
+      <AdminBackBar title="Teams & Institutions" onBack={onBack} />
       <div style={S.page}>
         <button style={S.btn(theme.accent, theme.bg)} onClick={() => handleEditInst(null)}>+ Add institution</button>
         <div style={{ marginTop: 10, marginBottom: 10 }}>

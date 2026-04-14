@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
+import AdminBackBar from '../components/AdminBackBar.jsx';
 import { parseSASTDate } from '../utils/helpers.js';
 import { logAudit } from '../utils/audit.js';
 import NavLogo from '../components/NavLogo.jsx';
@@ -207,10 +208,9 @@ export default function RankingsScreen({ onBack, currentUser }) {
   // List view
   return (
     <div style={S.app}>
-
+      <AdminBackBar title="Rankings" onBack={onBack} />
 
       <div style={{ padding: "0 16px 12px" }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: "#F8FAFC" }}>Rankings</div>
         <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>{sets.length} ranking set{sets.length !== 1 ? "s" : ""}</div>
       </div>
 
