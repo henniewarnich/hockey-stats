@@ -270,20 +270,8 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   const [expandedQ, setExpandedQ] = useState(quarters.find(q => q.status === "live")?.label || quarters[0]?.label);
   const [viewTab, setViewTab] = useState("totals");
 
-  // Kit colour overrides (session-only)
-  const matchId = match?.id || "unknown";
-  const COLOR_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
-  const [colorPickerFor, setColorPickerFor] = useState(null); // "home" | "away" | null
-  const savedColors = (() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchId}`)); } catch { return null; } })();
-  const [homeColor, setHomeColor] = useState(savedColors?.home || HC);
-  const [awayColor, setAwayColor] = useState(savedColors?.away || AC);
-  const hc = homeColor;
-  const ac = awayColor;
-  const saveColors = (h, a) => {
-    setHomeColor(h); setAwayColor(a);
-    sessionStorage.setItem(`kykie-kit-${matchId}`, JSON.stringify({ home: h, away: a }));
-    setColorPickerFor(null);
-  };
+  const hc = HC;
+  const ac = AC;
 
   const homeScore = match?.homeScore ?? events.filter(e => e.team === "home" && e.event?.startsWith("Goal!")).length;
   const awayScore = match?.awayScore ?? events.filter(e => e.team === "away" && e.event?.startsWith("Goal!")).length;
@@ -355,8 +343,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* Compact scoreboard */}
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: hc, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-            <div onClick={() => setColorPickerFor(colorPickerFor === "home" ? null : "home")} style={{ width: 12, height: 12, borderRadius: 3, background: hc, border: hc === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent", cursor: "pointer", flexShrink: 0 }} />
+          <div style={{ fontSize: 9, fontWeight: 800, color: hc, textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {teamShortName(teams.home)}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{homeScore}</div>
@@ -370,46 +357,12 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
           </div>}
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: ac, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: ac, textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {teamShortName(teams.away)}
-            <div onClick={() => setColorPickerFor(colorPickerFor === "away" ? null : "away")} style={{ width: 12, height: 12, borderRadius: 3, background: ac, border: ac === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent", cursor: "pointer", flexShrink: 0 }} />
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{awayScore}</div>
         </div>
       </div>
-
-      {/* Kit colour picker */}
-      {colorPickerFor && (
-        <div style={{ padding: "0 14px 8px" }}>
-          <div style={{ background: "#1E293B", borderRadius: 8, padding: 10, border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", minWidth: 70 }}>
-                {colorPickerFor === "home" ? teamShortName(teams.home) : teamShortName(teams.away)}
-              </div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {COLOR_PALETTE.map(c => {
-                  const isActive = colorPickerFor === "home" ? hc === c : ac === c;
-                  return (
-                    <div key={c} onClick={() => saveColors(
-                      colorPickerFor === "home" ? c : hc,
-                      colorPickerFor === "away" ? c : ac
-                    )} style={{
-                      width: 22, height: 22, borderRadius: 5, background: c, cursor: "pointer",
-                      border: isActive ? "2px solid #F8FAFC" : c === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
-                      boxShadow: isActive ? "0 0 0 1px #F8FAFC44" : "none",
-                    }} />
-                  );
-                })}
-              </div>
-            </div>
-            <button onClick={() => saveColors(ac, hc)} style={{
-              width: "100%", padding: 7, background: "#334155", border: "none", borderRadius: 6,
-              color: "#94A3B8", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            }}>⇄ Swap colours</button>
-          </div>
-        </div>
-      )}
       </>}
 
       {/* View toggle */}

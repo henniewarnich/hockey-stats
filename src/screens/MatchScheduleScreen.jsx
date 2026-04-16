@@ -324,7 +324,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       );
     }
     return (
-      <div>
+      <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh" }}>
         <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {isDemoMatch ? (
             <button onClick={() => { setActiveMatch(null); setLiveMode(null); }}

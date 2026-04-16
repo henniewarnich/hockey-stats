@@ -25,8 +25,27 @@ const ZONES = [
 
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, onBack, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
+
+  // Kit colour overrides (session-only, per match) — must be before teams definition
+  const KIT_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
+  const [colorPickerFor, setColorPickerFor] = useState(null);
+  const matchColorKey = `kykie-kit-${matchConfig?.supabaseId || 'local'}`;
+  const savedKit = (() => { try { return JSON.parse(sessionStorage.getItem(matchColorKey)); } catch { return null; } })();
+  const [homeKitColor, setHomeKitColor] = useState(savedKit?.home || null);
+  const [awayKitColor, setAwayKitColor] = useState(savedKit?.away || null);
+  const saveKitColors = (h, a) => {
+    setHomeKitColor(h); setAwayKitColor(a);
+    sessionStorage.setItem(matchColorKey, JSON.stringify({ home: h, away: a }));
+    setColorPickerFor(null);
+  };
+
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(teamColor(home), teamColor(away));
-  const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
+  const _teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
+  // Kit colour overrides applied to teams — cascades to FieldRecorder, possession, arrows, etc.
+  const teams = {
+    home: { ..._teams.home, ...(homeKitColor ? { color: homeKitColor } : {}) },
+    away: { ..._teams.away, ...(awayKitColor ? { color: awayKitColor } : {}) },
+  };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
 
@@ -39,7 +58,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showRestart, setShowRestart] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [showPauseReason, setShowPauseReason] = useState(false);
-  const [flipped, setFlipped] = useState(false);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const flipped = rotation >= 180;
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
@@ -52,6 +72,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showVideoReviewEnd, setShowVideoReviewEnd] = useState(false);
   const [reclassifyToast, setReclassifyToast] = useState(null); // { type, options }
   const toastTimerRef = useRef(null);
+
   const lastEventSeqRef = useRef(0); // seq of last event for Supabase updates
 
   // Track viewers via presence
@@ -496,26 +517,80 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         )}
         {matchState !== "ended" && (
           <button onClick={() => {
-            setFlipped(f => !f);
-            const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
-            const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
-            setBallPos(bp => {
-              if (!bp) return bp;
-              const updated = { ...bp };
-              if (updated.pos) updated.pos = mirrorPos(updated.pos);
-              if (updated.end) updated.end = mirrorEnd(updated.end);
-              return updated;
-            });
-            setPrevBallPos(bp => {
-              if (!bp) return bp;
-              const updated = { ...bp };
-              if (updated.pos) updated.pos = mirrorPos(updated.pos);
-              if (updated.end) updated.end = mirrorEnd(updated.end);
-              return updated;
-            });
+            const next = (rotation + 90) % 360;
+            const wasFlipped = rotation >= 180;
+            const willFlip = next >= 180;
+            if (wasFlipped !== willFlip) {
+              const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
+              const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
+              setBallPos(bp => {
+                if (!bp) return bp;
+                const u = { ...bp };
+                if (u.pos) u.pos = mirrorPos(u.pos);
+                if (u.end) u.end = mirrorEnd(u.end);
+                return u;
+              });
+              setPrevBallPos(bp => {
+                if (!bp) return bp;
+                const u = { ...bp };
+                if (u.pos) u.pos = mirrorPos(u.pos);
+                if (u.end) u.end = mirrorEnd(u.end);
+                return u;
+              });
+            }
+            setRotation(next);
           }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
         )}
       </div>
+
+      {/* Kit colour override */}
+      {(liveTab === "field" || liveTab === "share") && matchState !== "ended" && (
+        <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
+          <div onClick={() => setColorPickerFor(colorPickerFor === "home" ? null : "home")} style={{
+            width: 14, height: 14, borderRadius: 4, cursor: "pointer",
+            background: teams.home.color,
+            border: teams.home.color === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
+          }} />
+          <span style={{ fontSize: 9, color: "#475569" }}>kit</span>
+          <div onClick={() => setColorPickerFor(colorPickerFor === "away" ? null : "away")} style={{
+            width: 14, height: 14, borderRadius: 4, cursor: "pointer",
+            background: teams.away.color,
+            border: teams.away.color === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
+          }} />
+        </div>
+      )}
+      {colorPickerFor && (
+        <div style={{ padding: "0 14px 6px" }}>
+          <div style={{ background: "#1E293B", borderRadius: 8, padding: 10, border: "1px solid #334155" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", minWidth: 70 }}>
+                {teamShortName(teams[colorPickerFor])}
+              </div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {[colorPickerFor === "home" ? hc : ac, ...KIT_PALETTE].map((c, i) => {
+                  const isActive = teams[colorPickerFor].color === c;
+                  const origColor = colorPickerFor === "home" ? hc : ac;
+                  return (
+                    <div key={`${c}-${i}`} onClick={() => saveKitColors(
+                      colorPickerFor === "home" ? (c === origColor ? null : c) : homeKitColor,
+                      colorPickerFor === "away" ? (c === origColor ? null : c) : awayKitColor
+                    )} style={{
+                      width: 22, height: 22, borderRadius: 5, background: c, cursor: "pointer",
+                      border: isActive ? "2px solid #F8FAFC" : c === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
+                      boxShadow: isActive ? "0 0 0 1px #F8FAFC44" : "none",
+                    }} />
+                  );
+                })}
+              </div>
+            </div>
+            <button onClick={() => saveKitColors(awayKitColor, homeKitColor)} style={{
+              width: "100%", padding: 7, background: "#334155", border: "none", borderRadius: 6,
+              color: "#94A3B8", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}>⇄ Swap colours</button>
+          </div>
+        </div>
+      )}
 
       {/* Field — visible on field tab */}
       {(liveTab === "field" || liveTab === "share") && (
@@ -526,6 +601,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           running={running} matchState={matchState}
           showRestart={showRestart} setShowRestart={setShowRestart}
           flipped={flipped}
+          rotation={rotation}
           sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
           score={score} setScore={setScore}
           onAddLog={addLog}

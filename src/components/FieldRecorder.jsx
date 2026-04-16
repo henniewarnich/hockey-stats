@@ -46,47 +46,18 @@ export default function FieldRecorder({
   onBallTap,
   onOverheadDrag, // callback: (fromZoneId, fromPos, toZoneId, toPos) => void
   onAction, // callback: (actionType, end) => void
+  rotation, // 0, 90, 180, 270 — CSS rotation angle
 }) {
   const [flash, setFlash] = useState(null);
   const [actionPopup, setActionPopup] = useState(null); // 'top' | 'bottom' | null
   const [dragging, setDragging] = useState(false);
   const [dragPos, setDragPos] = useState(null); // { x, y } relative to field
   const [dragTarget, setDragTarget] = useState(null); // { zoneId, pos } zone under finger
-  const [rotated, setRotated] = useState(() => sessionStorage.getItem('kykie-field-rotated') === '1');
   const fieldRef = useRef(null);
-  const wrapRef = useRef(null);
-  const [fieldDims, setFieldDims] = useState({ w: 418, h: 353 });
   const dragStartRef = useRef(null); // { clientX, clientY }
   const dragMovedRef = useRef(false);
   const tapHandledRef = useRef(false); // prevent double-fire (touch+click)
   const DRAG_THRESHOLD = 12;
-
-  // Measure field dimensions for rotation layout
-  useEffect(() => {
-    if (!fieldRef.current) return;
-    const el = fieldRef.current;
-    setFieldDims({ w: el.offsetWidth, h: el.offsetHeight });
-  }, [rotated]);
-
-  const toggleRotation = () => {
-    const next = !rotated;
-    setRotated(next);
-    sessionStorage.setItem('kykie-field-rotated', next ? '1' : '0');
-  };
-
-  // Convert screen coords to field-local coords (accounts for rotation)
-  const screenToField = (clientX, clientY) => {
-    const fr = fieldRef.current?.getBoundingClientRect();
-    if (!fr) return { x: 0, y: 0 };
-    if (!rotated) return { x: clientX - fr.left, y: clientY - fr.top };
-    // When rotated 90° CW, screen X maps to local Y and screen Y maps inversely to local X
-    const cx = fr.left + fr.width / 2;
-    const cy = fr.top + fr.height / 2;
-    const dx = clientX - cx;
-    const dy = clientY - cy;
-    // Inverse of 90° CW rotation: (dx, dy) → (dy, -dx)
-    return { x: fieldDims.w / 2 + dy, y: fieldDims.h / 2 - dx };
-  };
 
   // Drag handlers for overhead throw
   const onBallDragStart = (clientX, clientY, e) => {
@@ -130,19 +101,12 @@ export default function FieldRecorder({
       dragMovedRef.current = true;
       const fr = fieldRef.current?.getBoundingClientRect();
       if (fr) {
-        // Convert screen coords to field-local coords (handles rotation)
-        if (rotated) {
-          const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
-          const rdx = clientX - cx, rdy = clientY - cy;
-          setDragPos({ x: fieldDims.w / 2 + rdy, y: fieldDims.h / 2 - rdx });
-        } else {
-          setDragPos({ x: clientX - fr.left, y: clientY - fr.top });
-        }
+        setDragPos({ x: clientX - fr.left, y: clientY - fr.top });
         const target = getZoneAtPoint(clientX, clientY);
         setDragTarget(target && !(target.zoneId === ballPos?.zoneId && target.pos === ballPos?.pos) ? target : null);
       }
     }
-  }, [ballPos, rotated, fieldDims]);
+  }, [ballPos]);
 
   const onBallDragEnd = useCallback((clientX, clientY) => {
     if (!dragStartRef.current) return;
@@ -445,31 +409,18 @@ export default function FieldRecorder({
     );
   };
 
+  // CSS rotation (0, 90, 180, 270) — only 90/270 need CSS transform
+  const cssRotation = (rotation || 0) % 360;
+  const needsCssRotate = cssRotation === 90 || cssRotation === 270;
+
   return (
     <div style={{ padding: "0 6px" }}>
-      {/* Rotate toggle */}
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "2px 0 4px" }}>
-        <button onClick={toggleRotation} style={{
-          background: rotated ? "#10B98122" : "none", border: rotated ? "1px solid #10B98144" : "1px solid #33415566",
-          borderRadius: 6, color: rotated ? "#10B981" : "#64748B", fontSize: 9, cursor: "pointer",
-          fontWeight: 700, padding: "3px 8px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4,
-        }}>↻ Rotate field</button>
-      </div>
-      {/* Rotation container */}
-      <div ref={wrapRef} style={{
-        position: "relative", overflow: "hidden",
-        height: rotated ? fieldDims.w + 4 : "auto",
-      }}>
       <div ref={fieldRef} style={{
-        borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: rotated ? "absolute" : "relative",
+        borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative",
         WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
-        ...(rotated ? {
-          transform: "rotate(90deg)",
-          transformOrigin: "top left",
-          left: fieldDims.h + 4,
-          top: 0,
-          width: fieldDims.w,
-          height: fieldDims.h,
+        ...(needsCssRotate ? {
+          transform: `rotate(${cssRotation}deg)`,
+          transformOrigin: "center center",
         } : {}),
       }}>
 
@@ -648,7 +599,6 @@ export default function FieldRecorder({
         {/* Bottom backline */}
         {renderBackline("bottom")}
       </div>
-      </div>{/* end rotation container */}
 
       {/* Action popup */}
       {actionPopup && (
