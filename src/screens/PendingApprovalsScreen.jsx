@@ -241,7 +241,7 @@ export default function PendingApprovalsScreen({ currentUser, onBack }) {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner text message='Loading...' /></div>
+        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner /></div>
       ) : (
         <>
           {tab === 'matches' && (

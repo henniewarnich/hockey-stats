@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamDisplayName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const ISSUE_TYPES = [
   { id: 'inaccuracy', label: 'Inaccuracy', color: '#F59E0B', bg: '#F59E0B22' },
@@ -324,7 +325,7 @@ export default function IssuesScreen({ currentUser, onBack }) {
       {/* List */}
       <div style={{ padding: "0 14px 20px" }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: 30, color: "#64748B", fontSize: 11 }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>
         ) : shown.length === 0 ? (
           <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 12 }}>
             {activeTab === 'active' ? 'No active issues' : 'No resolved issues'}

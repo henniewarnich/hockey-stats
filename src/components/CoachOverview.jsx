@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { computeMatchStats, aggregateStats, statsFromArchive, STATS, INVERTED } from '../utils/stats.js';
 import { teamShortName, teamColor } from '../utils/teams.js';
+import KykieSpinner from './KykieSpinner.jsx';
 
 export default function CoachOverview({ team, matches }) {
   const [allEvents, setAllEvents] = useState({});
@@ -37,7 +38,7 @@ export default function CoachOverview({ team, matches }) {
     loadEvents();
   }, [matches]);
 
-  if (loading) return <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading stats...</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>;
 
   const matchesWithData = matches.filter(m => m.duration > 0 && (allEvents[m.id]?.length > 0 || archivedStats[m.id]?.length > 0));
   if (matchesWithData.length === 0) return <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No match data with events yet</div>;

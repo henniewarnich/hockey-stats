@@ -338,8 +338,13 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
               ✕ Cancel & Revert
             </button>
           )}
-          <button onClick={() => setLiveMode('lite')} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
-            ↓ Switch to Live
+          <button onClick={() => {
+              if (activeMatch.supabaseId) {
+                if (!window.confirm("Please note that you will lose all statistics and commentary that you have recorded so far.\n\nAre you sure you want to continue?")) return;
+              }
+              setLiveMode('lite');
+            }} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+            ↓ Switch to Score only
           </button>
         </div>
         <LiveMatchScreen matchConfig={activeMatch} existingMatchId={isDemoMatch ? null : activeMatch.supabaseId}
@@ -575,7 +580,7 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner text message="Loading schedule..." /></div>
+          <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{search.trim() ? "No matches found" : "No upcoming matches"}</div>
         ) : (

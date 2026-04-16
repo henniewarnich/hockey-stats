@@ -18,6 +18,7 @@ import SponsorBanner from '../components/SponsorBanner.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -680,7 +681,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
   if (loading) return (
     <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh", color: "#E2E8F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-      <div style={{ color: "#64748B", fontSize: 14 }}>Loading...</div>
+      <KykieSpinner />
     </div>
   );
 
@@ -962,7 +963,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {/* ═══ OVERALL TAB (Coach) ═══ */}
       {tab === "overall" && isCoach && !selectedMatch && (
         loadingStats ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading stats...</div>
+          <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
         ) : (
           <>
           {/* Season stats strip */}
@@ -1004,7 +1005,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {tab === "trends" && isCoach && !selectedMatch && (
         (teamTier === 'free_plus' || teamTier === 'premium') ? (
           loadingStats ? (
-            <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading analysis...</div>
+            <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
           ) : playPatterns && playPatterns.exit ? (
             <div style={{ padding: "8px 14px 20px" }}>
               <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>
@@ -1285,7 +1286,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
             </div>
           </div>
           {loadingEvents ? (
-            <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading...</div>
+            <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>
           ) : isCoach ? (
             <CoachLiveScreen
               embedded
