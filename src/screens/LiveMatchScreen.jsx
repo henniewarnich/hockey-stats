@@ -41,10 +41,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(teamColor(home), teamColor(away));
   const _teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
-  // Kit colour overrides applied to teams — cascades to FieldRecorder, possession, arrows, etc.
   const teams = {
-    home: { ..._teams.home, ...(homeKitColor ? { color: homeKitColor } : {}) },
-    away: { ..._teams.away, ...(awayKitColor ? { color: awayKitColor } : {}) },
+    home: { ..._teams.home, ...(homeKitColor ? { color: homeKitColor, institution: { ..._teams.home.institution, color: homeKitColor } } : {}) },
+    away: { ..._teams.away, ...(awayKitColor ? { color: awayKitColor, institution: { ..._teams.away.institution, color: awayKitColor } } : {}) },
   };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
@@ -474,7 +473,10 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       )}
 
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
-        matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId} />
+        matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId}
+        onHomeKitTap={matchState !== "ended" ? () => setColorPickerFor(colorPickerFor === "home" ? null : "home") : undefined}
+        onAwayKitTap={matchState !== "ended" ? () => setColorPickerFor(colorPickerFor === "away" ? null : "away") : undefined}
+      />
 
       {/* Speed control — admin only, video review or demo */}
       {(isVideoReview || isDemo) && currentUser && ['admin', 'commentator_admin'].includes(currentUser.role) && (
@@ -499,16 +501,18 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         </div>
       )}
 
-      {/* Possession + Flip */}
+      {/* Possession + Rotate */}
       <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
         {pauseReason ? (
           <div style={{ fontSize: 12, fontWeight: 800, color: "#F59E0B", background: "#F59E0B22", padding: "4px 16px", borderRadius: 99, display: "flex", alignItems: "center", gap: 6 }}>
             ⏸ {pauseReason}
           </div>
         ) : possession ? (
-          <div style={{ fontSize: 9, fontWeight: 700, color: teamColor(teams[possession]), background: teamColor(teams[possession]) + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: teamColor(teams[possession]) }} />
-            {teamShortName(teams[possession])}
+          <div style={{ fontSize: 10, fontWeight: 700, color: teams[possession].color, padding: "2px 10px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: teams[possession].color, display: "inline-block" }} />
+              {teamShortName(teams[possession])}: In Possession
+            </span>
           </div>
         ) : (
           <div style={{ fontSize: 9, fontWeight: 700, color: theme.textDimmer, padding: "2px 10px" }}>
@@ -543,22 +547,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         )}
       </div>
 
-      {/* Kit colour override */}
-      {(liveTab === "field" || liveTab === "share") && matchState !== "ended" && (
-        <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
-          <div onClick={() => setColorPickerFor(colorPickerFor === "home" ? null : "home")} style={{
-            width: 14, height: 14, borderRadius: 4, cursor: "pointer",
-            background: teams.home.color,
-            border: teams.home.color === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
-          }} />
-          <span style={{ fontSize: 9, color: "#475569" }}>kit</span>
-          <div onClick={() => setColorPickerFor(colorPickerFor === "away" ? null : "away")} style={{
-            width: 14, height: 14, borderRadius: 4, cursor: "pointer",
-            background: teams.away.color,
-            border: teams.away.color === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
-          }} />
-        </div>
-      )}
+      {/* Kit colour picker panel */}
       {colorPickerFor && (
         <div style={{ padding: "0 14px 6px" }}>
           <div style={{ background: "#1E293B", borderRadius: 8, padding: 10, border: "1px solid #334155" }}>
@@ -906,7 +895,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       {/* Reclassify toast */}
       {reclassifyToast && (
         <div style={{
-          position: "fixed", bottom: possession ? 48 : 10, left: "50%", transform: "translateX(-50%)",
+          position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)",
           zIndex: 35, display: "flex", alignItems: "center", gap: 6,
           background: "#0F172Aee", padding: "6px 10px", borderRadius: 10,
           border: "1px solid #33415566", backdropFilter: "blur(8px)",
@@ -933,14 +922,6 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         @keyframes toast-in { from { transform: translateX(-50%) translateY(10px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
         @keyframes toast-timer { from { width: 100%; } to { width: 0%; } }
       `}</style>
-
-      {/* Fixed possession indicator */}
-      {possession && (
-        <div style={{ position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, background: "#0F172Aee", padding: "6px 16px", borderRadius: 99, border: `1px solid ${teamColor(teams[possession])}44` }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: teamColor(teams[possession]) }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: theme.text }}>{teamShortName(teams[possession])}</span>
-        </div>
-      )}
     </div>
   );
 }

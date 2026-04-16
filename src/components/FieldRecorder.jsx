@@ -412,6 +412,16 @@ export default function FieldRecorder({
   // CSS rotation (0, 90, 180, 270) — only 90/270 need CSS transform
   const cssRotation = (rotation || 0) % 360;
   const needsCssRotate = cssRotation === 90 || cssRotation === 270;
+  const [fieldW, setFieldW] = useState(0);
+  const FIELD_H = 353; // deterministic: 30+72×4+1+30+4 border
+
+  // Measure field width for rotation layout
+  useEffect(() => {
+    if (fieldRef.current && !needsCssRotate) {
+      setFieldW(fieldRef.current.offsetWidth);
+    }
+  });
+  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((fieldW - FIELD_H) / 2) : 0;
 
   return (
     <div style={{ padding: "0 6px" }}>
@@ -421,6 +431,8 @@ export default function FieldRecorder({
         ...(needsCssRotate ? {
           transform: `rotate(${cssRotation}deg)`,
           transformOrigin: "center center",
+          marginTop: rotateMargin,
+          marginBottom: rotateMargin,
         } : {}),
       }}>
 
