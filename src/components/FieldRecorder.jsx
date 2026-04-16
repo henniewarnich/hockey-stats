@@ -101,12 +101,12 @@ export default function FieldRecorder({
       dragMovedRef.current = true;
       const fr = fieldRef.current?.getBoundingClientRect();
       if (fr) {
-        setDragPos({ x: clientX - fr.left, y: clientY - fr.top });
+        setDragPos(screenToLocal(clientX, clientY));
         const target = getZoneAtPoint(clientX, clientY);
         setDragTarget(target && !(target.zoneId === ballPos?.zoneId && target.pos === ballPos?.pos) ? target : null);
       }
     }
-  }, [ballPos]);
+  }, [ballPos, needsCssRotate, cssRotation, rotateScale, fieldW]);
 
   const onBallDragEnd = useCallback((clientX, clientY) => {
     if (!dragStartRef.current) return;
@@ -421,7 +421,23 @@ export default function FieldRecorder({
       setFieldW(fieldRef.current.offsetWidth);
     }
   });
-  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((fieldW - FIELD_H) / 2) : 0;
+  // Scale so rotated field fills container width (original height → visual width)
+  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
+  // Margin to account for visual height change: (scaledW - FIELD_H) / 2
+  const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
+  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((scaledVisualH - FIELD_H) / 2) : 0;
+
+  // Convert screen coords → field-local coords (inverse of CSS rotate + scale)
+  const screenToLocal = (clientX, clientY) => {
+    const fr = fieldRef.current?.getBoundingClientRect();
+    if (!fr) return { x: 0, y: 0 };
+    if (!needsCssRotate) return { x: clientX - fr.left, y: clientY - fr.top };
+    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
+    const dx = clientX - cx, dy = clientY - cy;
+    const S = rotateScale;
+    if (cssRotation === 90) return { x: fieldW / 2 + dy / S, y: FIELD_H / 2 - dx / S };
+    return { x: fieldW / 2 - dy / S, y: FIELD_H / 2 + dx / S }; // 270
+  };
 
   return (
     <div style={{ padding: "0 6px" }}>
@@ -429,7 +445,7 @@ export default function FieldRecorder({
         borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative",
         WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
         ...(needsCssRotate ? {
-          transform: `rotate(${cssRotation}deg)`,
+          transform: `rotate(${cssRotation}deg) scale(${rotateScale})`,
           transformOrigin: "center center",
           marginTop: rotateMargin,
           marginBottom: rotateMargin,
