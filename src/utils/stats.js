@@ -24,12 +24,41 @@ export function computeStats(events, team, startTime, endTime) {
     e.team === team && e.time >= startTime && e.time <= endTime &&
     e.team !== "commentary" && e.team !== "meta"
   );
-  const all = events.filter(e =>
-    e.time >= startTime && e.time <= endTime &&
-    e.team !== "commentary" && e.team !== "meta"
-  );
-  const teamCount = real.length;
-  const totalCount = all.length || 1;
+
+  // Time-based possession & territory
+  const allReal = events.filter(e =>
+    (e.team === "home" || e.team === "away") &&
+    e.time >= startTime && e.time <= endTime
+  ).sort((a, b) => (a.time || 0) - (b.time || 0));
+
+  let possTime = 0;
+  let terrTime = 0;
+  let totalTime = 0;
+
+  for (let i = 0; i < allReal.length; i++) {
+    const cur = allReal[i];
+    const nextTime = i < allReal.length - 1 ? allReal[i + 1].time : endTime;
+    const dur = Math.max(0, Math.min(nextTime, endTime) - cur.time);
+    if (dur > 300) continue; // skip gaps > 5min (pauses)
+    totalTime += dur;
+    if (cur.team === team) {
+      possTime += dur;
+      // Territory: time in opponent's half
+      // Zone labels are ALWAYS from home perspective:
+      //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
+      const z = cur.zone || "";
+      const inOppHalf = team === "home"
+        ? (z.startsWith("Opp ") || z.includes(" D"))  // home attacks top, D entries are in opp half
+        : (z.startsWith("Own ") || z.includes(" D"));  // away attacks bottom
+      // Exclude D zones with own team name (those are defensive, not attacking)
+      if (inOppHalf && !z.includes("Centre")) {
+        terrTime += dur;
+      }
+    }
+  }
+
+  const possession = totalTime > 0 ? Math.round(possTime / totalTime * 100) : 0;
+  const oppHalfPct = totalTime > 0 ? Math.round(terrTime / totalTime * 100) : 0;
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
@@ -43,7 +72,8 @@ export function computeStats(events, team, startTime, endTime) {
     longCorners: real.filter(e => e.event === "Long Corner").length,
     turnoversWon: real.filter(e => e.event === "Turnover Won").length,
     possLost: real.filter(e => e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out")).length,
-    territory: Math.round(teamCount / totalCount * 100),
+    territory: possession,
+    oppHalfPct,
   };
 }
 
@@ -189,6 +219,11 @@ export function computeMatchStats(events, teamId, homeTeamId) {
   // Sequential analysis for attacking chances
   team.atkChances = computeAtkChances(events, teamSide, 0, 999999);
   opp.atkChances = computeAtkChances(events, oppSide, 0, 999999);
+  // Map time-based fields for aggregateStats compatibility
+  team.possessionTimePct = team.territory;
+  team.territoryTimePct = team.oppHalfPct;
+  opp.possessionTimePct = opp.territory;
+  opp.territoryTimePct = opp.oppHalfPct;
   return { team, opp, teamSide, oppSide };
 }
 

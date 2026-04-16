@@ -196,27 +196,42 @@ function computeStats(events, team, startTime, endTime) {
     e.team === team && e.time >= startTime && e.time <= endTime &&
     e.team !== "commentary" && e.team !== "meta"
   );
-  // Possession: only count home + away events
-  const homeAwayOnly = events.filter(e =>
+
+  // Time-based possession & territory
+  // Sort all real events (both teams) in this time range
+  const allReal = events.filter(e =>
     (e.team === "home" || e.team === "away") &&
     e.time >= startTime && e.time <= endTime
-  );
-  const teamCount = real.length;
-  const totalCount = homeAwayOnly.length || 1;
+  ).sort((a, b) => a.time - b.time);
 
-  // Territory: events in opponent's half (zone starts with "Opp" or contains " D" from opponent)
-  const oppHalfEvents = homeAwayOnly.filter(e => {
-    const z = e.zone || "";
-    return z.startsWith("Opp ");
-  });
-  const ownHalfEvents = homeAwayOnly.filter(e => {
-    const z = e.zone || "";
-    return z.startsWith("Own ");
-  });
-  // Territory = % of zoned play in the attacking half
-  const teamOppHalf = real.filter(e => (e.zone || "").startsWith("Opp ")).length;
-  const teamOwnHalf = real.filter(e => (e.zone || "").startsWith("Own ")).length;
-  const teamZoned = teamOppHalf + teamOwnHalf;
+  let possTime = 0;   // seconds this team had possession
+  let terrTime = 0;   // seconds this team spent in opp half
+  let totalTime = 0;  // total tracked time
+
+  for (let i = 0; i < allReal.length; i++) {
+    const cur = allReal[i];
+    const nextTime = i < allReal.length - 1 ? allReal[i + 1].time : endTime;
+    const dur = Math.max(0, Math.min(nextTime, endTime) - cur.time);
+    if (dur > 300) continue; // skip gaps > 5min (pauses)
+    totalTime += dur;
+    if (cur.team === team) {
+      possTime += dur;
+      // Territory: time in opponent's half
+      // Zone labels are ALWAYS from home perspective:
+      //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
+      const z = cur.zone || "";
+      const inOppHalf = team === "home"
+        ? (z.startsWith("Opp ") || z.includes(" D"))
+        : (z.startsWith("Own ") || z.includes(" D"));
+      if (inOppHalf && !z.includes("Centre")) {
+        terrTime += dur;
+      }
+    }
+  }
+
+  const possession = totalTime > 0 ? Math.round(possTime / totalTime * 100) : 0;
+  // Territory: time in opp half as % of total time (not just this team's time)
+  const oppHalfPct = totalTime > 0 ? Math.round(terrTime / totalTime * 100) : 0;
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
@@ -229,8 +244,8 @@ function computeStats(events, team, startTime, endTime) {
     longCorners: real.filter(e => e.event === "Long Corner").length,
     turnoversWon: real.filter(e => e.event === "Turnover Won").length,
     possLost: real.filter(e => e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out")).length,
-    territory: Math.round(teamCount / totalCount * 100),
-    oppHalfPct: teamZoned > 0 ? Math.round(teamOppHalf / teamZoned * 100) : 0,
+    territory: possession,
+    oppHalfPct,
   };
 }
 

@@ -114,8 +114,8 @@ export default function Homepage({ currentUser, liveMatches, onNavigate }) {
       a.dEntries += s.d_entries || 0;
       a.possLost += s.poss_lost || 0;
       a.turnoversWon += s.turnovers_won || 0;
-      a.possessionSum += s.possession_time_pct || 0;
-      a.territorySum += s.territory_pct || 0;
+      a.possessionSum += s.possession_time_pct || s.territory_pct || 0;
+      a.territorySum += s.territory_time_pct || s.territory_pct || 0;
       a.goals += s.goals || 0;
       a.shotsOn += s.shots_on || 0;
       a.shotsOff += s.shots_off || 0;
