@@ -205,7 +205,7 @@ function computeStats(events, team, startTime, endTime) {
   ).sort((a, b) => a.time - b.time);
 
   let possTime = 0;   // seconds this team had possession
-  let terrTime = 0;   // seconds this team spent in opp half
+  let terrTime = 0;   // seconds ball was in this team's attacking half
   let totalTime = 0;  // total tracked time
 
   for (let i = 0; i < allReal.length; i++) {
@@ -214,18 +214,16 @@ function computeStats(events, team, startTime, endTime) {
     const dur = Math.max(0, Math.min(nextTime, endTime) - cur.time);
     if (dur > 300) continue; // skip gaps > 5min (pauses)
     totalTime += dur;
-    if (cur.team === team) {
-      possTime += dur;
-      // Territory: time in opponent's half
-      // Zone labels are ALWAYS from home perspective:
-      //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
-      const z = cur.zone || "";
-      const inOppHalf = team === "home"
-        ? (z.startsWith("Opp ") || z.includes(" D"))
-        : (z.startsWith("Own ") || z.includes(" D"));
-      if (inOppHalf && !z.includes("Centre")) {
-        terrTime += dur;
-      }
+    if (cur.team === team) possTime += dur;
+    // Territory: where the ball IS, regardless of who has it
+    // Zone labels are ALWAYS from home perspective:
+    //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
+    const z = cur.zone || "";
+    const ballInTeamAttackHalf = team === "home"
+      ? (z.startsWith("Opp ") || z.includes(" D"))
+      : (z.startsWith("Own ") || z.includes(" D"));
+    if (ballInTeamAttackHalf && !z.includes("Centre")) {
+      terrTime += dur;
     }
   }
 

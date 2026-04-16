@@ -41,19 +41,14 @@ export function computeStats(events, team, startTime, endTime) {
     const dur = Math.max(0, Math.min(nextTime, endTime) - cur.time);
     if (dur > 300) continue; // skip gaps > 5min (pauses)
     totalTime += dur;
-    if (cur.team === team) {
-      possTime += dur;
-      // Territory: time in opponent's half
-      // Zone labels are ALWAYS from home perspective:
-      //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
-      const z = cur.zone || "";
-      const inOppHalf = team === "home"
-        ? (z.startsWith("Opp ") || z.includes(" D"))  // home attacks top, D entries are in opp half
-        : (z.startsWith("Own ") || z.includes(" D"));  // away attacks bottom
-      // Exclude D zones with own team name (those are defensive, not attacking)
-      if (inOppHalf && !z.includes("Centre")) {
-        terrTime += dur;
-      }
+    if (cur.team === team) possTime += dur;
+    // Territory: where the ball IS, regardless of who has it
+    const z = cur.zone || "";
+    const ballInTeamAttackHalf = team === "home"
+      ? (z.startsWith("Opp ") || z.includes(" D"))
+      : (z.startsWith("Own ") || z.includes(" D"));
+    if (ballInTeamAttackHalf && !z.includes("Centre")) {
+      terrTime += dur;
     }
   }
 
