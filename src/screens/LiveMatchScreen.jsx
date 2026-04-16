@@ -55,6 +55,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [homeKitColor, setHomeKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.home || null; } catch { return null; } });
   const [awayKitColor, setAwayKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.away || null; } catch { return null; } });
   const [colorPickerFor, setColorPickerFor] = useState(null);
+  const [copyToast, setCopyToast] = useState(false);
   const KIT_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
   const saveKitColors = (h, a) => {
     setHomeKitColor(h); setAwayKitColor(a);
@@ -542,6 +543,15 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
             setRotation(next);
           }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
         )}
+        {liveMatchId && (
+          <button onClick={() => {
+            const slug = teamSlug(teams.home);
+            const url = `${window.location.origin}${window.location.pathname}#/team/${slug}?match=${liveMatchId}`;
+            navigator.clipboard?.writeText(url).then(() => {
+              setCopyToast(true); setTimeout(() => setCopyToast(false), 2000);
+            }).catch(() => prompt("Copy this link:", url));
+          }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔗</button>
+        )}
       </div>
 
       {/* Kit colour picker panel */}
@@ -578,8 +588,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         </div>
       )}
 
-      {/* Field — visible on field tab */}
-      {(liveTab === "field" || liveTab === "share") && (
+      {/* Field — visible on live stats tab */}
+      {liveTab === "field" && (
         <FieldRecorder
           teams={teams} possession={possession} setPossession={setPossession}
           ballPos={ballPos} setBallPos={setBallPos}
@@ -799,7 +809,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
       {/* View tabs */}
       <div style={{ display: "flex", margin: "4px 10px 0", borderRadius: 6, overflow: "hidden", border: `1px solid ${theme.border}` }}>
-        {[["field", "🏑 Field"], ["log", "☰ Log"], ["coach", "🔒 Coach"], ["share", "📺 Share"]].map(([k, l]) => (
+        {[["field", "🏑 Live Stats"], ["log", "☰ Log"]].map(([k, l]) => (
           <button key={k} onClick={() => setLiveTab(k)} style={{
             flex: 1, padding: "5px 0", textAlign: "center", fontSize: 8, fontWeight: 700,
             background: liveTab === k ? theme.border : theme.surface,
@@ -810,82 +820,21 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       </div>
 
       {/* Tab content */}
-      {liveTab === "field" && null /* field is always visible above */}
-      {liveTab === "log" && <EventLog events={events} teams={teams} />}
-      {liveTab === "coach" && (
+      {liveTab === "field" && (
         <CoachLiveScreen
           match={{ teams, breakFormat, matchLength, homeScore: score.home, awayScore: score.away, status: matchState === "ended" ? "ended" : "live" }}
           events={events}
           matchTime={matchTime}
           running={running}
+          embedded
         />
       )}
-      {liveTab === "share" && (
-        <div style={{ padding: "16px 14px" }}>
-          <div style={{ background: theme.surface, borderRadius: 12, padding: 16, border: `1px solid ${theme.border}` }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>📺 Share Live Match</div>
-            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 14, textAlign: "center" }}>
-              Share these links with spectators. They'll see the live score and commentary.
-            </div>
+      {liveTab === "log" && <EventLog events={events} teams={teams} />}
 
-            {[teams.home, teams.away].map(t => {
-              const slug = teamSlug(t);
-              const url = `${window.location.origin}${window.location.pathname}#/team/${slug}`;
-              return (
-                <div key={teamDisplayName(t)} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: teamColor(t), marginBottom: 4 }}>📺 {teamDisplayName(t)}</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <div style={{
-                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
-                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>{url}</div>
-                    <button onClick={() => {
-                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
-                    }} style={{
-                      padding: "8px 14px", borderRadius: 8, background: t.color + "22",
-                      border: `1px solid ${t.color}44`, color: teamColor(t),
-                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
-                    }}>📋 Copy</button>
-                    <button onClick={() => window.open(url, '_blank')} style={{
-                      padding: "8px 10px", borderRadius: 8, background: "#10B98122",
-                      border: "1px solid #10B98144", color: "#10B981",
-                      fontSize: 11, fontWeight: 700, cursor: "pointer",
-                    }}>↗</button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Commentator link — home team */}
-            <div style={{ marginTop: 6, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", marginBottom: 4 }}>🎙 Commentator Link</div>
-              {(() => {
-                const slug = teamSlug(teams.home);
-                const url = `${window.location.origin}${window.location.pathname}#/record/${slug}`;
-                return (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <div style={{
-                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
-                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>{url}</div>
-                    <button onClick={() => {
-                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
-                    }} style={{
-                      padding: "8px 14px", borderRadius: 8, background: "#F59E0B22",
-                      border: "1px solid #F59E0B44", color: "#F59E0B",
-                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
-                    }}>📋 Copy</button>
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div style={{ fontSize: 9, color: theme.textDim, textAlign: "center", marginTop: 8 }}>
-              Spectators see score + commentary only. Coaches can enter their team PIN for full stats.
-            </div>
-          </div>
+      {/* Copy toast */}
+      {copyToast && (
+        <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 35, background: "#10B981", color: "#0B0F1A", padding: "6px 16px", borderRadius: 99, fontSize: 11, fontWeight: 700, animation: "toast-in 0.2s ease-out" }}>
+          Link copied!
         </div>
       )}
 

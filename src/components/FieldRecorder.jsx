@@ -65,7 +65,7 @@ export default function FieldRecorder({
   const [fieldW, setFieldW] = useState(0);
   const FIELD_H = 353; // deterministic: 30+72×4+1+30+4 border
   useEffect(() => {
-    if (fieldRef.current && !needsCssRotate) setFieldW(fieldRef.current.offsetWidth);
+    if (fieldRef.current) setFieldW(fieldRef.current.offsetWidth);
   });
   const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
   const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
