@@ -38,7 +38,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showRestart, setShowRestart] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [showPauseReason, setShowPauseReason] = useState(false);
-  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const [rotation, setRotation] = useState(0);
   const flipped = rotation >= 180;
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
@@ -46,31 +46,27 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [endPenHome, setEndPenHome] = useState(null);
   const [endPenAway, setEndPenAway] = useState(null);
   const [pauseReason, setPauseReason] = useState(null);
-  const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
+  const [liveMatchId, setLiveMatchId] = useState(null);
   const [matchViewers, setMatchViewers] = useState(0);
-  const [showScoreMismatch, setShowScoreMismatch] = useState(null); // { recorded, saved }
+  const [showScoreMismatch, setShowScoreMismatch] = useState(null);
   const [showVideoReviewEnd, setShowVideoReviewEnd] = useState(false);
-  const [reclassifyToast, setReclassifyToast] = useState(null); // { type, options }
+  const [reclassifyToast, setReclassifyToast] = useState(null);
   const toastTimerRef = useRef(null);
-
-  // Kit colour overrides (session-only, per match) — after original hooks to preserve order
-  const KIT_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
+  const [homeKitColor, setHomeKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.home || null; } catch { return null; } });
+  const [awayKitColor, setAwayKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.away || null; } catch { return null; } });
   const [colorPickerFor, setColorPickerFor] = useState(null);
-  const matchColorKey = `kykie-kit-${matchConfig?.supabaseId || 'local'}`;
-  const savedKit = (() => { try { return JSON.parse(sessionStorage.getItem(matchColorKey)); } catch { return null; } })();
-  const [homeKitColor, setHomeKitColor] = useState(savedKit?.home || null);
-  const [awayKitColor, setAwayKitColor] = useState(savedKit?.away || null);
+  const KIT_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
   const saveKitColors = (h, a) => {
     setHomeKitColor(h); setAwayKitColor(a);
-    sessionStorage.setItem(matchColorKey, JSON.stringify({ home: h, away: a }));
+    sessionStorage.setItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`, JSON.stringify({ home: h, away: a }));
     setColorPickerFor(null);
   };
 
-  // Build teams with kit colour overrides applied
-  const _teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
+  // Teams with kit colour overrides — cascades everywhere
+  const applyKit = (team, kitColor) => kitColor ? { ...team, color: kitColor, institution: { ...team.institution, color: kitColor } } : team;
   const teams = {
-    home: { ..._teams.home, ...(homeKitColor ? { color: homeKitColor, institution: { ..._teams.home.institution, color: homeKitColor } } : {}) },
-    away: { ..._teams.away, ...(awayKitColor ? { color: awayKitColor, institution: { ..._teams.away.institution, color: awayKitColor } } : {}) },
+    home: applyKit({ ...home, color: hc }, homeKitColor),
+    away: applyKit({ ...away, color: ac }, awayKitColor),
   };
 
   const lastEventSeqRef = useRef(0); // seq of last event for Supabase updates
