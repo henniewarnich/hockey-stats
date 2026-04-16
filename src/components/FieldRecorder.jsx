@@ -59,6 +59,28 @@ export default function FieldRecorder({
   const tapHandledRef = useRef(false); // prevent double-fire (touch+click)
   const DRAG_THRESHOLD = 12;
 
+  // Field rotation support
+  const cssRotation = (rotation || 0) % 360;
+  const needsCssRotate = cssRotation === 90 || cssRotation === 270;
+  const [fieldW, setFieldW] = useState(0);
+  const FIELD_H = 353; // deterministic: 30+72×4+1+30+4 border
+  useEffect(() => {
+    if (fieldRef.current && !needsCssRotate) setFieldW(fieldRef.current.offsetWidth);
+  });
+  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
+  const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
+  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((scaledVisualH - FIELD_H) / 2) : 0;
+  const screenToLocal = (clientX, clientY) => {
+    const fr = fieldRef.current?.getBoundingClientRect();
+    if (!fr) return { x: 0, y: 0 };
+    if (!needsCssRotate) return { x: clientX - fr.left, y: clientY - fr.top };
+    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
+    const dx = clientX - cx, dy = clientY - cy;
+    const S = rotateScale;
+    if (cssRotation === 90) return { x: fieldW / 2 + dy / S, y: FIELD_H / 2 - dx / S };
+    return { x: fieldW / 2 - dy / S, y: FIELD_H / 2 + dx / S };
+  };
+
   // Drag handlers for overhead throw
   const onBallDragStart = (clientX, clientY, e) => {
     e.stopPropagation();
@@ -407,36 +429,6 @@ export default function FieldRecorder({
         )}
       </div>
     );
-  };
-
-  // CSS rotation (0, 90, 180, 270) — only 90/270 need CSS transform
-  const cssRotation = (rotation || 0) % 360;
-  const needsCssRotate = cssRotation === 90 || cssRotation === 270;
-  const [fieldW, setFieldW] = useState(0);
-  const FIELD_H = 353; // deterministic: 30+72×4+1+30+4 border
-
-  // Measure field width for rotation layout
-  useEffect(() => {
-    if (fieldRef.current && !needsCssRotate) {
-      setFieldW(fieldRef.current.offsetWidth);
-    }
-  });
-  // Scale so rotated field fills container width (original height → visual width)
-  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
-  // Margin to account for visual height change: (scaledW - FIELD_H) / 2
-  const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
-  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((scaledVisualH - FIELD_H) / 2) : 0;
-
-  // Convert screen coords → field-local coords (inverse of CSS rotate + scale)
-  const screenToLocal = (clientX, clientY) => {
-    const fr = fieldRef.current?.getBoundingClientRect();
-    if (!fr) return { x: 0, y: 0 };
-    if (!needsCssRotate) return { x: clientX - fr.left, y: clientY - fr.top };
-    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
-    const dx = clientX - cx, dy = clientY - cy;
-    const S = rotateScale;
-    if (cssRotation === 90) return { x: fieldW / 2 + dy / S, y: FIELD_H / 2 - dx / S };
-    return { x: fieldW / 2 - dy / S, y: FIELD_H / 2 + dx / S }; // 270
   };
 
   return (
