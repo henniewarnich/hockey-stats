@@ -46,6 +46,7 @@ export default function FieldRecorder({
   onBallTap,
   onOverheadDrag, // callback: (fromZoneId, fromPos, toZoneId, toPos) => void
   onAction, // callback: (actionType, end) => void
+  onUndoLastEvent, // callback: () => void — removes last non-commentary event
   rotation, // 0, 90, 180, 270 — CSS rotation angle
 }) {
   const [flash, setFlash] = useState(null);
@@ -263,13 +264,16 @@ export default function FieldRecorder({
     onShowDPopup({ end });
   };
 
-  // Dead ball on backline
+  // Dead ball on backline — possession lost + defending team restarts
   const handleDead = (end, side) => {
     if (!running || showRestart || !possession) return;
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
-    onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
+    const attackingTeam = otherTeam(defendingTeam);
+    const zoneLbl = `Backline ${side}`;
+    onAddLog(possession, "Poss Conceded", zoneLbl, `${teamShortName(teams[possession])} lost possession — ball dead at ${teamShortName(teams[defendingTeam])}'s backline (${side})`);
+    onAddLog(possession, "Ball Dead", zoneLbl, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
     setPossession(defendingTeam);
     const defZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
     moveBall({ zoneId: defZone, pos: side, nearLine: true });
@@ -290,18 +294,17 @@ export default function FieldRecorder({
     moveBall({ zoneId: atkZone, pos: side, nearLine: true });
   };
 
-  // Sideline out with reversal
+  // Sideline out with undo-reversal
   const handleSidelineOut = (side, zoneId) => {
     if (!running || showRestart || !possession) return;
     dismissActionPopup();
     const zone = ZONES.find(z => z.id === zoneId);
+    // Second tap on same strip = undo the original sideline out
     if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
-      const newTeamOut = otherTeam(sidelineOut.team);
-      const newTeamGets = sidelineOut.team;
-      onAddLog(newTeamOut, `Sideline Out (Reversed)`, zone.label, `Reversed — ${teamShortName(teams[newTeamOut])} put ball out. ${teamShortName(teams[newTeamGets])} free hit.`);
-      setPossession(newTeamGets);
+      if (onUndoLastEvent) onUndoLastEvent();
+      setPossession(sidelineOut.team); // restore to original team
       moveBall({ zoneId, pos: side === "left" ? "left" : "right" });
-      setSidelineOut({ side, zoneId, team: newTeamOut, canReverse: false });
+      setSidelineOut(null);
       return;
     }
     const teamOut = possession;

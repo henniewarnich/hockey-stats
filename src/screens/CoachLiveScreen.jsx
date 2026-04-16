@@ -196,13 +196,27 @@ function computeStats(events, team, startTime, endTime) {
     e.team === team && e.time >= startTime && e.time <= endTime &&
     e.team !== "commentary" && e.team !== "meta"
   );
-  // Territory: only count home + away events (exclude meta/commentary/null/system)
+  // Possession: only count home + away events
   const homeAwayOnly = events.filter(e =>
     (e.team === "home" || e.team === "away") &&
     e.time >= startTime && e.time <= endTime
   );
   const teamCount = real.length;
   const totalCount = homeAwayOnly.length || 1;
+
+  // Territory: events in opponent's half (zone starts with "Opp" or contains " D" from opponent)
+  const oppHalfEvents = homeAwayOnly.filter(e => {
+    const z = e.zone || "";
+    return z.startsWith("Opp ");
+  });
+  const ownHalfEvents = homeAwayOnly.filter(e => {
+    const z = e.zone || "";
+    return z.startsWith("Own ");
+  });
+  // Territory = % of zoned play in the attacking half
+  const teamOppHalf = real.filter(e => (e.zone || "").startsWith("Opp ")).length;
+  const teamOwnHalf = real.filter(e => (e.zone || "").startsWith("Own ")).length;
+  const teamZoned = teamOppHalf + teamOwnHalf;
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
@@ -216,6 +230,7 @@ function computeStats(events, team, startTime, endTime) {
     turnoversWon: real.filter(e => e.event === "Turnover Won").length,
     possLost: real.filter(e => e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out")).length,
     territory: Math.round(teamCount / totalCount * 100),
+    oppHalfPct: teamZoned > 0 ? Math.round(teamOppHalf / teamZoned * 100) : 0,
   };
 }
 
@@ -268,7 +283,6 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   }
 
   const [expandedQ, setExpandedQ] = useState(quarters.find(q => q.status === "live")?.label || quarters[0]?.label);
-  const [viewTab, setViewTab] = useState("totals");
 
   const hc = HC;
   const ac = AC;
@@ -292,6 +306,13 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
     return total > 0 ? Math.round(hSum / total * 100) : 50;
   })();
   const avgTerritory = (team) => team === "home" ? _homeTerr : 100 - _homeTerr;
+  // Territory (% in opp half): weighted from oppHalfPct per quarter, guarantee home + away = 100%
+  const _homeOppHalf = (() => {
+    const hSum = activeQs.reduce((s, q) => s + q.home.oppHalfPct, 0);
+    const total = activeQs.reduce((s, q) => s + q.home.oppHalfPct + q.away.oppHalfPct, 0);
+    return total > 0 ? Math.round(hSum / total * 100) : 50;
+  })();
+  const avgOppHalf = (team) => team === "home" ? _homeOppHalf : 100 - _homeOppHalf;
   const convRate = (team) => { const s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
   const atkConv = (team) => { const a = totalStat(team, "atkZoneEntries"), d = totalStat(team, "dEntries"); return a > 0 ? Math.round(d / a * 100) : 0; };
@@ -365,183 +386,100 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       </div>
       </>}
 
-      {/* View toggle */}
+      {/* Match Stats */}
       <div style={{ padding: "0 14px 8px" }}>
-        <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }}>
-          {[["totals", "Match Totals"], ["insights", "Match Insights"], ...(matchPlayPatterns ? [["visuals", "Visuals"]] : [])].map(([k, l]) => (
-            <button key={k} onClick={() => setViewTab(k)} style={{
-              flex: 1, padding: "6px 0", textAlign: "center", fontSize: 9, fontWeight: 700,
-              background: viewTab === k ? "#10B98122" : "#1E293B", color: viewTab === k ? "#10B981" : "#64748B",
-              border: "none", cursor: "pointer",
-            }}>{l}</button>
-          ))}
+        <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Match Stats</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
+            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: hc }}>{teamShortName(teams.home)}</div>
+            <div style={{ width: 90 }} />
+            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: ac }}>{teamShortName(teams.away)}</div>
+          </div>
+          {[
+            { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+            { label: "Territory", sub: "% in opp half", hVal: avgOppHalf("home"), aVal: avgOppHalf("away"), suffix: "%" },
+            { label: "Turnovers Won", sub: "", hVal: totalStat("home", "turnoversWon"), aVal: totalStat("away", "turnoversWon"), suffix: "" },
+            { label: "Possession Lost", sub: "", hVal: totalStat("home", "possLost"), aVal: totalStat("away", "possLost"), suffix: "", inverted: true },
+            ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
+              ? [{ label: "Attack Chances", sub: "", hVal: totalStat("home", "atkZoneEntries"), aVal: totalStat("away", "atkZoneEntries"), suffix: "" }]
+              : []),
+            { label: "D Entries", sub: "", hVal: totalStat("home", "dEntries"), aVal: totalStat("away", "dEntries"), suffix: "" },
+            { label: "Short Corners", sub: "", hVal: totalStat("home", "shortCorners"), aVal: totalStat("away", "shortCorners"), suffix: "" },
+            { label: "SC Goals", sub: "", hVal: totalStat("home", "scGoals"), aVal: totalStat("away", "scGoals"), suffix: "" },
+            { label: "Shots", sub: "", hVal: shotsTaken("home"), aVal: shotsTaken("away"), suffix: "" },
+            { label: "Shots on Target", sub: "", hVal: totalStat("home", "shotsOn"), aVal: totalStat("away", "shotsOn"), suffix: "" },
+          ].map((r, i, arr) => {
+            const higher = r.inverted ? r.hVal < r.aVal : r.hVal > r.aVal;
+            const lower = r.inverted ? r.hVal > r.aVal : r.hVal < r.aVal;
+            const hColor = higher ? "#10B981" : lower ? "#EF4444" : "#F59E0B";
+            const aHigher = r.inverted ? r.aVal < r.hVal : r.aVal > r.hVal;
+            const aLower = r.inverted ? r.aVal > r.hVal : r.aVal < r.hVal;
+            const aColor = aHigher ? "#10B981" : aLower ? "#EF4444" : "#F59E0B";
+            return (
+              <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{r.hVal}{r.suffix}</div>
+                </div>
+                <div style={{ textAlign: "center", width: 90 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
+                  <div style={{ fontSize: 7, color: "#475569" }}>{r.sub}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{r.aVal}{r.suffix}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Match Stats */}
-      {viewTab === "totals" && (
-        <div style={{ padding: "0 14px 20px" }}>
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Match Stats</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
-              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: hc }}>{teamShortName(teams.home)}</div>
-              <div style={{ width: 90 }} />
-              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: ac }}>{teamShortName(teams.away)}</div>
-            </div>
-            {[
-              { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
-              { label: "Territory", sub: "% in opp half", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
-              { label: "Turnovers Won", sub: "", hVal: totalStat("home", "turnoversWon"), aVal: totalStat("away", "turnoversWon"), suffix: "" },
-              { label: "Possession Lost", sub: "", hVal: totalStat("home", "possLost"), aVal: totalStat("away", "possLost"), suffix: "", inverted: true },
-              ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
-                ? [{ label: "Attack Chances", sub: "", hVal: totalStat("home", "atkZoneEntries"), aVal: totalStat("away", "atkZoneEntries"), suffix: "" }]
-                : []),
-              { label: "D Entries", sub: "", hVal: totalStat("home", "dEntries"), aVal: totalStat("away", "dEntries"), suffix: "" },
-              { label: "Short Corners", sub: "", hVal: totalStat("home", "shortCorners"), aVal: totalStat("away", "shortCorners"), suffix: "" },
-              { label: "SC Goals", sub: "", hVal: totalStat("home", "scGoals"), aVal: totalStat("away", "scGoals"), suffix: "" },
-              { label: "Shots", sub: "", hVal: shotsTaken("home"), aVal: shotsTaken("away"), suffix: "" },
-              { label: "Shots on Target", sub: "", hVal: totalStat("home", "shotsOn"), aVal: totalStat("away", "shotsOn"), suffix: "" },
-            ].map((r, i, arr) => {
-              const higher = r.inverted ? r.hVal < r.aVal : r.hVal > r.aVal;
-              const lower = r.inverted ? r.hVal > r.aVal : r.hVal < r.aVal;
-              const hColor = higher ? "#10B981" : lower ? "#EF4444" : "#F59E0B";
-              const aHigher = r.inverted ? r.aVal < r.hVal : r.aVal > r.hVal;
-              const aLower = r.inverted ? r.aVal > r.hVal : r.aVal < r.hVal;
-              const aColor = aHigher ? "#10B981" : aLower ? "#EF4444" : "#F59E0B";
+      {/* Match Insights */}
+      <div style={{ padding: "0 14px 14px" }}>
+        {activeQs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 20, color: "#475569", fontSize: 11 }}>Insights will appear as the match progresses</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {["home", "away"].map(t => {
+              const ins = matchInsights[t];
+              if (!ins || ins.length === 0) return null;
+              const teamCol = t === "home" ? hc : ac;
+              const strengths = ins.filter(i => i.type === "strength");
+              const concerns = ins.filter(i => i.type !== "strength");
+              const periodScores = activeQs.map(q => ({ label: q.label, score: q[t].dEntries + q[t].shotsOn + q[t].turnoversWon - q[t].possLost }));
+              const strongest = periodScores.length > 0 ? periodScores.reduce((a, b) => b.score > a.score ? b : a).label : null;
+              const weakest = periodScores.length > 1 ? periodScores.reduce((a, b) => b.score < a.score ? b : a).label : null;
               return (
-                <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{r.hVal}{r.suffix}</div>
-                    {r.hDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.hDetail}</div>}
+                <div key={t} style={{ background: "#1E293B", borderRadius: 10, borderLeft: `3px solid ${teamCol}`, border: "1px solid #33415544", borderLeftWidth: 3, borderLeftColor: teamCol, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: teamCol, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#0B0F1A", flexShrink: 0 }}>
+                      {teamInitial(teams[t])}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(teams[t])}</div>
+                    {strongest && <div style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>Best: {strongest}{weakest && weakest !== strongest ? ` · Weakest: ${weakest}` : ""}</div>}
                   </div>
-                  <div style={{ textAlign: "center", width: 90 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
-                    <div style={{ fontSize: 7, color: "#475569" }}>{r.sub}</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{r.aVal}{r.suffix}</div>
-                    {r.aDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.aDetail}</div>}
+                  <div style={{ padding: "0 12px 10px" }}>
+                    {strengths.map((i, idx) => (
+                      <div key={`s${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
+                        <span style={{ color: "#10B981", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>+</span>
+                        <span style={{ fontSize: 12, color: "#10B981", lineHeight: 1.5 }}>{i.text}</span>
+                      </div>
+                    ))}
+                    {concerns.map((i, idx) => (
+                      <div key={`c${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
+                        <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>!</span>
+                        <span style={{ fontSize: 12, color: "#F59E0B", lineHeight: 1.5 }}>{i.text}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
             })}
           </div>
+        )}
+      </div>
 
-          {/* Per-Match Averages */}
-          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Per-Match Averages</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
-              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: hc }}>{teamShortName(teams.home)}</div>
-              <div style={{ width: 90 }} />
-              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: ac }}>{teamShortName(teams.away)}</div>
-            </div>
-            {(() => {
-              const hAvg = seasonAvg?.home;
-              const aAvg = seasonAvg?.away;
-              const hGF = hAvg ? +hAvg.gf.toFixed(1) : homeScore;
-              const aGF = aAvg ? +aAvg.gf.toFixed(1) : awayScore;
-              const hGA = hAvg ? +hAvg.ga.toFixed(1) : awayScore;
-              const aGA = aAvg ? +aAvg.ga.toFixed(1) : homeScore;
-              const hGD = hAvg ? +hAvg.gd.toFixed(1) : hGF - hGA;
-              const aGD = aAvg ? +aAvg.gd.toFixed(1) : aGF - aGA;
-              const avgRows = [
-                { label: "Goals For", hVal: hGF, aVal: aGF, higherBetter: true, color: "#F59E0B" },
-                { label: "Goals Against", hVal: hGA, aVal: aGA, higherBetter: false },
-                { label: "Goal Difference", hVal: hGD, aVal: aGD, higherBetter: true },
-              ];
-              return avgRows.map((r, i) => {
-                const hBetter = r.higherBetter ? r.hVal > r.aVal : r.hVal < r.aVal;
-                const aBetter = r.higherBetter ? r.aVal > r.hVal : r.aVal < r.hVal;
-                const equal = r.hVal === r.aVal;
-                const hColor = equal ? "#F59E0B" : hBetter ? "#10B981" : "#EF4444";
-                const aColor = equal ? "#F59E0B" : aBetter ? "#10B981" : "#EF4444";
-                const fmtVal = (v) => r.label === "Goal Difference" && v > 0 ? `+${v}` : `${v}`;
-                return (
-                  <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < avgRows.length - 1 ? "1px solid #1a2536" : "none" }}>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{fmtVal(r.hVal)}</div>
-                    </div>
-                    <div style={{ textAlign: "center", width: 90 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{fmtVal(r.aVal)}</div>
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-            {seasonAvg && (seasonAvg.home || seasonAvg.away) && (
-              <div style={{ fontSize: 8, color: "#475569", textAlign: "center", marginTop: 6 }}>
-                {seasonAvg.home ? `${teamShortName(teams.home)}: ${seasonAvg.home.n} matches` : ""}{seasonAvg.home && seasonAvg.away ? " · " : ""}{seasonAvg.away ? `${teamShortName(teams.away)}: ${seasonAvg.away.n} matches` : ""}
-              </div>
-            )}
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "8px 0" }}>
-            {[["#10B981", "Better"], ["#F59E0B", "Equal"], ["#EF4444", "Worse"]].map(([c, l]) => (
-              <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: "#64748B" }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />
-                {l}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-
-      {/* Match Insights Tab */}
-      {viewTab === "insights" && (
-        <div style={{ padding: "0 14px 14px" }}>
-          {activeQs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 11 }}>No data yet — insights will appear as the match progresses</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {/* Overall match insights */}
-              {["home", "away"].map(t => {
-                const ins = matchInsights[t];
-                if (!ins || ins.length === 0) return null;
-                const teamColor = t === "home" ? hc : ac;
-                const strengths = ins.filter(i => i.type === "strength");
-                const concerns = ins.filter(i => i.type !== "strength");
-                // Find strongest/weakest periods
-                const periodScores = activeQs.map(q => ({ label: q.label, score: q[t].dEntries + q[t].shotsOn + q[t].turnoversWon - q[t].possLost }));
-                const strongest = periodScores.length > 0 ? periodScores.reduce((a, b) => b.score > a.score ? b : a).label : null;
-                const weakest = periodScores.length > 1 ? periodScores.reduce((a, b) => b.score < a.score ? b : a).label : null;
-                return (
-                  <div key={t} style={{ background: "#1E293B", borderRadius: 10, borderLeft: `3px solid ${teamColor}`, border: "1px solid #33415544", borderLeftWidth: 3, borderLeftColor: teamColor, overflow: "hidden" }}>
-                    <div style={{ padding: "10px 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 6, background: teamColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#0B0F1A", flexShrink: 0 }}>
-                        {teamInitial(teams[t])}
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(teams[t])}</div>
-                      {strongest && <div style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>Best: {strongest}{weakest && weakest !== strongest ? ` · Weakest: ${weakest}` : ""}</div>}
-                    </div>
-                    <div style={{ padding: "0 12px 10px" }}>
-                      {strengths.map((i, idx) => (
-                        <div key={`s${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                          <span style={{ color: "#10B981", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>+</span>
-                          <span style={{ fontSize: 12, color: "#10B981", lineHeight: 1.5 }}>{i.text}</span>
-                        </div>
-                      ))}
-                      {concerns.map((i, idx) => (
-                        <div key={`c${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                          <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>!</span>
-                          <span style={{ fontSize: 12, color: "#F59E0B", lineHeight: 1.5 }}>{i.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Visuals Tab */}
-      {viewTab === "visuals" && matchPlayPatterns && playPatterns && (
+      {/* Visuals (if available) */}
+      {matchPlayPatterns && playPatterns && (
         (teamTier === 'free_plus' || teamTier === 'premium') ? (
         <div style={{ padding: "0 14px 20px" }}>
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>

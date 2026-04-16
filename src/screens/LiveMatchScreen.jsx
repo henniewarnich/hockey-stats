@@ -426,6 +426,15 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     setShowVideoReviewEnd(true);
   };
 
+  // Undo last event (for sideline out reversal)
+  const undoLastEvent = () => {
+    if (events.length === 0) return;
+    let rc = 1;
+    if (events[0].team === "commentary" && events.length > 1) rc = 2;
+    setEvents(prev => prev.slice(rc));
+    setPrevBallPos(null);
+  };
+
   // Undo
   const undoLast = () => {
     if (events.length === 0) return;
@@ -601,6 +610,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
           score={score} setScore={setScore}
           onAddLog={addLog}
+          onUndoLastEvent={undoLastEvent}
           onBallMoved={handleBallMoved}
           onShowDPopup={setShowDPopup} showDPopup={showDPopup}
           onShowTeamPicker={setShowTeamPicker}
