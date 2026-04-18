@@ -41,7 +41,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
         setAwayScore(newAway);
         await supabase.from('matches').update({ home_score: newHome, away_score: newAway }).eq('id', matchId);
         // Also update match_stats if they exist
-        await supabase.from('match_stats').delete().eq('match_id', matchId).catch(() => {});
+        await supabase.from('match_stats').delete().eq('match_id', matchId);
       }
       await logAudit('event_deleted', 'match_event', evt.id, {
         match_id: matchId, event: evt.event, team: evt.team, zone: evt.zone, was_goal: isGoal,
