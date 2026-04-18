@@ -385,7 +385,11 @@ export default function App() {
   }
 
   if (route.type === 'report') {
-    return <ReportScreen reportId={route.id} currentUser={currentUser} onBack={() => { window.history.back(); }} />;
+    return <ReportScreen reportId={route.id} currentUser={currentUser} onBack={() => {
+      const ret = sessionStorage.getItem('kykie-report-return');
+      sessionStorage.removeItem('kykie-report-return');
+      if (ret) { window.location.hash = ret; } else { window.history.back(); }
+    }} />;
   }
 
   if (route.type === 'login') {

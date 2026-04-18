@@ -1250,7 +1250,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
                       <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                       {hasStats && <span title="Full stats + commentary" style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>}
                       {matchReportIds[m.id] && (
-                        <span onClick={(e) => { e.stopPropagation(); window.location.hash = '#/report/' + matchReportIds[m.id]; }}
+                        <span onClick={(e) => { e.stopPropagation(); sessionStorage.setItem('kykie-report-return', '#/team/' + teamSlug + '?match=' + m.id); window.location.hash = '#/report/' + matchReportIds[m.id]; }}
                           title="Match report available" style={{
                             display: "inline-flex", alignItems: "center", gap: 2, cursor: "pointer",
                             fontSize: 8, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15",
@@ -1287,7 +1287,7 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
           <div style={{ padding: "6px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); setMatchDetailRecords({}); setOppSeasonAvg(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
             {matchReportIds[selectedMatch.id] && (
-              <button onClick={() => { window.location.hash = '#/report/' + matchReportIds[selectedMatch.id]; }}
+              <button onClick={() => { sessionStorage.setItem('kykie-report-return', '#/team/' + teamSlug + '?match=' + selectedMatch.id); window.location.hash = '#/report/' + matchReportIds[selectedMatch.id]; }}
                 style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B33", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 📊 View Report
               </button>

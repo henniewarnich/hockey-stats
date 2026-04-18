@@ -1,4 +1,5 @@
 -- Insert match report: Paarl Girls vs Oranje, 18 April 2026
+-- Coach-only sections wrapped in <div class="coach-only">
 INSERT INTO match_reports (match_id, report_type, title, html_content)
 VALUES (
   'a704a31e-f3ca-40ec-9a81-c3752130fca3',
@@ -159,6 +160,9 @@ VALUES (
     </div>
   </div>
 
+  <!-- Coach-only tactical analysis -->
+  <div class="coach-only">
+
   <!-- Paarl Girls insights -->
   <div class="section-title">Paarl Girls — What Worked</div>
   <div class="insight-grid">
@@ -237,6 +241,8 @@ VALUES (
     <p>The second half told two stories. Oranje intensified — 31 D entries, 7 short corners — and scored their second from a set piece. But Paarl Girls found something too. All 3 of their short corners came in the second half, and they converted one in Q4 to make it <strong style="color:#F59E0B;">1-2</strong>.</p>
     <p>The scoreline doesn''t reflect the match. Oranje''s finishing — 2 goals from 57 D entries — is the only reason this wasn''t a rout. Paarl Girls will take heart from the defensive resilience and the late goal. But the data is unambiguous: Oranje were in <strong>a completely different class</strong>.</p>
   </div>
+
+  </div><!-- end coach-only -->
 
   <!-- Footer -->
   <div class="footer">KYKIE AI SCOUT · MATCH ANALYSIS · 18 APRIL 2026 · <a href="https://kykie.net" style="color:#F59E0B; text-decoration:none;">kykie.net</a></div>
