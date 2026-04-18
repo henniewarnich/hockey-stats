@@ -41,6 +41,7 @@ import TrainingScreen from './screens/TrainingScreen.jsx';
 import CreditsScreen from './screens/CreditsScreen.jsx';
 import AdminCreditsScreen from './screens/AdminCreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
+import ReportScreen from './screens/ReportScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
 import PageHeader from './components/PageHeader.jsx';
 import { KykieLoadingScreen } from './components/KykieSpinner.jsx';
@@ -79,6 +80,10 @@ function getHashRoute() {
   if (hash === 'info/supporter') return { type: 'info_supporter' };
   if (hash === 'home') return { type: 'home' };
   if (hash === 'browse') return { type: 'browse' };
+  if (hash.startsWith('report/')) {
+    const id = hash.replace('report/', '');
+    return { type: 'report', id };
+  }
   if (hash === 'admin' || hash.startsWith('admin/') || hash.startsWith('admin?')) {
     const sub = hash.includes('/') ? hash.split('/')[1] : null;
     return { type: 'admin', screen: sub || null };
@@ -377,6 +382,10 @@ export default function App() {
 
   if (route.type === 'team') {
     return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} currentUser={currentUser} onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; setRoute(getHashRoute()); }} />;
+  }
+
+  if (route.type === 'report') {
+    return <ReportScreen reportId={route.id} currentUser={currentUser} onBack={() => { window.history.back(); }} />;
   }
 
   if (route.type === 'login') {

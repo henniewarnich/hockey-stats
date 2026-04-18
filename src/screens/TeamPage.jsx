@@ -189,10 +189,12 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [oppSeasonAvg, setOppSeasonAvg] = useState(null); // opponent's full season averages
   const [refreshing, setRefreshing] = useState(false);
   const [matchViewers, setMatchViewers] = useState(0);
   const [totalViewers, setTotalViewers] = useState(null); // for historical match detail
   const [matchStatsMap, setMatchStatsMap] = useState({}); // matchId -> {team, opp}
+  const [matchReportIds, setMatchReportIds] = useState({}); // matchId -> reportId
   const [top10Agg, setTop10Agg] = useState(null); // aggregated stats for top 10 ranked teams
   const [top10PM, setTop10PM] = useState(null); // top 10 per-match averages from ALL matches
   const [teamTier, setTeamTier] = useState('free');
@@ -386,6 +388,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
           });
         });
         setMatchDetailRecords(detailRecs);
+        // Compute opponent's full season averages for per-match display
+        const oppId = (m.home_team?.id || m.home_team_id) === team?.id
+          ? (m.away_team?.id || m.away_team_id)
+          : (m.home_team?.id || m.home_team_id);
+        if (oppId && detailRecs[oppId]) {
+          const r = detailRecs[oppId];
+          setOppSeasonAvg({ gf: r.gf / r.p, ga: r.ga / r.p, gd: (r.gf - r.ga) / r.p, n: r.p });
+        } else {
+          setOppSeasonAvg(null);
+        }
       }
     } catch (err) { console.error('matchDetailRecords fetch error:', err); }
     setLoadingEvents(false);
@@ -458,6 +470,19 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
           });
           setMatches(ended);
           setUpcomingMatches(upcoming);
+
+          // Fetch available reports for these matches (RLS-gated)
+          if (ended.length > 0) {
+            supabase.from('match_reports').select('id, match_id, report_type, title')
+              .in('match_id', ended.map(m => m.id))
+              .then(({ data: reps }) => {
+                if (reps) {
+                  const map = {};
+                  reps.forEach(r => { map[r.match_id] = r.id; });
+                  setMatchReportIds(map);
+                }
+              }).catch(() => {});
+          }
 
           // Auto-open a specific match if navigated from landing page
           if (initialMatchId) {
@@ -916,10 +941,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
               events={liveEvents.map(e => ({ ...e, time: e.match_time }))}
               matchTime={liveTime}
               running={true}
-              seasonAvg={{
-                home: seasonAvgForTeam(liveMatch.home_team_id || liveMatch.home_team?.id, matches),
-                away: seasonAvgForTeam(liveMatch.away_team_id || liveMatch.away_team?.id, matches),
-              }}
+              seasonAvg={(() => {
+                const homeId = liveMatch.home_team_id || liveMatch.home_team?.id;
+                const awayId = liveMatch.away_team_id || liveMatch.away_team?.id;
+                const teamIsHome = homeId === team?.id;
+                return {
+                  home: teamIsHome ? seasonAvgForTeam(homeId, matches) : (oppSeasonAvg || seasonAvgForTeam(homeId, matches)),
+                  away: teamIsHome ? (oppSeasonAvg || seasonAvgForTeam(awayId, matches)) : seasonAvgForTeam(awayId, matches),
+                };
+              })()}
               teamTier={teamTier}
             />
           ) : (
@@ -1219,6 +1249,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
                       <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(opp)}</span>
                       <RankBadge rank={isHome ? m.away_rank : m.home_rank} prevRank={isHome ? m.away_prev_rank : m.home_prev_rank} />
                       {hasStats && <span title="Full stats + commentary" style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>}
+                      {matchReportIds[m.id] && (
+                        <span onClick={(e) => { e.stopPropagation(); window.location.hash = '#/report/' + matchReportIds[m.id]; }}
+                          title="Match report available" style={{
+                            display: "inline-flex", alignItems: "center", gap: 2, cursor: "pointer",
+                            fontSize: 8, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15",
+                            border: "1px solid #F59E0B33", borderRadius: 4, padding: "1px 5px",
+                          }}>📊 Report</span>
+                      )}
                     </div>
                     <div style={{ fontSize: 10, color: "#475569", marginTop: 1 }}>{teamDerivedName(opp)}</div>
                     <div style={{ fontSize: 10, color: "#64748B", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
@@ -1246,8 +1284,14 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
       {/* ═══ MATCH DETAIL (Coach) ═══ */}
       {selectedMatch && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-          <div style={{ padding: "6px 14px 0" }}>
-            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); setMatchDetailRecords({}); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+          <div style={{ padding: "6px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); setMatchDetailRecords({}); setOppSeasonAvg(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
+            {matchReportIds[selectedMatch.id] && (
+              <button onClick={() => { window.location.hash = '#/report/' + matchReportIds[selectedMatch.id]; }}
+                style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B33", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                📊 View Report
+              </button>
+            )}
           </div>
           {/* Match scoreboard */}
           <div style={{ padding: "8px 14px 10px" }}>
@@ -1313,10 +1357,15 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
               events={selectedEvents.map(e => ({ ...e, time: e.match_time }))}
               matchTime={selectedMatch.duration || 0}
               running={false}
-              seasonAvg={{
-                home: seasonAvgForTeam(selectedMatch.home_team_id || selectedMatch.home_team?.id, matches),
-                away: seasonAvgForTeam(selectedMatch.away_team_id || selectedMatch.away_team?.id, matches),
-              }}
+              seasonAvg={(() => {
+                const homeId = selectedMatch.home_team_id || selectedMatch.home_team?.id;
+                const awayId = selectedMatch.away_team_id || selectedMatch.away_team?.id;
+                const teamIsHome = homeId === team?.id;
+                return {
+                  home: teamIsHome ? seasonAvgForTeam(homeId, matches) : (oppSeasonAvg || seasonAvgForTeam(homeId, matches)),
+                  away: teamIsHome ? (oppSeasonAvg || seasonAvgForTeam(awayId, matches)) : seasonAvgForTeam(awayId, matches),
+                };
+              })()}
               playPatterns={playPatterns}
               matchPlayPatterns={selectedMatchVisuals?.patterns}
               prominentZones={prominentZones}
