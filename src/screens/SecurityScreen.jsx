@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { getUserDevices, removeDevice, getDeviceId } from '../utils/devices.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function SecurityScreen({ currentUser, onBack }) {
   const [tab, setTab] = useState('password'); // password | devices
@@ -171,7 +170,7 @@ export default function SecurityScreen({ currentUser, onBack }) {
           </div>
 
           {loadingDevices ? (
-            <div style={{ textAlign: 'center', padding: 20 }}><KykieSpinner /></div>
+            <div style={{ textAlign: 'center', padding: 20, color: '#64748B' }}>Loading...</div>
           ) : devices.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 20, color: '#64748B', fontSize: 12 }}>No devices registered yet</div>
           ) : (

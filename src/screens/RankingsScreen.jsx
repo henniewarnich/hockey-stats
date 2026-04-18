@@ -6,7 +6,6 @@ import { parseSASTDate } from '../utils/helpers.js';
 import { logAudit } from '../utils/audit.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { TEAM_SELECT, teamColor, teamDisplayName } from '../utils/teams.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function RankingsScreen({ onBack, currentUser }) {
   const [sets, setSets] = useState([]);
@@ -216,7 +215,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
       </div>
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
+        <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>Loading...</div>
       ) : sets.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No ranking sets found</div>
       ) : (

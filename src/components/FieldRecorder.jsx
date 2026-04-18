@@ -46,8 +46,6 @@ export default function FieldRecorder({
   onBallTap,
   onOverheadDrag, // callback: (fromZoneId, fromPos, toZoneId, toPos) => void
   onAction, // callback: (actionType, end) => void
-  onUndoLastEvent, // callback: () => void — removes last non-commentary event
-  rotation, // 0, 90, 180, 270 — CSS rotation angle
 }) {
   const [flash, setFlash] = useState(null);
   const [actionPopup, setActionPopup] = useState(null); // 'top' | 'bottom' | null
@@ -59,28 +57,6 @@ export default function FieldRecorder({
   const dragMovedRef = useRef(false);
   const tapHandledRef = useRef(false); // prevent double-fire (touch+click)
   const DRAG_THRESHOLD = 12;
-
-  // Field rotation support
-  const cssRotation = (rotation || 0) % 360;
-  const needsCssRotate = cssRotation === 90 || cssRotation === 270;
-  const [fieldW, setFieldW] = useState(0);
-  const FIELD_H = 353; // deterministic: 30+72×4+1+30+4 border
-  useEffect(() => {
-    if (fieldRef.current) setFieldW(fieldRef.current.offsetWidth);
-  });
-  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
-  const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
-  const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((scaledVisualH - FIELD_H) / 2) : 0;
-  const screenToLocal = (clientX, clientY) => {
-    const fr = fieldRef.current?.getBoundingClientRect();
-    if (!fr) return { x: 0, y: 0 };
-    if (!needsCssRotate) return { x: clientX - fr.left, y: clientY - fr.top };
-    const cx = fr.left + fr.width / 2, cy = fr.top + fr.height / 2;
-    const dx = clientX - cx, dy = clientY - cy;
-    const S = rotateScale;
-    if (cssRotation === 90) return { x: fieldW / 2 + dy / S, y: FIELD_H / 2 - dx / S };
-    return { x: fieldW / 2 - dy / S, y: FIELD_H / 2 + dx / S };
-  };
 
   // Drag handlers for overhead throw
   const onBallDragStart = (clientX, clientY, e) => {
@@ -124,12 +100,12 @@ export default function FieldRecorder({
       dragMovedRef.current = true;
       const fr = fieldRef.current?.getBoundingClientRect();
       if (fr) {
-        setDragPos(screenToLocal(clientX, clientY));
+        setDragPos({ x: clientX - fr.left, y: clientY - fr.top });
         const target = getZoneAtPoint(clientX, clientY);
         setDragTarget(target && !(target.zoneId === ballPos?.zoneId && target.pos === ballPos?.pos) ? target : null);
       }
     }
-  }, [ballPos, needsCssRotate, cssRotation, rotateScale, fieldW]);
+  }, [ballPos]);
 
   const onBallDragEnd = useCallback((clientX, clientY) => {
     if (!dragStartRef.current) return;
@@ -264,16 +240,13 @@ export default function FieldRecorder({
     onShowDPopup({ end });
   };
 
-  // Dead ball on backline — possession lost + defending team restarts
+  // Dead ball on backline
   const handleDead = (end, side) => {
     if (!running || showRestart || !possession) return;
     dismissActionPopup();
     if (sidelineOut) setSidelineOut(null);
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
-    const attackingTeam = otherTeam(defendingTeam);
-    const zoneLbl = `Backline ${side}`;
-    onAddLog(possession, "Poss Conceded", zoneLbl, `${teamShortName(teams[possession])} lost possession — ball dead at ${teamShortName(teams[defendingTeam])}'s backline (${side})`);
-    onAddLog(possession, "Ball Dead", zoneLbl, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
+    onAddLog(possession, "Ball Dead", `Backline ${side}`, `Ball over ${teamShortName(teams[defendingTeam])}'s backline (${side}). ${teamShortName(teams[defendingTeam])} restart.`);
     setPossession(defendingTeam);
     const defZone = end === "top" ? (flipped ? "z4" : "z1") : (flipped ? "z1" : "z4");
     moveBall({ zoneId: defZone, pos: side, nearLine: true });
@@ -294,17 +267,18 @@ export default function FieldRecorder({
     moveBall({ zoneId: atkZone, pos: side, nearLine: true });
   };
 
-  // Sideline out with undo-reversal
+  // Sideline out with reversal
   const handleSidelineOut = (side, zoneId) => {
     if (!running || showRestart || !possession) return;
     dismissActionPopup();
     const zone = ZONES.find(z => z.id === zoneId);
-    // Second tap on same strip = undo the original sideline out
     if (sidelineOut && sidelineOut.side === side && sidelineOut.zoneId === zoneId && sidelineOut.canReverse) {
-      if (onUndoLastEvent) onUndoLastEvent();
-      setPossession(sidelineOut.team); // restore to original team
+      const newTeamOut = otherTeam(sidelineOut.team);
+      const newTeamGets = sidelineOut.team;
+      onAddLog(newTeamOut, `Sideline Out (Reversed)`, zone.label, `Reversed — ${teamShortName(teams[newTeamOut])} put ball out. ${teamShortName(teams[newTeamGets])} free hit.`);
+      setPossession(newTeamGets);
       moveBall({ zoneId, pos: side === "left" ? "left" : "right" });
-      setSidelineOut(null);
+      setSidelineOut({ side, zoneId, team: newTeamOut, canReverse: false });
       return;
     }
     const teamOut = possession;
@@ -436,16 +410,7 @@ export default function FieldRecorder({
 
   return (
     <div style={{ padding: "0 6px" }}>
-      <div ref={fieldRef} style={{
-        borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative",
-        WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
-        ...(needsCssRotate ? {
-          transform: `rotate(${cssRotation}deg) scale(${rotateScale})`,
-          transformOrigin: "center center",
-          marginTop: rotateMargin,
-          marginBottom: rotateMargin,
-        } : {}),
-      }}>
+      <div ref={fieldRef} style={{ borderRadius: 10, overflow: "hidden", border: "2px solid #1a5c32", position: "relative", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
 
         {/* Pause overlay */}
         {matchState === "paused" && (

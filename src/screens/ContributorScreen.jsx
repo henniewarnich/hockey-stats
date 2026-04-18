@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const TIER_META = {
   apprentice: { label: 'Apprentice', color: '#64748B', icon: '🌱' },
@@ -186,7 +185,7 @@ export default function ContributorScreen({ onBack }) {
       {/* List */}
       <div style={{ padding: '0 14px 14px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 30 }}><KykieSpinner /></div>
+          <div style={{ textAlign: 'center', padding: 30, color: theme.textDim, fontSize: 11 }}>Loading...</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 30, color: '#475569', fontSize: 12 }}>No contributors found</div>
         ) : filtered.map(c => {

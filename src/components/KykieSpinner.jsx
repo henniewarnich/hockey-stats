@@ -31,14 +31,14 @@ export default function KykieSpinner({ size = 40, text = false, message }) {
   );
 }
 
-// Full-screen loading overlay — spinner only, no text
-export function KykieLoadingScreen() {
+// Full-screen loading overlay
+export function KykieLoadingScreen({ message = 'Loading...' }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: '60vh', flexDirection: 'column',
     }}>
-      <KykieSpinner size={64} />
+      <KykieSpinner size={64} text message={message} />
     </div>
   );
 }

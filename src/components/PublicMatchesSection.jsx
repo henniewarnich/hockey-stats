@@ -6,7 +6,6 @@ import { theme } from '../utils/styles.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import RankBadge from './RankBadge.jsx';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamShortName } from '../utils/teams.js';
-import KykieSpinner from './KykieSpinner.jsx';
 
 export default function PublicMatchesSection() {
   const [tab, setTab] = useState('live');
@@ -48,7 +47,7 @@ export default function PublicMatchesSection() {
     window.location.hash = `#/team/${slug}`;
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 12 }}><KykieSpinner size={24} /></div>;
+  if (loading) return <div style={{ textAlign: 'center', padding: 12, color: theme.textDim, fontSize: 11 }}>Loading matches...</div>;
 
   return (
     <div style={{ marginBottom: 12 }}>

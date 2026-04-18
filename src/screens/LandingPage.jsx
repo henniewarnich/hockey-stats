@@ -483,7 +483,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
         )}
 
       {loading ? (
-        <KykieSpinner />
+        <KykieSpinner text message="Loading matches..." />
       ) : (
         <>
 

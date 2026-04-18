@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function PredictionLeaderboard({ currentUser, onBack }) {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -75,7 +74,7 @@ export default function PredictionLeaderboard({ currentUser, onBack }) {
 
       <div style={S.page}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
+          <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>Loading...</div>
         ) : leaderboard.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 12 }}>No predictions scored yet. Run Retrofit in System Health.</div>
         ) : (

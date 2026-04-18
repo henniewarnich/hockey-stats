@@ -72,121 +72,52 @@ function generateMatchInsights(quarterData, teams, homeScore, awayScore) {
   if (activeQs.length === 0) return { home: [], away: [] };
 
   const agg = (team, key) => activeQs.reduce((s, q) => s + q[team][key], 0);
-  const _hTerr = (() => {
-    const hSum = activeQs.reduce((s, q) => s + q.home.territory, 0);
-    const total = activeQs.reduce((s, q) => s + q.home.territory + q.away.territory, 0);
-    return total > 0 ? Math.round(hSum / total * 100) : 50;
-  })();
-  const avgTerr = (team) => team === "home" ? _hTerr : 100 - _hTerr;
+  const avgTerr = (team) => Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length);
 
-  // Pre-compute both sides for h2h comparisons
-  const s = {};
-  for (const t of ["home", "away"]) {
-    const son = agg(t, "shotsOn"), soff = agg(t, "shotsOff"), de = agg(t, "dEntries");
-    s[t] = {
-      terr: avgTerr(t), de, son, soff, sc: agg(t, "shortCorners"),
-      tw: agg(t, "turnoversWon"), pl: agg(t, "possLost"),
-      goals: t === "home" ? homeScore : awayScore,
-      totalShots: son + soff,
-      dConv: de > 0 ? Math.round((son + soff) / de * 100) : 0,
-    };
-  }
-
-  const buildInsights = (t, opp) => {
+  const buildInsights = (t, opp, tScore, oScore) => {
     const ins = [];
-    const my = s[t], their = s[opp];
+    const terr = avgTerr(t);
+    const de = agg(t, "dEntries");
+    const son = agg(t, "shotsOn");
+    const soff = agg(t, "shotsOff");
+    const sc = agg(t, "shortCorners");
+    const tw = agg(t, "turnoversWon");
+    const pl = agg(t, "possLost");
+    const totalShots = son + soff;
+    const dConv = de > 0 ? Math.round(totalShots / de * 100) : 0;
 
-    // ── STRENGTHS ──
+    // Momentum — which periods were strongest?
+    const bestQ = activeQs.reduce((best, q) => q[t].dEntries + q[t].goals * 3 > best[t].dEntries + best[t].goals * 3 ? q : best, activeQs[0]);
+    const worstQ = activeQs.reduce((worst, q) => q[t].territory < worst[t].territory ? q : worst, activeQs[0]);
 
-    // Territory (only if clearly ahead of opponent)
-    if (my.terr >= 60 && my.terr > their.terr + 10) {
-      ins.push({ type: "strength", text: `Controlled territory at ${my.terr}% — pinned opponent in their own half` });
-    } else if (my.terr >= 55 && my.terr > their.terr + 5) {
-      ins.push({ type: "strength", text: `Territorial advantage at ${my.terr}% vs ${their.terr}%` });
+    if (activeQs.length >= 2) {
+      ins.push({ type: "info", text: `Strongest period: ${bestQ.label} — Weakest: ${worstQ.label}` });
     }
 
-    // D conversion (only if better than opponent's rate)
-    if (my.dConv >= 50 && my.de >= 4 && my.dConv > their.dConv) {
-      ins.push({ type: "strength", text: `Efficient in the D — ${my.dConv}% conversion (${my.totalShots} shots from ${my.de} entries)` });
-    }
+    // Overall strengths
+    if (terr >= 60) ins.push({ type: "strength", text: `Commanding ${terr}% avg territory across the match` });
+    if (dConv >= 50 && de >= 4) ins.push({ type: "strength", text: `Strong D conversion at ${dConv}% (${totalShots} shots from ${de} entries)` });
+    if (tw > pl + 2) ins.push({ type: "strength", text: `Dominant in turnovers — net +${tw - pl} (${tw} won, ${pl} lost)` });
+    if (tScore >= 2 && son <= tScore + 1) ins.push({ type: "strength", text: `Clinical — ${tScore} goals from ${son} shots on target` });
+    if (sc >= 4) ins.push({ type: "strength", text: `Set-piece machine — ${sc} short corners earned` });
 
-    // Turnovers (h2h comparison — only the team that won MORE turnovers gets this)
-    if (my.tw > their.tw && my.tw > my.pl) {
-      ins.push({ type: "strength", text: `Won the turnover battle — ${my.tw} vs ${their.tw} (net +${my.tw - my.pl})` });
-    }
+    // Overall weaknesses
+    if (de >= 6 && tScore === 0) ins.push({ type: "weakness", text: `${de} D entries but scoreless — final ball letting them down` });
+    if (soff > son && totalShots >= 4) ins.push({ type: "weakness", text: `Shot accuracy a concern — ${soff} off target vs ${son} on` });
+    if (pl > tw + 2) ins.push({ type: "weakness", text: `Possession leaking — net -${pl - tw} (${pl} lost, ${tw} won)` });
+    if (terr <= 40) ins.push({ type: "weakness", text: `Spending too much time in own half (${terr}% avg territory)` });
+    if (agg(opp, "shortCorners") >= 4) ins.push({ type: "weakness", text: `Defensive discipline — conceded ${agg(opp, "shortCorners")} short corners` });
 
-    // Clinical finishing
-    if (my.goals >= 2 && my.son <= my.goals + 1) {
-      ins.push({ type: "strength", text: `Clinical — ${my.goals} goals from ${my.son} shots on target` });
-    }
-
-    // Set pieces (only if clearly more than opponent)
-    if (my.sc >= 4 && my.sc > their.sc) {
-      ins.push({ type: "strength", text: `Set-piece threat — earned ${my.sc} short corners vs ${their.sc}` });
-    }
-
-    // Shot dominance
-    if (my.totalShots >= my.de * 0.6 && my.totalShots > their.totalShots + 2) {
-      ins.push({ type: "strength", text: `Outshot opponent ${my.totalShots}–${their.totalShots}` });
-    }
-
-    // D entry dominance
-    if (my.de >= their.de * 1.8 && my.de >= 6) {
-      ins.push({ type: "strength", text: `Dominated attacking entries — ${my.de} vs ${their.de} D entries` });
-    }
-
-    // ── WEAKNESSES ──
-
-    // Scoreless despite chances (only for the team with MORE attacking output)
-    if (my.de >= 6 && my.goals === 0 && my.de > their.de) {
-      ins.push({ type: "weakness", text: `${my.de} D entries, ${my.totalShots} shots, zero goals — conversion letting them down` });
-    } else if (my.de >= 3 && my.goals === 0 && my.son === 0 && my.de <= their.de) {
-      ins.push({ type: "weakness", text: `${my.de} D entries but couldn't test the keeper — no shots on target` });
-    }
-
-    // Shot accuracy (only if opponent was more accurate)
-    if (my.soff > my.son && my.totalShots >= 4) {
-      const myAcc = my.totalShots > 0 ? Math.round(my.son / my.totalShots * 100) : 0;
-      ins.push({ type: "weakness", text: `Shot accuracy at ${myAcc}% — ${my.soff} off target vs ${my.son} on` });
-    }
-
-    // Lost the turnover battle
-    if (their.tw > my.tw && my.pl > my.tw) {
-      ins.push({ type: "weakness", text: `Lost the turnover battle — ${my.tw} won vs ${their.tw} by opponent` });
-    }
-
-    // Under pressure (only if opponent had significantly more territory)
-    if (my.terr <= 40 && their.terr >= 55) {
-      ins.push({ type: "weakness", text: `Under pressure at ${my.terr}% territory — opponent controlled the game` });
-    }
-
-    // Conceding set pieces (only if significantly more than own)
-    if (their.sc >= 4 && their.sc > my.sc + 1) {
-      ins.push({ type: "weakness", text: `Conceded ${their.sc} short corners — defensive discipline needs work` });
-    }
-
-    // Limited attacking output (for the team that was outplayed on attack)
-    if (my.de <= their.de * 0.5 && their.de >= 6) {
-      ins.push({ type: "weakness", text: `Limited to ${my.de} D entries — couldn't penetrate the attacking third` });
-    }
-
-    // ── SCORE CONTEXT ──
-    if (my.goals > their.goals && my.terr < 45) {
-      ins.push({ type: "info", text: `Winning despite less territory — effective on the counter` });
-    }
-    if (my.goals < their.goals && my.terr >= 55) {
-      ins.push({ type: "info", text: `Losing despite territorial dominance — must be more clinical` });
-    }
-    if (my.goals === 0 && their.goals === 0 && my.de > their.de + 8) {
-      ins.push({ type: "info", text: `Dominant display without reward — the draw flatters the opponent` });
-    }
+    // Score context
+    if (tScore > oScore && terr < 45) ins.push({ type: "info", text: `Winning despite less territory — counter-attacking effectively` });
+    if (tScore < oScore && terr >= 55) ins.push({ type: "info", text: `Losing despite territorial dominance — need to be more clinical` });
 
     return ins.slice(0, 6);
   };
 
   return {
-    home: buildInsights("home", "away"),
-    away: buildInsights("away", "home"),
+    home: buildInsights("home", "away", homeScore, awayScore),
+    away: buildInsights("away", "home", awayScore, homeScore),
   };
 }
 
@@ -196,40 +127,12 @@ function computeStats(events, team, startTime, endTime) {
     e.team === team && e.time >= startTime && e.time <= endTime &&
     e.team !== "commentary" && e.team !== "meta"
   );
-
-  // Time-based possession & territory
-  // Sort all real events (both teams) in this time range
-  const allReal = events.filter(e =>
-    (e.team === "home" || e.team === "away") &&
-    e.time >= startTime && e.time <= endTime
-  ).sort((a, b) => a.time - b.time);
-
-  let possTime = 0;   // seconds this team had possession
-  let terrTime = 0;   // seconds ball was in this team's attacking half
-  let totalTime = 0;  // total tracked time
-
-  for (let i = 0; i < allReal.length; i++) {
-    const cur = allReal[i];
-    const nextTime = i < allReal.length - 1 ? allReal[i + 1].time : endTime;
-    const dur = Math.max(0, Math.min(nextTime, endTime) - cur.time);
-    if (dur > 300) continue; // skip gaps > 5min (pauses)
-    totalTime += dur;
-    if (cur.team === team) possTime += dur;
-    // Territory: where the ball IS, regardless of who has it
-    // Zone labels are ALWAYS from home perspective:
-    //   "Opp" = top half (home attacking), "Own" = bottom half (away attacking)
-    const z = cur.zone || "";
-    const ballInTeamAttackHalf = team === "home"
-      ? (z.startsWith("Opp ") || z.includes(" D"))
-      : (z.startsWith("Own ") || z.includes(" D"));
-    if (ballInTeamAttackHalf && !z.includes("Centre")) {
-      terrTime += dur;
-    }
-  }
-
-  const possession = totalTime > 0 ? Math.round(possTime / totalTime * 100) : 0;
-  // Territory: time in opp half as % of total time (not just this team's time)
-  const oppHalfPct = totalTime > 0 ? Math.round(terrTime / totalTime * 100) : 0;
+  const all = events.filter(e =>
+    e.time >= startTime && e.time <= endTime &&
+    e.team !== "commentary" && e.team !== "meta"
+  );
+  const teamCount = real.length;
+  const totalCount = all.length || 1;
 
   return {
     goals: real.filter(e => e.event?.startsWith("Goal!")).length,
@@ -242,8 +145,7 @@ function computeStats(events, team, startTime, endTime) {
     longCorners: real.filter(e => e.event === "Long Corner").length,
     turnoversWon: real.filter(e => e.event === "Turnover Won").length,
     possLost: real.filter(e => e.event === "Poss Conceded" || e.event?.startsWith("Sideline Out")).length,
-    territory: possession,
-    oppHalfPct,
+    territory: Math.round(teamCount / totalCount * 100),
   };
 }
 
@@ -296,9 +198,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
   }
 
   const [expandedQ, setExpandedQ] = useState(quarters.find(q => q.status === "live")?.label || quarters[0]?.label);
-
-  const hc = HC;
-  const ac = AC;
+  const [viewTab, setViewTab] = useState("totals");
 
   const homeScore = match?.homeScore ?? events.filter(e => e.team === "home" && e.event?.startsWith("Goal!")).length;
   const awayScore = match?.awayScore ?? events.filter(e => e.team === "away" && e.event?.startsWith("Goal!")).length;
@@ -312,20 +212,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
 
   const activeQs = quarterData.filter(q => q.status !== "upcoming");
   const totalStat = (team, key) => activeQs.reduce((sum, q) => sum + q[team][key], 0);
-  // Territory: compute from weighted totals, guarantee home + away = 100%
-  const _homeTerr = (() => {
-    const hSum = activeQs.reduce((s, q) => s + q.home.territory, 0);
-    const total = activeQs.reduce((s, q) => s + q.home.territory + q.away.territory, 0);
-    return total > 0 ? Math.round(hSum / total * 100) : 50;
-  })();
-  const avgTerritory = (team) => team === "home" ? _homeTerr : 100 - _homeTerr;
-  // Territory (% in opp half): weighted from oppHalfPct per quarter, guarantee home + away = 100%
-  const _homeOppHalf = (() => {
-    const hSum = activeQs.reduce((s, q) => s + q.home.oppHalfPct, 0);
-    const total = activeQs.reduce((s, q) => s + q.home.oppHalfPct + q.away.oppHalfPct, 0);
-    return total > 0 ? Math.round(hSum / total * 100) : 50;
-  })();
-  const avgOppHalf = (team) => team === "home" ? _homeOppHalf : 100 - _homeOppHalf;
+  const avgTerritory = (team) => activeQs.length ? Math.round(activeQs.reduce((s, q) => s + q[team].territory, 0) / activeQs.length) : 0;
   const convRate = (team) => { const s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"), g = team === "home" ? homeScore : awayScore; return s > 0 ? Math.round(g / s * 100) : 0; };
   const dConv = (team) => { const d = totalStat(team, "dEntries"), s = totalStat(team, "shotsOn") + totalStat(team, "shotsOff"); return d > 0 ? Math.round(s / d * 100) : 0; };
   const atkConv = (team) => { const a = totalStat(team, "atkZoneEntries"), d = totalStat(team, "dEntries"); return a > 0 ? Math.round(d / a * 100) : 0; };
@@ -342,12 +229,12 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
     const aPct = total > 0 ? (aVal / total) * 100 : 50;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0" }}>
-        <div style={{ width: 28, fontSize: 12, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? hc : "#64748B" }}>{hVal}{suffix}</div>
+        <div style={{ width: 28, fontSize: 12, fontWeight: 800, textAlign: "right", fontFamily: "monospace", color: hVal >= aVal ? HC : "#64748B" }}>{hVal}{suffix}</div>
         <div style={{ flex: 1, display: "flex", height: 7, borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ width: `${hPct}%`, background: hc, transition: "width 0.5s" }} />
-          <div style={{ width: `${aPct}%`, background: ac, transition: "width 0.5s" }} />
+          <div style={{ width: `${hPct}%`, background: HC, transition: "width 0.5s" }} />
+          <div style={{ width: `${aPct}%`, background: AC, transition: "width 0.5s" }} />
         </div>
-        <div style={{ width: 28, fontSize: 12, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? ac : "#64748B" }}>{aVal}{suffix}</div>
+        <div style={{ width: 28, fontSize: 12, fontWeight: 800, fontFamily: "monospace", color: aVal >= hVal ? AC : "#64748B" }}>{aVal}{suffix}</div>
         <div style={{ width: 90, fontSize: 9, color: "#94A3B8", fontWeight: 600 }}>{label}</div>
       </div>
     );
@@ -377,7 +264,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       {/* Compact scoreboard */}
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: hc, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: HC, textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {teamShortName(teams.home)}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{homeScore}</div>
@@ -391,7 +278,7 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
           </div>}
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: ac, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: AC, textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {teamShortName(teams.away)}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900 }}>{awayScore}</div>
@@ -399,100 +286,183 @@ export default function CoachLiveScreen({ match, events, matchTime, running, onB
       </div>
       </>}
 
-      {/* Match Stats */}
+      {/* View toggle */}
       <div style={{ padding: "0 14px 8px" }}>
-        <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Match Stats</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
-            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: hc }}>{teamShortName(teams.home)}</div>
-            <div style={{ width: 90 }} />
-            <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: ac }}>{teamShortName(teams.away)}</div>
-          </div>
-          {[
-            { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
-            { label: "Territory", sub: "% in opp half", hVal: avgOppHalf("home"), aVal: avgOppHalf("away"), suffix: "%" },
-            { label: "Turnovers Won", sub: "", hVal: totalStat("home", "turnoversWon"), aVal: totalStat("away", "turnoversWon"), suffix: "" },
-            { label: "Possession Lost", sub: "", hVal: totalStat("home", "possLost"), aVal: totalStat("away", "possLost"), suffix: "", inverted: true },
-            ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
-              ? [{ label: "Attack Chances", sub: "", hVal: totalStat("home", "atkZoneEntries"), aVal: totalStat("away", "atkZoneEntries"), suffix: "" }]
-              : []),
-            { label: "D Entries", sub: "", hVal: totalStat("home", "dEntries"), aVal: totalStat("away", "dEntries"), suffix: "" },
-            { label: "Short Corners", sub: "", hVal: totalStat("home", "shortCorners"), aVal: totalStat("away", "shortCorners"), suffix: "" },
-            { label: "SC Goals", sub: "", hVal: totalStat("home", "scGoals"), aVal: totalStat("away", "scGoals"), suffix: "" },
-            { label: "Shots", sub: "", hVal: shotsTaken("home"), aVal: shotsTaken("away"), suffix: "" },
-            { label: "Shots on Target", sub: "", hVal: totalStat("home", "shotsOn"), aVal: totalStat("away", "shotsOn"), suffix: "" },
-          ].map((r, i, arr) => {
-            const higher = r.inverted ? r.hVal < r.aVal : r.hVal > r.aVal;
-            const lower = r.inverted ? r.hVal > r.aVal : r.hVal < r.aVal;
-            const hColor = higher ? "#10B981" : lower ? "#EF4444" : "#F59E0B";
-            const aHigher = r.inverted ? r.aVal < r.hVal : r.aVal > r.hVal;
-            const aLower = r.inverted ? r.aVal > r.hVal : r.aVal < r.hVal;
-            const aColor = aHigher ? "#10B981" : aLower ? "#EF4444" : "#F59E0B";
-            return (
-              <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{r.hVal}{r.suffix}</div>
-                </div>
-                <div style={{ textAlign: "center", width: 90 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
-                  <div style={{ fontSize: 7, color: "#475569" }}>{r.sub}</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{r.aVal}{r.suffix}</div>
-                </div>
-              </div>
-            );
-          })}
+        <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid #334155" }}>
+          {[["totals", "Match Totals"], ["insights", "Match Insights"], ...(matchPlayPatterns ? [["visuals", "Visuals"]] : [])].map(([k, l]) => (
+            <button key={k} onClick={() => setViewTab(k)} style={{
+              flex: 1, padding: "6px 0", textAlign: "center", fontSize: 9, fontWeight: 700,
+              background: viewTab === k ? "#10B98122" : "#1E293B", color: viewTab === k ? "#10B981" : "#64748B",
+              border: "none", cursor: "pointer",
+            }}>{l}</button>
+          ))}
         </div>
       </div>
 
-      {/* Match Insights */}
-      <div style={{ padding: "0 14px 14px" }}>
-        {activeQs.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 20, color: "#475569", fontSize: 11 }}>Insights will appear as the match progresses</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {["home", "away"].map(t => {
-              const ins = matchInsights[t];
-              if (!ins || ins.length === 0) return null;
-              const teamCol = t === "home" ? hc : ac;
-              const strengths = ins.filter(i => i.type === "strength");
-              const concerns = ins.filter(i => i.type !== "strength");
-              const periodScores = activeQs.map(q => ({ label: q.label, score: q[t].dEntries + q[t].shotsOn + q[t].turnoversWon - q[t].possLost }));
-              const strongest = periodScores.length > 0 ? periodScores.reduce((a, b) => b.score > a.score ? b : a).label : null;
-              const weakest = periodScores.length > 1 ? periodScores.reduce((a, b) => b.score < a.score ? b : a).label : null;
+      {/* Match Stats */}
+      {viewTab === "totals" && (
+        <div style={{ padding: "0 14px 20px" }}>
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Match Stats</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: HC }}>{teamShortName(teams.home)}</div>
+              <div style={{ width: 90 }} />
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: AC }}>{teamShortName(teams.away)}</div>
+            </div>
+            {[
+              { label: "Possession", sub: "% of play", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+              { label: "Territory", sub: "% in opp half", hVal: avgTerritory("home"), aVal: avgTerritory("away"), suffix: "%" },
+              { label: "Turnovers Won", sub: "", hVal: totalStat("home", "turnoversWon"), aVal: totalStat("away", "turnoversWon"), suffix: "" },
+              { label: "Possession Lost", sub: "", hVal: totalStat("home", "possLost"), aVal: totalStat("away", "possLost"), suffix: "", inverted: true },
+              ...(totalStat("home", "atkZoneEntries") > 0 || totalStat("away", "atkZoneEntries") > 0
+                ? [{ label: "Attack Chances", sub: "", hVal: totalStat("home", "atkZoneEntries"), aVal: totalStat("away", "atkZoneEntries"), suffix: "" }]
+                : []),
+              { label: "D Entries", sub: "", hVal: totalStat("home", "dEntries"), aVal: totalStat("away", "dEntries"), suffix: "" },
+              { label: "Short Corners", sub: "", hVal: totalStat("home", "shortCorners"), aVal: totalStat("away", "shortCorners"), suffix: "" },
+              { label: "SC Goals", sub: "", hVal: totalStat("home", "scGoals"), aVal: totalStat("away", "scGoals"), suffix: "" },
+              { label: "Shots", sub: "", hVal: shotsTaken("home"), aVal: shotsTaken("away"), suffix: "" },
+              { label: "Shots on Target", sub: "", hVal: totalStat("home", "shotsOn"), aVal: totalStat("away", "shotsOn"), suffix: "" },
+            ].map((r, i, arr) => {
+              const higher = r.inverted ? r.hVal < r.aVal : r.hVal > r.aVal;
+              const lower = r.inverted ? r.hVal > r.aVal : r.hVal < r.aVal;
+              const hColor = higher ? "#10B981" : lower ? "#EF4444" : "#F59E0B";
+              const aHigher = r.inverted ? r.aVal < r.hVal : r.aVal > r.hVal;
+              const aLower = r.inverted ? r.aVal > r.hVal : r.aVal < r.hVal;
+              const aColor = aHigher ? "#10B981" : aLower ? "#EF4444" : "#F59E0B";
               return (
-                <div key={t} style={{ background: "#1E293B", borderRadius: 10, borderLeft: `3px solid ${teamCol}`, border: "1px solid #33415544", borderLeftWidth: 3, borderLeftColor: teamCol, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: teamCol, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#0B0F1A", flexShrink: 0 }}>
-                      {teamInitial(teams[t])}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(teams[t])}</div>
-                    {strongest && <div style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>Best: {strongest}{weakest && weakest !== strongest ? ` · Weakest: ${weakest}` : ""}</div>}
+                <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < arr.length - 1 ? "1px solid #1a2536" : "none" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{r.hVal}{r.suffix}</div>
+                    {r.hDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.hDetail}</div>}
                   </div>
-                  <div style={{ padding: "0 12px 10px" }}>
-                    {strengths.map((i, idx) => (
-                      <div key={`s${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                        <span style={{ color: "#10B981", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>+</span>
-                        <span style={{ fontSize: 12, color: "#10B981", lineHeight: 1.5 }}>{i.text}</span>
-                      </div>
-                    ))}
-                    {concerns.map((i, idx) => (
-                      <div key={`c${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                        <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>!</span>
-                        <span style={{ fontSize: 12, color: "#F59E0B", lineHeight: 1.5 }}>{i.text}</span>
-                      </div>
-                    ))}
+                  <div style={{ textAlign: "center", width: 90 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
+                    <div style={{ fontSize: 7, color: "#475569" }}>{r.sub}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{r.aVal}{r.suffix}</div>
+                    {r.aDetail && <div style={{ fontSize: 8, color: "#475569", marginTop: 2 }}>{r.aDetail}</div>}
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
 
-      {/* Visuals (if available) */}
-      {matchPlayPatterns && playPatterns && (
+          {/* Per-Match Averages */}
+          <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Per-Match Averages</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #33415544" }}>
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: HC }}>{teamShortName(teams.home)}</div>
+              <div style={{ width: 90 }} />
+              <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: AC }}>{teamShortName(teams.away)}</div>
+            </div>
+            {(() => {
+              const hAvg = seasonAvg?.home;
+              const aAvg = seasonAvg?.away;
+              const hGF = hAvg ? +hAvg.gf.toFixed(1) : homeScore;
+              const aGF = aAvg ? +aAvg.gf.toFixed(1) : awayScore;
+              const hGA = hAvg ? +hAvg.ga.toFixed(1) : awayScore;
+              const aGA = aAvg ? +aAvg.ga.toFixed(1) : homeScore;
+              const hGD = hAvg ? +hAvg.gd.toFixed(1) : hGF - hGA;
+              const aGD = aAvg ? +aAvg.gd.toFixed(1) : aGF - aGA;
+              const avgRows = [
+                { label: "Goals For", hVal: hGF, aVal: aGF, higherBetter: true, color: "#F59E0B" },
+                { label: "Goals Against", hVal: hGA, aVal: aGA, higherBetter: false },
+                { label: "Goal Difference", hVal: hGD, aVal: aGD, higherBetter: true },
+              ];
+              return avgRows.map((r, i) => {
+                const hBetter = r.higherBetter ? r.hVal > r.aVal : r.hVal < r.aVal;
+                const aBetter = r.higherBetter ? r.aVal > r.hVal : r.aVal < r.hVal;
+                const equal = r.hVal === r.aVal;
+                const hColor = equal ? "#F59E0B" : hBetter ? "#10B981" : "#EF4444";
+                const aColor = equal ? "#F59E0B" : aBetter ? "#10B981" : "#EF4444";
+                const fmtVal = (v) => r.label === "Goal Difference" && v > 0 ? `+${v}` : `${v}`;
+                return (
+                  <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: i < avgRows.length - 1 ? "1px solid #1a2536" : "none" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: hColor }}>{fmtVal(r.hVal)}</div>
+                    </div>
+                    <div style={{ textAlign: "center", width: 90 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: r.color || "#94A3B8" }}>{r.label}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: aColor }}>{fmtVal(r.aVal)}</div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+            {seasonAvg && (seasonAvg.home || seasonAvg.away) && (
+              <div style={{ fontSize: 8, color: "#475569", textAlign: "center", marginTop: 6 }}>
+                {seasonAvg.home ? `${teamShortName(teams.home)}: ${seasonAvg.home.n} matches` : ""}{seasonAvg.home && seasonAvg.away ? " · " : ""}{seasonAvg.away ? `${teamShortName(teams.away)}: ${seasonAvg.away.n} matches` : ""}
+              </div>
+            )}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", padding: "8px 0" }}>
+            {[["#10B981", "Better"], ["#F59E0B", "Equal"], ["#EF4444", "Worse"]].map(([c, l]) => (
+              <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: "#64748B" }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />
+                {l}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
+      {/* Match Insights Tab */}
+      {viewTab === "insights" && (
+        <div style={{ padding: "0 14px 14px" }}>
+          {activeQs.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 30, color: "#475569", fontSize: 11 }}>No data yet — insights will appear as the match progresses</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Overall match insights */}
+              {["home", "away"].map(t => {
+                const ins = matchInsights[t];
+                if (!ins || ins.length === 0) return null;
+                const teamColor = t === "home" ? HC : AC;
+                const strengths = ins.filter(i => i.type === "strength");
+                const concerns = ins.filter(i => i.type !== "strength");
+                // Find strongest/weakest periods
+                const periodScores = activeQs.map(q => ({ label: q.label, score: q[t].dEntries + q[t].shotsOn + q[t].turnoversWon - q[t].possLost }));
+                const strongest = periodScores.length > 0 ? periodScores.reduce((a, b) => b.score > a.score ? b : a).label : null;
+                const weakest = periodScores.length > 1 ? periodScores.reduce((a, b) => b.score < a.score ? b : a).label : null;
+                return (
+                  <div key={t} style={{ background: "#1E293B", borderRadius: 10, borderLeft: `3px solid ${teamColor}`, border: "1px solid #33415544", borderLeftWidth: 3, borderLeftColor: teamColor, overflow: "hidden" }}>
+                    <div style={{ padding: "10px 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 6, background: teamColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#0B0F1A", flexShrink: 0 }}>
+                        {teamInitial(teams[t])}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{teamShortName(teams[t])}</div>
+                      {strongest && <div style={{ fontSize: 9, color: "#475569", marginLeft: "auto" }}>Best: {strongest}{weakest && weakest !== strongest ? ` · Weakest: ${weakest}` : ""}</div>}
+                    </div>
+                    <div style={{ padding: "0 12px 10px" }}>
+                      {strengths.map((i, idx) => (
+                        <div key={`s${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
+                          <span style={{ color: "#10B981", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>+</span>
+                          <span style={{ fontSize: 12, color: "#10B981", lineHeight: 1.5 }}>{i.text}</span>
+                        </div>
+                      ))}
+                      {concerns.map((i, idx) => (
+                        <div key={`c${idx}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
+                          <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: 12, width: 18, textAlign: "center", flexShrink: 0 }}>!</span>
+                          <span style={{ fontSize: 12, color: "#F59E0B", lineHeight: 1.5 }}>{i.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Visuals Tab */}
+      {viewTab === "visuals" && matchPlayPatterns && playPatterns && (
         (teamTier === 'free_plus' || teamTier === 'premium') ? (
         <div style={{ padding: "0 14px 20px" }}>
           <div style={{ background: "#1E293B", borderRadius: 10, padding: "10px 12px", border: "1px solid #334155" }}>

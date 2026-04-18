@@ -212,7 +212,7 @@ export default function SystemHealthScreen({ onBack }) {
 
       <div style={{ padding: 16 }}>
       {loading ? (
-        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner /></div>
+        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner text message='Loading metrics...' /></div>
       ) : (
         <>
           {/* DB size + connections */}

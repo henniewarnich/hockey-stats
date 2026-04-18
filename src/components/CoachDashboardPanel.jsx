@@ -5,7 +5,6 @@ import { fetchLatestRankings } from '../utils/sync.js';
 import { S, theme } from '../utils/styles.js';
 import RankBadge from './RankBadge.jsx';
 import { teamColor, teamDisplayName, teamInitial, teamSlug } from '../utils/teams.js';
-import KykieSpinner from './KykieSpinner.jsx';
 
 export default function CoachDashboardPanel({ currentUser }) {
   const [teams, setTeams] = useState([]);
@@ -56,7 +55,7 @@ export default function CoachDashboardPanel({ currentUser }) {
     load();
   }, [currentUser.id]);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 20 }}><KykieSpinner /></div>;
+  if (loading) return <div style={{ textAlign: 'center', padding: 20, color: theme.textDim, fontSize: 11 }}>Loading teams...</div>;
 
   return (
     <div style={{ padding: "0 16px 8px" }}>

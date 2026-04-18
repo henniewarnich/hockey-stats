@@ -8,12 +8,50 @@ import NavLogo from '../components/NavLogo.jsx';
 
 export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, currentUser }) {
   const [deleting, setDeleting] = useState(false);
+  const [events, setEvents] = useState(game.events || []);
+  const [deletingEventId, setDeletingEventId] = useState(null);
+  const [homeScore, setHomeScore] = useState(game.homeScore);
+  const [awayScore, setAwayScore] = useState(game.awayScore);
   const G = game;
   const T = G.teams;
   const d = new Date(G.date);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
-  const hasRecording = (G.events?.length > 0 || (G.duration && G.duration > 0));
+  const hasRecording = (events.length > 0 || (G.duration && G.duration > 0));
   const matchId = G.supabase_id || G.id;
+
+  const handleDeleteEvent = async (evt) => {
+    const isGoal = evt.event?.startsWith('Goal');
+    const msg = isGoal
+      ? `Delete this goal?\n\n"${evt.event}" at ${fmtTs(evt.time)}\n\nThis will also update the match score.`
+      : `Delete this event?\n\n"${evt.event}" at ${fmtTs(evt.time)}`;
+    if (!confirm(msg)) return;
+    setDeletingEventId(evt.id);
+    try {
+      // Delete from Supabase
+      const { error } = await supabase.from('match_events').delete().eq('id', evt.id);
+      if (error) throw error;
+      // Remove from local state
+      const remaining = events.filter(e => e.id !== evt.id);
+      setEvents(remaining);
+      // If goal deleted, recalculate scores
+      if (isGoal) {
+        const newHome = remaining.filter(e => e.team === 'home' && e.event?.startsWith('Goal')).length;
+        const newAway = remaining.filter(e => e.team === 'away' && e.event?.startsWith('Goal')).length;
+        setHomeScore(newHome);
+        setAwayScore(newAway);
+        await supabase.from('matches').update({ home_score: newHome, away_score: newAway }).eq('id', matchId);
+        // Also update match_stats if they exist
+        await supabase.from('match_stats').delete().eq('match_id', matchId).catch(() => {});
+      }
+      await logAudit('event_deleted', 'match_event', evt.id, {
+        match_id: matchId, event: evt.event, team: evt.team, zone: evt.zone, was_goal: isGoal,
+      });
+    } catch (e) {
+      console.error('Delete event error:', e);
+      alert('Error deleting event: ' + (e.message || e));
+    }
+    setDeletingEventId(null);
+  };
 
   const handleDeleteRecording = async () => {
     if (!confirm('Delete only the recording (events, credits, commentator assignments)?\n\nThe match result and scores will be kept.')) return;
@@ -46,34 +84,57 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
   };
 
   const renderLogEntry = (entry) => {
+    const canDelete = isAdmin;
+    const isDeleting = deletingEventId === entry.id;
     if (entry.team === "commentary") return (
       <div key={entry.id} style={{
         padding: "6px 10px", borderRadius: 8, marginBottom: 3,
         background: "linear-gradient(135deg, #F59E0B12, #F59E0B08)",
         borderLeft: "3px solid #F59E0B55",
+        display: "flex", alignItems: "flex-start", gap: 6,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
-          <span style={{ fontSize: 11 }}>💬</span>
-          <span style={{ fontSize: 8, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>Insight</span>
-          <span style={{ fontSize: 8, fontFamily: "monospace", color: theme.textDim, marginLeft: "auto" }}>{fmtTs(entry.time)}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
+            <span style={{ fontSize: 11 }}>💬</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>Insight</span>
+            <span style={{ fontSize: 8, fontFamily: "monospace", color: theme.textDim, marginLeft: "auto" }}>{fmtTs(entry.time)}</span>
+          </div>
+          <div style={{ fontSize: 10, color: "#E2E8F0", lineHeight: 1.3, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail}</div>
         </div>
-        <div style={{ fontSize: 10, color: "#E2E8F0", lineHeight: 1.3, fontStyle: "italic", paddingLeft: 18 }}>{entry.detail}</div>
+        {canDelete && (
+          <button onClick={() => handleDeleteEvent(entry)} disabled={isDeleting} style={{
+            background: 'none', border: 'none', color: '#F8717166', fontSize: 12,
+            cursor: 'pointer', padding: '2px 4px', flexShrink: 0, opacity: isDeleting ? 0.3 : 1,
+          }}>✕</button>
+        )}
       </div>
     );
     const isMeta = entry.team === "meta";
     const tc = isMeta ? theme.accent : T[entry.team]?.color || theme.textDimmer;
+    const isGoal = entry.event?.startsWith("Goal");
     return (
       <div key={entry.id} style={{
         padding: "5px 8px", borderRadius: 6, background: tc + "08",
         borderLeft: `3px solid ${tc}`, marginBottom: 3,
+        display: "flex", alignItems: "flex-start", gap: 6,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ fontSize: 8, fontFamily: "monospace", color: theme.textDim, minWidth: 28 }}>{fmtTs(entry.time)}</div>
-          <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
-          <div style={{ fontSize: 10, fontWeight: 700, color: entry.event?.startsWith("Goal!") ? theme.accent : isMeta ? theme.accent : theme.text }}>{entry.event}</div>
-          <div style={{ fontSize: 7, color: theme.textMuted, marginLeft: "auto", fontWeight: 600 }}>{entry.zone}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ fontSize: 8, fontFamily: "monospace", color: theme.textDim, minWidth: 28 }}>{fmtTs(entry.time)}</div>
+            <div style={{ width: 7, height: 7, borderRadius: 2, background: tc, flexShrink: 0 }} />
+            <div style={{ fontSize: 10, fontWeight: 700, color: isGoal ? theme.accent : isMeta ? theme.accent : theme.text }}>{entry.event}</div>
+            <div style={{ fontSize: 7, color: theme.textMuted, marginLeft: "auto", fontWeight: 600 }}>{entry.zone}</div>
+          </div>
+          {entry.detail && !isMeta && <div style={{ fontSize: 9, color: theme.textDim, paddingLeft: 40, lineHeight: 1.2 }}>{entry.detail}</div>}
         </div>
-        {entry.detail && !isMeta && <div style={{ fontSize: 9, color: theme.textDim, paddingLeft: 40, lineHeight: 1.2 }}>{entry.detail}</div>}
+        {canDelete && (
+          <button onClick={() => handleDeleteEvent(entry)} disabled={isDeleting} style={{
+            background: isGoal ? '#F8717122' : 'none', border: isGoal ? '1px solid #F8717133' : 'none',
+            color: isGoal ? '#F87171' : '#F8717166', fontSize: isGoal ? 10 : 12, fontWeight: isGoal ? 700 : 400,
+            cursor: 'pointer', padding: isGoal ? '2px 6px' : '2px 4px', borderRadius: 4,
+            flexShrink: 0, opacity: isDeleting ? 0.3 : 1,
+          }}>{isGoal ? '✕ Goal' : '✕'}</button>
+        )}
       </div>
     );
   };
@@ -96,7 +157,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: 16 }}>
         <div style={{ textAlign: "center", flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: teamColor(T.home) }}>{teamShortName(T.home)}</div>
-          <div style={{ fontSize: 36, fontWeight: 800 }}>{G.homeScore}</div>
+          <div style={{ fontSize: 36, fontWeight: 800 }}>{homeScore}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: theme.accent }}>{fmt(G.duration)}</div>
@@ -104,7 +165,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: teamColor(T.away) }}>{teamShortName(T.away)}</div>
-          <div style={{ fontSize: 36, fontWeight: 800 }}>{G.awayScore}</div>
+          <div style={{ fontSize: 36, fontWeight: 800 }}>{awayScore}</div>
         </div>
       </div>
 
@@ -118,8 +179,8 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
         <button onClick={() => exportMatchJSON(G)} style={S.btnSm(theme.info, "#FFF")}>📦 JSON</button>
         {onNavigate && (
           <>
-            {G.events?.length > 0 && <button onClick={() => onNavigate("public_view", G)} style={S.btnSm("#10B981", "#FFF")}>📺 Public</button>}
-            {G.events?.length > 0 && <button onClick={() => onNavigate("coach_view", G)} style={S.btnSm("#8B5CF6", "#FFF")}>🔒 Coach</button>}
+            {events.length > 0 && <button onClick={() => onNavigate("public_view", G)} style={S.btnSm("#10B981", "#FFF")}>📺 Public</button>}
+            {events.length > 0 && <button onClick={() => onNavigate("coach_view", G)} style={S.btnSm("#8B5CF6", "#FFF")}>🔒 Coach</button>}
             <button onClick={() => onNavigate("match_edit", G)} style={S.btnSm(theme.surface, theme.textMuted)}>✏️ Edit</button>
           </>
         )}
@@ -139,7 +200,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
 
       {/* Match Log */}
       <div style={{ padding: "0 12px 20px" }}>
-        {!G.events || G.events.length === 0 ? (
+        {events.length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px 16px", color: theme.textDim }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 4 }}>Detailed analytics not available for this match</div>
@@ -148,7 +209,7 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
         ) : (
           <>
             <div style={{ fontSize: 10, fontWeight: 800, color: theme.textDim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Match Log</div>
-            {G.events.map(e => renderLogEntry(e))}
+            {events.map(e => renderLogEntry(e))}
           </>
         )}
       </div>

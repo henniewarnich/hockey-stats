@@ -4,7 +4,6 @@ import { S, theme } from '../utils/styles.js';
 import NavLogo from '../components/NavLogo.jsx';
 import { fetchInstitutions, upsertInstitution, deleteInstitution } from '../utils/sync.js';
 import { supabase } from '../utils/supabase.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function InstitutionScreen({ onBack }) {
   const [institutions, setInstitutions] = useState([]);
@@ -55,7 +54,7 @@ export default function InstitutionScreen({ onBack }) {
             <input style={{ ...S.input, fontSize: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search institutions..." />
           </div>
           {loading ? (
-            <div style={S.empty}><KykieSpinner /></div>
+            <div style={S.empty}>Loading...</div>
           ) : filtered.length === 0 ? (
             <div style={S.empty}>{search.trim() ? "No institutions found" : "No institutions yet."}</div>
           ) : (

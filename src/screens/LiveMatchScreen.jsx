@@ -26,6 +26,7 @@ const ZONES = [
 export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGame, onNavigate, onBack, currentUser, onMatchCreated }) {
   const { home, away, matchLength, breakFormat, matchType, venue, date, isDemo, isVideoReview, videoReviewMatchId, savedScore } = matchConfig;
   const { homeColor: hc, awayColor: ac } = ensureContrastingColors(teamColor(home), teamColor(away));
+  const teams = { home: { ...home, color: hc }, away: { ...away, color: ac } };
   const timer = useMatchTimer();
   const { matchTime, running, matchState } = timer;
 
@@ -38,38 +39,19 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showRestart, setShowRestart] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [showPauseReason, setShowPauseReason] = useState(false);
-  const [rotation, setRotation] = useState(0);
-  const flipped = rotation >= 180;
+  const [flipped, setFlipped] = useState(false);
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [endPenHome, setEndPenHome] = useState(null);
   const [endPenAway, setEndPenAway] = useState(null);
   const [pauseReason, setPauseReason] = useState(null);
-  const [liveMatchId, setLiveMatchId] = useState(null);
+  const [liveMatchId, setLiveMatchId] = useState(null); // Supabase match ID for live push
   const [matchViewers, setMatchViewers] = useState(0);
-  const [showScoreMismatch, setShowScoreMismatch] = useState(null);
+  const [showScoreMismatch, setShowScoreMismatch] = useState(null); // { recorded, saved }
   const [showVideoReviewEnd, setShowVideoReviewEnd] = useState(false);
-  const [reclassifyToast, setReclassifyToast] = useState(null);
+  const [reclassifyToast, setReclassifyToast] = useState(null); // { type, options }
   const toastTimerRef = useRef(null);
-  const [homeKitColor, setHomeKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.home || null; } catch { return null; } });
-  const [awayKitColor, setAwayKitColor] = useState(() => { try { return JSON.parse(sessionStorage.getItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`))?.away || null; } catch { return null; } });
-  const [colorPickerFor, setColorPickerFor] = useState(null);
-  const [copyToast, setCopyToast] = useState(false);
-  const KIT_PALETTE = ["#FFFFFF", "#1E293B", "#1E3A5F", "#EF4444", "#EA580C", "#F59E0B", "#10B981", "#38BDF8", "#8B5CF6", "#7C2D12", "#DB2777"];
-  const saveKitColors = (h, a) => {
-    setHomeKitColor(h); setAwayKitColor(a);
-    sessionStorage.setItem(`kykie-kit-${matchConfig?.supabaseId || 'local'}`, JSON.stringify({ home: h, away: a }));
-    setColorPickerFor(null);
-  };
-
-  // Teams with kit colour overrides — cascades everywhere
-  const applyKit = (team, kitColor) => kitColor ? { ...team, color: kitColor, institution: { ...team.institution, color: kitColor } } : team;
-  const teams = {
-    home: applyKit({ ...home, color: hc }, homeKitColor),
-    away: applyKit({ ...away, color: ac }, awayKitColor),
-  };
-
   const lastEventSeqRef = useRef(0); // seq of last event for Supabase updates
 
   // Track viewers via presence
@@ -426,15 +408,6 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     setShowVideoReviewEnd(true);
   };
 
-  // Undo last event (for sideline out reversal)
-  const undoLastEvent = () => {
-    if (events.length === 0) return;
-    let rc = 1;
-    if (events[0].team === "commentary" && events.length > 1) rc = 2;
-    setEvents(prev => prev.slice(rc));
-    setPrevBallPos(null);
-  };
-
   // Undo
   const undoLast = () => {
     if (events.length === 0) return;
@@ -480,10 +453,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       )}
 
       <Scoreboard teams={teams} homeGoals={score.home} awayGoals={score.away}
-        matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId}
-        onHomeKitTap={matchState !== "ended" ? () => setColorPickerFor(colorPickerFor === "home" ? null : "home") : undefined}
-        onAwayKitTap={matchState !== "ended" ? () => setColorPickerFor(colorPickerFor === "away" ? null : "away") : undefined}
-      />
+        matchTime={matchTime} matchState={matchState} running={running} matchId={isDemo ? null : liveMatchId} />
 
       {/* Speed control — admin only, video review or demo */}
       {(isVideoReview || isDemo) && currentUser && ['admin', 'commentator_admin'].includes(currentUser.role) && (
@@ -508,18 +478,16 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         </div>
       )}
 
-      {/* Possession + Rotate */}
+      {/* Possession + Flip */}
       <div style={{ padding: "0 14px 4px", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
         {pauseReason ? (
           <div style={{ fontSize: 12, fontWeight: 800, color: "#F59E0B", background: "#F59E0B22", padding: "4px 16px", borderRadius: 99, display: "flex", alignItems: "center", gap: 6 }}>
             ⏸ {pauseReason}
           </div>
         ) : possession ? (
-          <div style={{ fontSize: 10, fontWeight: 700, color: teams[possession].color, padding: "2px 10px" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: teams[possession].color, display: "inline-block" }} />
-              {teamShortName(teams[possession])}: In Possession
-            </span>
+          <div style={{ fontSize: 9, fontWeight: 700, color: teamColor(teams[possession]), background: teamColor(teams[possession]) + "22", padding: "2px 10px", borderRadius: 99, display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: teamColor(teams[possession]) }} />
+            {teamShortName(teams[possession])}
           </div>
         ) : (
           <div style={{ fontSize: 9, fontWeight: 700, color: theme.textDimmer, padding: "2px 10px" }}>
@@ -528,77 +496,29 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         )}
         {matchState !== "ended" && (
           <button onClick={() => {
-            const next = (rotation + 90) % 360;
-            const wasFlipped = rotation >= 180;
-            const willFlip = next >= 180;
-            if (wasFlipped !== willFlip) {
-              const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
-              const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
-              setBallPos(bp => {
-                if (!bp) return bp;
-                const u = { ...bp };
-                if (u.pos) u.pos = mirrorPos(u.pos);
-                if (u.end) u.end = mirrorEnd(u.end);
-                return u;
-              });
-              setPrevBallPos(bp => {
-                if (!bp) return bp;
-                const u = { ...bp };
-                if (u.pos) u.pos = mirrorPos(u.pos);
-                if (u.end) u.end = mirrorEnd(u.end);
-                return u;
-              });
-            }
-            setRotation(next);
+            setFlipped(f => !f);
+            const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
+            const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
+            setBallPos(bp => {
+              if (!bp) return bp;
+              const updated = { ...bp };
+              if (updated.pos) updated.pos = mirrorPos(updated.pos);
+              if (updated.end) updated.end = mirrorEnd(updated.end);
+              return updated;
+            });
+            setPrevBallPos(bp => {
+              if (!bp) return bp;
+              const updated = { ...bp };
+              if (updated.pos) updated.pos = mirrorPos(updated.pos);
+              if (updated.end) updated.end = mirrorEnd(updated.end);
+              return updated;
+            });
           }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔄</button>
-        )}
-        {liveMatchId && (
-          <button onClick={() => {
-            const slug = teamSlug(teams.home);
-            const url = `${window.location.origin}${window.location.pathname}#/team/${slug}?match=${liveMatchId}`;
-            navigator.clipboard?.writeText(url).then(() => {
-              setCopyToast(true); setTimeout(() => setCopyToast(false), 2000);
-            }).catch(() => prompt("Copy this link:", url));
-          }} style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.textMuted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🔗</button>
         )}
       </div>
 
-      {/* Kit colour picker panel */}
-      {colorPickerFor && (
-        <div style={{ padding: "0 14px 6px" }}>
-          <div style={{ background: "#1E293B", borderRadius: 8, padding: 10, border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", minWidth: 70 }}>
-                {teamShortName(teams[colorPickerFor])}
-              </div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {[colorPickerFor === "home" ? hc : ac, ...KIT_PALETTE].map((c, i) => {
-                  const isActive = teams[colorPickerFor].color === c;
-                  const origColor = colorPickerFor === "home" ? hc : ac;
-                  return (
-                    <div key={`${c}-${i}`} onClick={() => saveKitColors(
-                      colorPickerFor === "home" ? (c === origColor ? null : c) : homeKitColor,
-                      colorPickerFor === "away" ? (c === origColor ? null : c) : awayKitColor
-                    )} style={{
-                      width: 22, height: 22, borderRadius: 5, background: c, cursor: "pointer",
-                      border: isActive ? "2px solid #F8FAFC" : c === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent",
-                      boxShadow: isActive ? "0 0 0 1px #F8FAFC44" : "none",
-                    }} />
-                  );
-                })}
-              </div>
-            </div>
-            <button onClick={() => saveKitColors(awayKitColor, homeKitColor)} style={{
-              width: "100%", padding: 7, background: "#334155", border: "none", borderRadius: 6,
-              color: "#94A3B8", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            }}>⇄ Swap colours</button>
-          </div>
-        </div>
-      )}
-
-      {/* Field — visible on live stats tab */}
-      {liveTab === "field" && (
+      {/* Field — visible on field tab */}
+      {(liveTab === "field" || liveTab === "share") && (
         <FieldRecorder
           teams={teams} possession={possession} setPossession={setPossession}
           ballPos={ballPos} setBallPos={setBallPos}
@@ -606,11 +526,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
           running={running} matchState={matchState}
           showRestart={showRestart} setShowRestart={setShowRestart}
           flipped={flipped}
-          rotation={rotation}
           sidelineOut={sidelineOut} setSidelineOut={setSidelineOut}
           score={score} setScore={setScore}
           onAddLog={addLog}
-          onUndoLastEvent={undoLastEvent}
           onBallMoved={handleBallMoved}
           onShowDPopup={setShowDPopup} showDPopup={showDPopup}
           onShowTeamPicker={setShowTeamPicker}
@@ -819,7 +737,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
 
       {/* View tabs */}
       <div style={{ display: "flex", margin: "4px 10px 0", borderRadius: 6, overflow: "hidden", border: `1px solid ${theme.border}` }}>
-        {[["field", "🏑 Live Stats"], ["log", "☰ Log"]].map(([k, l]) => (
+        {[["field", "🏑 Field"], ["log", "☰ Log"], ["coach", "🔒 Coach"], ["share", "📺 Share"]].map(([k, l]) => (
           <button key={k} onClick={() => setLiveTab(k)} style={{
             flex: 1, padding: "5px 0", textAlign: "center", fontSize: 8, fontWeight: 700,
             background: liveTab === k ? theme.border : theme.surface,
@@ -830,28 +748,89 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       </div>
 
       {/* Tab content */}
-      {liveTab === "field" && (
+      {liveTab === "field" && null /* field is always visible above */}
+      {liveTab === "log" && <EventLog events={events} teams={teams} />}
+      {liveTab === "coach" && (
         <CoachLiveScreen
           match={{ teams, breakFormat, matchLength, homeScore: score.home, awayScore: score.away, status: matchState === "ended" ? "ended" : "live" }}
           events={events}
           matchTime={matchTime}
           running={running}
-          embedded
         />
       )}
-      {liveTab === "log" && <EventLog events={events} teams={teams} />}
+      {liveTab === "share" && (
+        <div style={{ padding: "16px 14px" }}>
+          <div style={{ background: theme.surface, borderRadius: 12, padding: 16, border: `1px solid ${theme.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>📺 Share Live Match</div>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 14, textAlign: "center" }}>
+              Share these links with spectators. They'll see the live score and commentary.
+            </div>
 
-      {/* Copy toast */}
-      {copyToast && (
-        <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 35, background: "#10B981", color: "#0B0F1A", padding: "6px 16px", borderRadius: 99, fontSize: 11, fontWeight: 700, animation: "toast-in 0.2s ease-out" }}>
-          Link copied!
+            {[teams.home, teams.away].map(t => {
+              const slug = teamSlug(t);
+              const url = `${window.location.origin}${window.location.pathname}#/team/${slug}`;
+              return (
+                <div key={teamDisplayName(t)} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: teamColor(t), marginBottom: 4 }}>📺 {teamDisplayName(t)}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{
+                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
+                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{url}</div>
+                    <button onClick={() => {
+                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
+                    }} style={{
+                      padding: "8px 14px", borderRadius: 8, background: t.color + "22",
+                      border: `1px solid ${t.color}44`, color: teamColor(t),
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                    }}>📋 Copy</button>
+                    <button onClick={() => window.open(url, '_blank')} style={{
+                      padding: "8px 10px", borderRadius: 8, background: "#10B98122",
+                      border: "1px solid #10B98144", color: "#10B981",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    }}>↗</button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Commentator link — home team */}
+            <div style={{ marginTop: 6, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", marginBottom: 4 }}>🎙 Commentator Link</div>
+              {(() => {
+                const slug = teamSlug(teams.home);
+                const url = `${window.location.origin}${window.location.pathname}#/record/${slug}`;
+                return (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{
+                      flex: 1, padding: "8px 10px", borderRadius: 8, background: "#0F172A",
+                      border: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMuted,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{url}</div>
+                    <button onClick={() => {
+                      navigator.clipboard?.writeText(url).then(() => alert("Link copied!")).catch(() => prompt("Copy this link:", url));
+                    }} style={{
+                      padding: "8px 14px", borderRadius: 8, background: "#F59E0B22",
+                      border: "1px solid #F59E0B44", color: "#F59E0B",
+                      fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                    }}>📋 Copy</button>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ fontSize: 9, color: theme.textDim, textAlign: "center", marginTop: 8 }}>
+              Spectators see score + commentary only. Coaches can enter their team PIN for full stats.
+            </div>
+          </div>
         </div>
       )}
 
       {/* Reclassify toast */}
       {reclassifyToast && (
         <div style={{
-          position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)",
+          position: "fixed", bottom: possession ? 48 : 10, left: "50%", transform: "translateX(-50%)",
           zIndex: 35, display: "flex", alignItems: "center", gap: 6,
           background: "#0F172Aee", padding: "6px 10px", borderRadius: 10,
           border: "1px solid #33415566", backdropFilter: "blur(8px)",
@@ -878,6 +857,14 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         @keyframes toast-in { from { transform: translateX(-50%) translateY(10px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
         @keyframes toast-timer { from { width: 100%; } to { width: 0%; } }
       `}</style>
+
+      {/* Fixed possession indicator */}
+      {possession && (
+        <div style={{ position: "fixed", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, background: "#0F172Aee", padding: "6px 16px", borderRadius: 99, border: `1px solid ${teamColor(teams[possession])}44` }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: teamColor(teams[possession]) }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: theme.text }}>{teamShortName(teams[possession])}</span>
+        </div>
+      )}
     </div>
   );
 }

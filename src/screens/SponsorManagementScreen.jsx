@@ -5,7 +5,6 @@ import NavLogo from '../components/NavLogo.jsx';
 import { logAudit } from '../utils/audit.js';
 import AdminBackBar from '../components/AdminBackBar.jsx';
 import { MATCH_AWAY_TEAM, MATCH_AWAY_TEAM_NAME, MATCH_HOME_TEAM, MATCH_HOME_TEAM_NAME, TEAM_SELECT, teamDisplayName, teamShortName } from '../utils/teams.js';
-import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const TIERS = [
   { id: 'platform', label: 'Platform', color: '#F59E0B', desc: 'Landing page + all embeds' },
@@ -304,7 +303,7 @@ export default function SponsorManagementScreen({ onBack }) {
         </button>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner /></div>
+          <div style={{ textAlign: 'center', padding: 40, color: theme.textDim }}>Loading...</div>
         ) : sponsors.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: theme.textDim }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>🤝</div>
