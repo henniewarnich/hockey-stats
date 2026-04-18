@@ -376,7 +376,7 @@ export default function App() {
   // ── PUBLIC ROUTES (no auth needed) ──
 
   if (route.type === 'team') {
-    return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; setRoute(getHashRoute()); }} />;
+    return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} currentUser={currentUser} onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; setRoute(getHashRoute()); }} />;
   }
 
   if (route.type === 'login') {

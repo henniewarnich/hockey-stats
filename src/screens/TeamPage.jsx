@@ -26,13 +26,16 @@ const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`
 const seasonAvgForTeam = (teamId, matchList) => {
   const ended = (matchList || []).filter(m => m.status === 'ended');
   if (ended.length === 0) return null;
-  let gf = 0, ga = 0;
+  let gf = 0, ga = 0, n = 0;
   ended.forEach(m => {
     const isHome = m.home_team_id === teamId || m.home_team?.id === teamId;
+    const isAway = m.away_team_id === teamId || m.away_team?.id === teamId;
+    if (!isHome && !isAway) return; // skip matches this team didn't play in
     gf += isHome ? (m.home_score || 0) : (m.away_score || 0);
     ga += isHome ? (m.away_score || 0) : (m.home_score || 0);
+    n++;
   });
-  const n = ended.length;
+  if (n === 0) return null;
   return { gf: gf / n, ga: ga / n, gd: (gf - ga) / n, n };
 };
 
@@ -172,7 +175,7 @@ const StatRow = ({ hVal, label, aVal, hColor, aColor, inverted }) => {
   );
 };
 
-export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
+export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser: appUser }) {
   const [team, setTeam] = useState(null);
   const [matches, setMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
@@ -429,6 +432,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
           coachPromise = getProfile().then(async (profile) => {
             if (!profile || profile.blocked) return false;
             const activeRole = sessionStorage.getItem('kykie-active-role') || profile.role;
+            // Apply switched role to profile (mirrors App.jsx logic)
+            if (activeRole && profile.roles?.includes(activeRole)) {
+              profile.role = activeRole;
+            }
             const hasCoachRole = activeRole === 'coach' || profile.roles?.includes('coach');
             if (!hasCoachRole) return false;
             const assigned = await isCoachForTeam(profile.id, teamSlug);
@@ -737,6 +744,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack }) {
       {isCoach && coachProfile ? (
         <PageHeader currentUser={coachProfile} onLogout={handleCoachLogout} onRoleSwitch={handleRoleSwitch}
           onBack={() => { window.location.hash = '#/coach'; }} />
+      ) : appUser ? (
+        <PageHeader currentUser={appUser} onLogout={handleCoachLogout} onRoleSwitch={handleRoleSwitch}
+          onBack={onBack} />
       ) : (
       <div style={{ padding: "10px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={() => { window.history.back(); }} style={{
