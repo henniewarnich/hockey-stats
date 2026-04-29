@@ -141,7 +141,7 @@ export default function CreditsScreen({ currentUser, onBack }) {
       <div style={{ padding: '16px 16px 24px' }}>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner text message='Loading credits...' /></div>
+        <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner /></div>
       ) : (
         <>
           {/* Balance circle + status */}

@@ -12,6 +12,7 @@ import LiveMatchScreen from './LiveMatchScreen.jsx';
 import LiveLiteScreen from './LiveLiteScreen.jsx';
 import PublicMatchesSection from '../components/PublicMatchesSection.jsx';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamColor, teamDisplayName, teamMatchesSearch, teamShortName } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwitch }) {
   const [matches, setMatches] = useState([]);
@@ -233,8 +234,13 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
               ✕ Cancel & Revert
             </button>
           )}
-          <button onClick={() => setLiveMode('lite')} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
-            ↓ Switch to Live
+          <button onClick={() => {
+              if (activeMatch.supabaseId) {
+                if (!window.confirm("Please note that you will lose all statistics and commentary that you have recorded so far.\n\nAre you sure you want to continue?")) return;
+              }
+              setLiveMode('lite');
+            }} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+            ↓ Switch to Score only
           </button>
         </div>
         <LiveMatchScreen
@@ -360,7 +366,7 @@ export default function CommentatorDashboard({ currentUser, onLogout, onRoleSwit
 
       <div style={{ padding: "0 16px 20px" }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#64748B" }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
         ) : matches.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: "#64748B" }}>No matches scheduled yet</div>
         ) : tab === "upcoming" ? (

@@ -421,30 +421,30 @@ export async function archiveMatchStats(matchId) {
       .sort((a, b) => (a.time || 0) - (b.time || 0));
     const ballTime = { home: 0, away: 0 };
     const oppHalfTime = { home: 0, away: 0 };
+    let totalTime = 0;
     for (let i = 0; i < zoned.length - 1; i++) {
       const ev = zoned[i];
       const dur = (zoned[i + 1].time || 0) - (ev.time || 0);
       if (dur <= 0 || dur > 300) continue; // skip pauses > 5min
-      const team = ev.team;
-      ballTime[team] += dur;
+      totalTime += dur;
+      ballTime[ev.team] += dur;
       const z = ev.zone || '';
-      const isOppQ = z.includes('Opp Quarter');
-      const isOwnQ = z.includes('Own Quarter');
-      const isOppMid = z.includes('Opp Midfield');
-      const isOwnMid = z.includes('Own Midfield');
-      // Opposition half: from each team's perspective
-      if (team === 'home' && (isOppQ || isOppMid)) oppHalfTime.home += dur;
-      if (team === 'away' && (isOwnQ || isOwnMid)) oppHalfTime.away += dur;
+      // Territory: where the ball IS, regardless of who has it
+      // "Opp" zones = top half = home's attacking half
+      // "Own" zones = bottom half = away's attacking half
+      if (z.includes('Opp Quarter') || z.includes('Opp Midfield')) oppHalfTime.home += dur;
+      if (z.includes('Own Quarter') || z.includes('Own Midfield')) oppHalfTime.away += dur;
     }
     const totalBall = ballTime.home + ballTime.away || 1;
+    const totalTerr = oppHalfTime.home + oppHalfTime.away || 1;
     return {
       home: {
         possessionTimePct: Math.round(ballTime.home / totalBall * 100),
-        territoryTimePct: ballTime.home > 0 ? Math.round(oppHalfTime.home / ballTime.home * 100) : 0,
+        territoryTimePct: Math.round(oppHalfTime.home / totalTerr * 100),
       },
       away: {
         possessionTimePct: Math.round(ballTime.away / totalBall * 100),
-        territoryTimePct: ballTime.away > 0 ? Math.round(oppHalfTime.away / ballTime.away * 100) : 0,
+        territoryTimePct: Math.round(oppHalfTime.away / totalTerr * 100),
       },
     };
   }
@@ -461,7 +461,7 @@ export async function archiveMatchStats(matchId) {
       d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
       short_corners: s.shortCorners,
       long_corners: s.longCorners, turnovers_won: s.turnoversWon,
-      poss_lost: s.possLost, territory_pct: s.territory,
+      poss_lost: s.possLost, territory_pct: tb.possessionTimePct,
       possession_time_pct: tb.possessionTimePct,
       territory_time_pct: tb.territoryTimePct,
       sc_outcomes: JSON.stringify(sco),
@@ -482,7 +482,7 @@ export async function archiveMatchStats(matchId) {
         d_entries: s.dEntries, atk_zone_entries: s.atkZoneEntries,
         short_corners: s.shortCorners,
         long_corners: s.longCorners, turnovers_won: s.turnoversWon,
-        poss_lost: s.possLost, territory_pct: s.territory,
+        poss_lost: s.possLost, territory_pct: tb.possessionTimePct,
         possession_time_pct: tb.possessionTimePct,
         territory_time_pct: tb.territoryTimePct,
         sc_outcomes: JSON.stringify(sco),

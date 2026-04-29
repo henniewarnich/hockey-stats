@@ -7,6 +7,7 @@ import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
 import LiveMatchScreen from './LiveMatchScreen.jsx';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDisplayName, teamInitial, teamMatchesSearch, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -182,7 +183,7 @@ export default function CommentatorPage({ teamSlug, onBack }) {
 
   // ── LOADING ──
   if (loading) return (
-    <div style={wrap}><link href={font} rel="stylesheet" /><div style={{ color: "#64748B", fontSize: 14 }}>Loading...</div></div>
+    <div style={wrap}><link href={font} rel="stylesheet" /><KykieSpinner /></div>
   );
 
   // ── NOT FOUND (only for team-specific mode) ──

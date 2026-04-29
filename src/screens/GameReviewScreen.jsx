@@ -27,20 +27,16 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
     if (!confirm(msg)) return;
     setDeletingEventId(evt.id);
     try {
-      // Delete from Supabase
       const { error } = await supabase.from('match_events').delete().eq('id', evt.id);
       if (error) throw error;
-      // Remove from local state
       const remaining = events.filter(e => e.id !== evt.id);
       setEvents(remaining);
-      // If goal deleted, recalculate scores
       if (isGoal) {
         const newHome = remaining.filter(e => e.team === 'home' && e.event?.startsWith('Goal')).length;
         const newAway = remaining.filter(e => e.team === 'away' && e.event?.startsWith('Goal')).length;
         setHomeScore(newHome);
         setAwayScore(newAway);
         await supabase.from('matches').update({ home_score: newHome, away_score: newAway }).eq('id', matchId);
-        // Also update match_stats if they exist
         await supabase.from('match_stats').delete().eq('match_id', matchId);
       }
       await logAudit('event_deleted', 'match_event', evt.id, {

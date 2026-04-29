@@ -69,6 +69,7 @@ function ScoutCard({ team, rec, rank, color }) {
 }
 
 import AdminBackBar from './AdminBackBar.jsx';
+import KykieSpinner from './KykieSpinner.jsx';
 
 export default function WhatIfScreen({ onBack }) {
   const [teams, setTeams] = useState([]);
@@ -143,7 +144,7 @@ export default function WhatIfScreen({ onBack }) {
       <AdminBackBar title="🔮 What-If Match" onBack={onBack} />
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#64748B", fontSize: 12 }}>Loading teams...</div>
+        <div style={{ textAlign: "center", padding: 40 }}><KykieSpinner /></div>
       ) : (
         <div style={{ padding: "0 16px 20px" }}>
           {/* Team Picker */}

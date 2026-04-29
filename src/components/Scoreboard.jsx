@@ -3,12 +3,15 @@ import { theme } from '../utils/styles.js';
 import SponsorBanner from './SponsorBanner.jsx';
 import { teamColor, teamShortName } from '../utils/teams.js';
 
-export default function Scoreboard({ teams, homeGoals, awayGoals, matchTime, matchState, running, matchId }) {
+export default function Scoreboard({ teams, homeGoals, awayGoals, matchTime, matchState, running, matchId, onHomeKitTap, onAwayKitTap }) {
+  const hColor = teamColor(teams.home);
+  const aColor = teamColor(teams.away);
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 14px 4px" }}>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(teams.home), textTransform: "uppercase" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: hColor, textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            {onHomeKitTap && <div onClick={onHomeKitTap} style={{ width: 10, height: 10, borderRadius: 3, background: hColor, border: hColor === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent", cursor: "pointer", flexShrink: 0 }} />}
             {teamShortName(teams.home)}
           </div>
           <div style={{ fontSize: 28, fontWeight: 800 }}>{homeGoals}</div>
@@ -33,8 +36,9 @@ export default function Scoreboard({ teams, homeGoals, awayGoals, matchTime, mat
           </div>
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: teamColor(teams.away), textTransform: "uppercase" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: aColor, textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
             {teamShortName(teams.away)}
+            {onAwayKitTap && <div onClick={onAwayKitTap} style={{ width: 10, height: 10, borderRadius: 3, background: aColor, border: aColor === "#FFFFFF" ? "1px solid #64748B" : "1px solid transparent", cursor: "pointer", flexShrink: 0 }} />}
           </div>
           <div style={{ fontSize: 28, fontWeight: 800 }}>{awayGoals}</div>
         </div>

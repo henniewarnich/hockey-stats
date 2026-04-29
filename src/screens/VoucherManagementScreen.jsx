@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import Icon from '../components/Icons.jsx';
 import AdminBackBar from '../components/AdminBackBar.jsx';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 export default function VoucherManagementScreen({ onBack }) {
   const [vouchers, setVouchers] = useState([]);
@@ -156,7 +157,7 @@ export default function VoucherManagementScreen({ onBack }) {
 
       {/* Voucher list */}
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#64748B', marginTop: 40 }}>Loading...</div>
+        <div style={{ textAlign: 'center', marginTop: 40 }}><KykieSpinner /></div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#475569', marginTop: 40, fontSize: 12 }}>No vouchers {filter !== 'all' ? `with status "${filter}"` : 'in pool'}</div>
       ) : (

@@ -222,7 +222,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Transaction history</div>
 
         {ledgerLoading ? (
-          <div style={{ textAlign: 'center', color: '#475569', padding: 30 }}>Loading...</div>
+          <div style={{ textAlign: 'center', padding: 30 }}><KykieSpinner /></div>
         ) : userLedger.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#475569', padding: 30, fontSize: 12 }}>No credit transactions yet</div>
         ) : (
@@ -269,7 +269,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
               {/* Expanded match stats */}
               {expandedMatch === l.match_id && (() => {
                 const bd = eventBreakdown[l.match_id];
-                if (!bd) return <div style={{ marginTop: 8, fontSize: 9, color: '#475569' }}>Loading stats...</div>;
+                if (!bd) return <div style={{ marginTop: 8, textAlign: 'center' }}><KykieSpinner size={16} /></div>;
                 const STAT_EVENTS = ['Goal', 'Shot on Goal', 'Shot off Target', 'D Entry', 'Short Corner', 'Long Corner', 'Poss Conceded'];
                 const hasData = STAT_EVENTS.some(ev => (bd.home[ev] || 0) + (bd.away[ev] || 0) > 0);
                 if (!hasData) return <div style={{ marginTop: 8, fontSize: 9, color: '#475569' }}>No event breakdown available</div>;
@@ -322,7 +322,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
       <div style={{ padding: 16 }}>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner text message='Loading credits...' /></div>
+        <div style={{ textAlign: 'center', padding: 40 }}><KykieSpinner /></div>
       ) : (
         <>
           {/* Summary cards */}

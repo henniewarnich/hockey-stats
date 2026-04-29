@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { computeMatchStats, aggregateStats, statsFromArchive, STATS, INVERTED } from '../utils/stats.js';
 import { teamShortName, teamColor } from '../utils/teams.js';
+import KykieSpinner from './KykieSpinner.jsx';
 
 export default function CoachOverview({ team, matches }) {
   const [allEvents, setAllEvents] = useState({});
@@ -37,7 +38,7 @@ export default function CoachOverview({ team, matches }) {
     loadEvents();
   }, [matches]);
 
-  if (loading) return <div style={{ textAlign: "center", padding: 30, color: "#64748B" }}>Loading stats...</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>;
 
   const matchesWithData = matches.filter(m => m.duration > 0 && (allEvents[m.id]?.length > 0 || archivedStats[m.id]?.length > 0));
   if (matchesWithData.length === 0) return <div style={{ textAlign: "center", padding: 30, color: "#94A3B8" }}>No match data with events yet</div>;
@@ -57,6 +58,11 @@ export default function CoachOverview({ team, matches }) {
   const o = agg.opp;
   const totalShots = t.shotsOn + t.shotsOff;
   const oppTotalShots = o.shotsOn + o.shotsOff;
+  // Use time-based values with fallback
+  const tPoss = t.possessionTimePct != null ? t.possessionTimePct : t.territory;
+  const oPoss = o.possessionTimePct != null ? o.possessionTimePct : o.territory;
+  const tTerr = t.territoryTimePct != null ? t.territoryTimePct : t.territory;
+  const oTerr = o.territoryTimePct != null ? o.territoryTimePct : o.territory;
   const shotConv = t.shotsOn > 0 ? Math.round(t.goals / t.shotsOn * 100) : 0;
   const oppShotConv = o.shotsOn > 0 ? Math.round(o.goals / o.shotsOn * 100) : 0;
   const dConv = t.dEntries > 0 ? Math.round(totalShots / t.dEntries * 100) : 0;
@@ -119,16 +125,16 @@ export default function CoachOverview({ team, matches }) {
         })}
         {/* Territory & Possession averages */}
         <div style={{ display: "flex", alignItems: "center", marginTop: 4, fontSize: 10 }}>
-          <div style={{ width: 24, textAlign: "right", fontWeight: 700, color: t.territory >= 50 ? "#10B981" : "#F8FAFC", marginRight: 4 }}>{t.territory}%</div>
+          <div style={{ width: 24, textAlign: "right", fontWeight: 700, color: tTerr >= 50 ? "#10B981" : "#F8FAFC", marginRight: 4 }}>{tTerr}%</div>
           <div style={{ flex: 1, display: "flex", gap: 2 }}>
             <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-              <div style={{ width: `${t.territory}%`, height: 6, borderRadius: 3, background: t.territory >= 50 ? "#10B981" : teamColor(team) }} />
+              <div style={{ width: `${tTerr}%`, height: 6, borderRadius: 3, background: tTerr >= 50 ? "#10B981" : teamColor(team) }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ width: `${o.territory}%`, height: 6, borderRadius: 3, background: o.territory > 50 ? "#10B981" : "#475569" }} />
+              <div style={{ width: `${oTerr}%`, height: 6, borderRadius: 3, background: oTerr > 50 ? "#10B981" : "#475569" }} />
             </div>
           </div>
-          <div style={{ width: 24, textAlign: "left", fontWeight: 700, color: o.territory > 50 ? "#10B981" : "#F8FAFC", marginLeft: 4 }}>{o.territory}%</div>
+          <div style={{ width: 24, textAlign: "left", fontWeight: 700, color: oTerr > 50 ? "#10B981" : "#F8FAFC", marginLeft: 4 }}>{oTerr}%</div>
           <div style={{ width: 85, textAlign: "left", color: "#94A3B8", fontSize: 9, marginLeft: 4 }}>Avg Territory</div>
         </div>
       </div>
@@ -144,7 +150,7 @@ export default function CoachOverview({ team, matches }) {
             [Math.round(t.shortCorners / n * 10) / 10, "Short C", "#8B5CF6"],
             [Math.round(t.turnoversWon / n * 10) / 10, "T/O Won", "#10B981"],
             [Math.round(t.possLost / n * 10) / 10, "Poss Lost", "#EF4444"],
-            [`${t.territory}%`, "Territory", "#3B82F6"],
+            [`${tTerr}%`, "Territory", "#3B82F6"],
             [`${dConv}%`, "D Conv", "#F59E0B"],
           ].map(([val, label, color]) => (
             <div key={label}>
@@ -177,14 +183,15 @@ function generateSeasonInsights(t, o, n, teamName, matches) {
   const totalShots = t.shotsOn + t.shotsOff;
   const dConv = t.dEntries > 0 ? Math.round(totalShots / t.dEntries * 100) : 0;
   const shotConv = t.shotsOn > 0 ? Math.round(t.goals / t.shotsOn * 100) : 0;
+  const terr = t.territoryTimePct != null ? t.territoryTimePct : t.territory;
 
   // Scoring
   if (t.goals > o.goals) ins.push({ type: "strength", text: `Outscoring opponents ${t.goals}–${o.goals} across ${n} matches` });
   else if (t.goals < o.goals) ins.push({ type: "weakness", text: `Being outscored ${t.goals}–${o.goals} across ${n} matches` });
 
   // Territory
-  if (t.territory >= 55) ins.push({ type: "strength", text: `Controlling territory with ${t.territory}% average` });
-  else if (t.territory <= 45) ins.push({ type: "weakness", text: `Struggling for territory — only ${t.territory}% average` });
+  if (terr >= 55) ins.push({ type: "strength", text: `Controlling territory with ${terr}% average` });
+  else if (terr <= 45) ins.push({ type: "weakness", text: `Struggling for territory — only ${terr}% average` });
 
   // D conversion
   if (dConv >= 50 && t.dEntries >= n * 3) ins.push({ type: "strength", text: `Strong D conversion at ${dConv}% (${totalShots} shots from ${t.dEntries} entries)` });

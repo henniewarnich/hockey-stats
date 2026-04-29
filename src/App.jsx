@@ -775,8 +775,13 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
       return (
         <div style={{ fontFamily: "'Outfit','DM Sans',sans-serif", maxWidth: 430, margin: "0 auto", background: "#0B0F1A", minHeight: "100vh" }}>
           <div style={{ padding: "4px 10px", background: "#1E293B", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-            <button onClick={() => setScreen("live_lite")} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
-              ↓ Switch to Live
+            <button onClick={() => {
+              if (matchConfig.supabaseId) {
+                if (!window.confirm("Please note that you will lose all statistics and commentary that you have recorded so far.\n\nAre you sure you want to continue?")) return;
+              }
+              setScreen("live_lite");
+            }} style={{ background: "none", border: "1px solid #10B98144", borderRadius: 6, color: "#10B981", fontSize: 9, cursor: "pointer", fontWeight: 700, padding: "3px 8px" }}>
+              ↓ Switch to Score only
             </button>
           </div>
           <LiveMatchScreen matchConfig={matchConfig} existingMatchId={matchConfig.supabaseId || null}

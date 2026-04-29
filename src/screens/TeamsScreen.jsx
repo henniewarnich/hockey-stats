@@ -7,6 +7,7 @@ import { getAllCoachTeams, assignCoachTeam, removeCoachTeam } from '../utils/aut
 import { supabase } from '../utils/supabase.js';
 import { setTeamTierOverride, FREE_PLUS_THRESHOLD } from '../utils/credits.js';
 import AdminBackBar from '../components/AdminBackBar.jsx';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const GENDERS = ['Girls', 'Boys'];
 const AGE_GROUPS = ['U14', 'U16', '1st', '2nd', '3rd'];
@@ -371,7 +372,7 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
           <input style={{ ...S.input, fontSize: 12 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search institutions or teams..." />
         </div>
         {loading ? (
-          <div style={S.empty}>Loading...</div>
+          <div style={S.empty}><KykieSpinner /></div>
         ) : filteredInsts.length === 0 ? (
           <div style={S.empty}>{q ? 'No results found' : 'No institutions yet.'}</div>
         ) : (

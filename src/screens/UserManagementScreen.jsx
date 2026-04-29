@@ -5,6 +5,7 @@ import { S, theme } from '../utils/styles.js';
 import { logAudit } from '../utils/audit.js';
 import AdminBackBar from '../components/AdminBackBar.jsx';
 import { TEAM_SELECT, teamColor, teamDisplayName, teamMatchesSearch } from '../utils/teams.js';
+import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const timeAgo = (ts) => {
   if (!ts) return null;
@@ -489,7 +490,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>
         ) : displayUsers.length === 0 ? (
           <div style={{ textAlign: "center", padding: 30, color: theme.textDim }}>{userTab === "blocked" ? "No blocked users" : "No users found"}</div>
         ) : (
