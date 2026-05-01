@@ -8,10 +8,13 @@ import Icon from '../components/Icons.jsx';
 export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, lastSyncError, currentUser, onLogout, onRoleSwitch }) {
   const [scheduledCount, setScheduledCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [playedCount, setPlayedCount] = useState(null);
 
   useEffect(() => {
     supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'upcoming')
       .then(({ count }) => setScheduledCount(count || 0));
+    supabase.from('matches').select('id', { count: 'exact', head: true }).in('status', ['ended', 'abandoned'])
+      .then(({ count }) => setPlayedCount(count || 0));
     // Fetch pending count for admin badge
     Promise.all([
       supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -79,7 +82,7 @@ export default function HomeScreen({ teamCount, gameCount, onNavigate, syncing, 
             ...(!['commentator'].includes(currentUser?.role) ? [
               ["teams", "buildings", "#3B82F6", "Institutions & Teams", `${teamCount} team${teamCount !== 1 ? "s" : ""}`],
             ] : []),
-            ["history", "bar_chart", "#8B5CF6", "Game History", `${gameCount} game${gameCount !== 1 ? "s" : ""}`],
+            ["history", "bar_chart", "#8B5CF6", "Game History", (() => { const n = playedCount ?? gameCount; return `${n} game${n !== 1 ? "s" : ""}`; })()],
             ...(['commentator', 'commentator_admin'].includes(currentUser?.role) && currentUser?.commentator_status === 'qualified' ? [
               ["credits", "coins", "#F59E0B", "My Credits", "Your credit statement & vouchers"],
             ] : []),

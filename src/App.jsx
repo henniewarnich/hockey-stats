@@ -389,7 +389,13 @@ export default function App() {
     return <ReportScreen reportId={route.id} currentUser={currentUser} onBack={() => {
       const ret = sessionStorage.getItem('kykie-report-return');
       sessionStorage.removeItem('kykie-report-return');
-      if (ret) { window.location.hash = ret; } else { window.history.back(); }
+      if (ret) {
+        window.location.hash = ret;
+      } else if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.hash = currentUser ? getHomeHash(currentUser) : '';
+      }
     }} />;
   }
 
@@ -644,7 +650,8 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
     const GAMES_KEY = 'kykie-games';
     const games = loadData(GAMES_KEY, []);
     const updated = games.map(g => g.id === updatedGame.id ? updatedGame : g);
-    saveData(GAMES_KEY, updated);
+    // Only persist unsynced games — synced ones live in the cloud
+    saveData(GAMES_KEY, updated.filter(g => !g.supabase_id));
     try { await saveMatchToSupabase(updatedGame); } catch {}
     window.location.reload();
   };

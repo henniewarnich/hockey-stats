@@ -6,6 +6,14 @@ import { upsertTeam as upsertTeamRemote, deleteTeamRemote, fetchTeams, saveMatch
 const TEAMS_KEY = 'kykie-teams';
 const GAMES_KEY = 'kykie-games';
 
+// Persist only unsynced games to localStorage. Synced games live in the cloud
+// and re-hydrate on next load — keeping the local cache small protects the
+// localStorage quota and prevents in-progress recordings from breaking when
+// the synced backlog grows large.
+function saveUnsyncedGames(games) {
+  saveData(GAMES_KEY, (games || []).filter(g => !g.supabase_id));
+}
+
 export function useMatchStore() {
   const [teams, setTeams] = useState(() => loadData(TEAMS_KEY, []));
   const [games, setGames] = useState(() => loadData(GAMES_KEY, []));
@@ -28,7 +36,7 @@ export function useMatchStore() {
       if (!remote || remote.length === 0) return;
       setGames(prev => {
         const merged = mergeGames(prev, remote);
-        saveData(GAMES_KEY, merged);
+        saveUnsyncedGames(merged);
         return merged;
       });
     }).catch(() => {});
@@ -81,7 +89,7 @@ export function useMatchStore() {
   const saveGame = useCallback((game) => {
     setGames(prev => {
       const updated = [game, ...prev];
-      saveData(GAMES_KEY, updated);
+      saveUnsyncedGames(updated);
       return updated;
     });
 
@@ -96,7 +104,7 @@ export function useMatchStore() {
           const updated = prev.map(g =>
             g.id === game.id ? { ...g, supabase_id: remote.id } : g
           );
-          saveData(GAMES_KEY, updated);
+          saveUnsyncedGames(updated);
           return updated;
         });
       } else {
@@ -115,7 +123,7 @@ export function useMatchStore() {
     const game = games.find(g => g.id === id);
     setGames(prev => {
       const updated = prev.filter(g => g.id !== id);
-      saveData(GAMES_KEY, updated);
+      saveUnsyncedGames(updated);
       return updated;
     });
 
@@ -141,7 +149,7 @@ export function useMatchStore() {
   const deleteGameLocal = useCallback((id) => {
     setGames(prev => {
       const updated = prev.filter(g => g.id !== id);
-      saveData(GAMES_KEY, updated);
+      saveUnsyncedGames(updated);
       return updated;
     });
   }, []);
@@ -161,7 +169,7 @@ export function useMatchStore() {
         if (remote) {
           setGames(prev => {
             const updated = prev.map(g => g.id === game.id ? { ...g, supabase_id: remote.id } : g);
-            saveData(GAMES_KEY, updated);
+            saveUnsyncedGames(updated);
             return updated;
           });
           synced++;
