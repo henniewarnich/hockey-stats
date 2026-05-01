@@ -1,79 +1,101 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.17.30 | Date: 7 April 2026**
+**Version: 7.20.0 | Date: 1 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
 - **URL**: https://kykie.net (GitHub Pages, Afrihost DNS)
-- **Repo**: github.com/henniewarnich/hockey-stats
-- **Stack**: React 18 + Vite, Supabase (belveuygzinoipiwanwb.supabase.co), hash routing
+- **Repo**: github.com/henniewarnich/kykie (renamed from hockey-stats)
+- **Stack**: React 18 + Vite, Supabase (env-switched), hash routing
 - **Build**: `npm run build` → outputs to `docs/` folder
-- **Email**: Resend (transactional) via `no-reply@kykie.net`, DMARC configured
+- **Dev**: `npm run dev` → localhost:5173 against staging DB
+- **Email**: Resend (transactional) via `no-reply@kykie.net`, Afrihost for `info@kykie.net`
+- **Local folder**: `C:\@@Data\@@VibeProjects\Kykie`
+
+## Supabase Projects
+- **Production**: belveuygzinoipiwanwb.supabase.co (renamed to "kykie")
+- **Staging**: gswvccchwrkcwepufvdq.supabase.co (kykie-staging, eu-central-2)
+- Switching via `.env.production` / `.env.development` (Vite auto-selects)
+- `.env.development` is gitignored
 
 ## Critical Build Rules
 - **NEVER build unless explicitly instructed** — always ask first
 - **Always bump** `APP_VERSION` in `src/utils/constants.js` AND `version` in `package.json`
-- Deliver as zip excluding `.git/` and `node_modules/`
+- **Run `npm run build`** so `docs/` folder is updated
+- Deploy: `git add -A && git commit -m "v7.x.x — description" && git push`
+- Logo PNGs in `public/` — Vite auto-copies to `docs/` on build
+- CNAME file in `public/` must be preserved
 
-## Coach Experience (v7.17.25+)
-- **Single team (90% of coaches)**: `#/coach` → instant redirect to `#/team/{slug}` → stats visible immediately
-- **Multi-team**: Redirect to first team + dropdown at top of TeamPage to switch
-- **TeamPage for coaches**: Badge + name (or dropdown) → Stats strip (P/W/D/L/GF/GA/GD) → Overall/Matches/Visuals tabs → Contribute grid (Submit result, Add fixture, Suggest team, Report issue) → Security
-- **Coach approval**: Register via `#/register?role=coach` → `coach_status: 'pending'` → admin approves in User Management
+## Architecture
 
-## Feature Gating (Free / Free Plus / Premium)
-| Tier | Threshold | Visible |
-|------|-----------|---------|
-| Free | Always | Own team stats. VS OPP + Benchmark blurred (`blur(6px)`) |
-| Free Plus | Team avg ≥ 20 credits/match (ALL ended matches) | All 3 columns clear, green/yellow/grey ranking, Trends/Visuals |
-| Premium | R5,000/yr admin override | TOP10 benchmarks, AI scouting (future) |
+### Roles & Routes
+| Role | Route | Access |
+|------|-------|--------|
+| Public | `#/team/{slug}` | Score, commentary, emoji reactions via team URL |
+| Supporter | `#/submit` | Submit results, upcoming matches, suggest teams |
+| Commentator | `#/record` | Dashboard with assigned matches, Live + Live Pro recording |
+| Comm Admin | `#/admin` | Everything commentator + schedule, manage, approve |
+| Coach | `#/coach` | Dashboard → team pages with Overall/Matches/Trends/Live Stats |
+| Admin | `#/admin` | Full access: all admin screens |
 
-Practical unlock message: "110 credits short (4.8 avg × 23 matches). Record 6 matches from video to unlock."
+### Key Features
+- **Live Pro recording**: Full field recorder with 90-degree rotation (0→90→180→270) and team colour picker
+- **Match Reports**: `match_reports` table, auth-gated viewer at `#/report/{id}`, teaser/full split (supporters see stats + verdict + DNA, coaches see tactical analysis), share button, admin "Notify Coaches" button
+- **Feature gating**: Free = own stats, VS OPP + Benchmark blurred. Free Plus = avg ≥ 20 credits/match. Premium = R5,000/yr
+- **Email notifications**: pg_net + Resend from database triggers. Registration auto-notifies admin. Report notification via RPC.
+- **Coach-only CSS**: `<div class="coach-only">` gates tactical content in reports
 
-## D-Entry Stat (v7.17.30)
-- **Atk chances**: Distinct attacking opportunities counted via sequential event stream analysis (zone crossings, set pieces, turnovers in atk zone)
-- **Attack → D**: `dEntries / atkChances` — true conversion rate
-- Old `atkZoneEntries` (every event in opp quarter) replaced
+### Admin Navigation
+- `AdminBackBar` component on all 12 admin sub-screens
 
-## Commentator HomeScreen
-Training → Try Demo Match → Match Schedule → New Match → Game History → My Credits (qualified only).
-No "Teams" for commentators. Apprentice can schedule + demo. JSON Import admin-only.
+### Key Patterns
+- **Multi-role**: `role` = active, `roles[]` = all assigned. RoleSwitcher uses sessionStorage
+- **Teams query**: Always `.or('status.eq.active,status.is.null')`
+- **Supabase SQL editor**: Use `$fn$` not `$$`
+- **Ball movement**: D Entry + Ball in play = implicit forward movement (not just "Ball forward")
+- **Zone perspective**: Labels stored from home team perspective; invert for away
+- **Opponent season avg**: `oppSeasonAvg` computed from `matchDetailRecords`, not H2H only
+- **seasonAvgForTeam**: Skips matches team didn't play in, correct divisor
 
-## Live Match End Actions
-| Condition | Button | Effect |
-|---|---|---|
-| Normal (>5min, >10 events) | End & Save | Saves match + credits |
-| Normal | Match Abandoned (weather/other) | Status = abandoned, points shared |
-| Premature (<5min or <10 events) | Discard Recording | Deletes events, reverts to upcoming |
-| Demo | End & Discard / Cancel Demo | No save |
+## Email Setup
+- **Transactional**: Resend via `no-reply@kykie.net`. API key in `site_settings` table. `send_email()` Postgres fn uses pg_net.
+- **Personal**: `info@kykie.net` via Afrihost mailbox, forwarded to Gmail. Gmail "Send mail as" configured.
+- **Registration trigger**: `on_profile_created_notify` → emails hennie.warnich@gmail.com
+- **Report notification**: `notify_coaches_of_report(p_report_id)` RPC → emails coaches of both teams
+- **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
-## Pending Migrations
-```
-upgrade-scripts/v7.17.20/fix-tier-calculation.sql       — Fix recalc_team_tier RPC (all matches)
-upgrade-scripts/v7.17.20/backfill-team-credits-v2.sql   — Rebuild team credits from matches
-upgrade-scripts/v7.17.24/migration-coach-approval.sql   — coach_status column
-```
+## Session Summary (1 May 2026)
 
-## All Migrations (run order)
-```
-baseline/ → v7.1.0/ → v7.2.0/ → v7.4.5/ → v7.6.0/ → v7.7.0/ → v7.9.0/
-→ v7.12.5/ → v7.13.0/ → v7.17.0/ → v7.17.20/ → v7.17.24/
-```
+### Code Changes (v7.18.20 → v7.20.0, merged build)
+- Rename hockey-stats → kykie (package.json, IndexedDB, localStorage keys)
+- Environment switching (supabase.js reads env vars, .env.production + .env.development)
+- Per-match averages bug fix (seasonAvgForTeam skips irrelevant matches)
+- Opponent full-season averages (oppSeasonAvg state)
+- Role pill fix on TeamPage (sessionStorage role override)
+- Event deletion in GameReviewScreen (admin, with score recalculation for goals)
+- Match Reports feature (ReportScreen, route, badges, teaser/full, share, notify)
+- Email notifications (send_email fn, registration trigger, coach notify RPC)
+- CLAUDE.md + .gitignore
 
-## Key Files
-| File | Purpose |
-|---|---|
-| `src/utils/stats.js` | computeMatchStats, computeAtkChances, aggregateStats |
-| `src/utils/credits.js` | Team credits, FREE_PLUS_THRESHOLD, tier functions |
-| `src/components/CoachOverall.jsx` | Blur gating, rank3, Atk chances + Attack→D |
-| `src/screens/CoachDashboard.jsx` | Thin redirector (47 lines) → TeamPage |
-| `src/screens/TeamPage.jsx` | Team dropdown, stats strip, contribute grid, tier |
-| `src/screens/HomeScreen.jsx` | Commentator menu layout |
-| `src/screens/LiveMatchScreen.jsx` | Discard/Abandon/End, Cancel Demo |
-| `src/screens/RegisterPage.jsx` | URL param role pre-selection |
-| `src/screens/UserManagementScreen.jsx` | Coach + commentator status pills |
-| `src/screens/HistoryScreen.jsx` | gameSearchStr with try-catch |
+### Reports Generated
+1. PG vs Oranje (18 Apr) — 1-2, corrected ball movement
+2. PG vs Affies (29 Apr) — 1-1, Affies 5-4 pens
+3. PG vs Affies two-match comparison (28-29 Apr) — tactical swap
+4. PG vs Bloemhof (30 Apr) — 1-3
+5. Kykie for Coaches PowerPoint (9 slides)
+6. PG vs Oranje PDF export
+7. 29 batch reports regenerated with corrected ball movement
+
+### Infrastructure
+- GitHub repo renamed to kykie
+- Staging Supabase created + full schema migrated
+- Local dev environment working (Node.js, npm run dev against staging)
+- Gmail send/receive as info@kykie.net
+- Email signature configured
+
+### TOP 10 Benchmarks (18 Apr, 31 appearances)
+DE: 15.5 | SoG: 3.4 | TW: 28.3 | PL: 34.9 | OppDE: 10.7
 
 ## Known Issues
-- Commentator timer resume: starts from 0 after refresh
-- Normalisation: 25min vs 60min matches not yet normalised (parked)
-- Resend emails may land in spam initially
+- Score flip: Team page shows home-away order, not viewed-team-first
+- Commentator timer resume: After refresh, timer starts from 0
+- FK cascade: team_credits needs CASCADE fix for match deletion
