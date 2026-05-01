@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-const DB_NAME = 'hockey-stats-autosave';
+const DB_NAME = 'kykie-autosave';
 const STORE_NAME = 'matches';
 const AUTOSAVE_KEY = 'current-match';
 const INTERVAL_MS = 30000; // 30 seconds

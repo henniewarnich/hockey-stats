@@ -3,8 +3,8 @@ import { loadData, saveData } from '../utils/helpers.js';
 import { supabase } from '../utils/supabase.js';
 import { upsertTeam as upsertTeamRemote, deleteTeamRemote, fetchTeams, saveMatchToSupabase, deleteMatchRemote, fetchMatchesForLocal } from '../utils/sync.js';
 
-const TEAMS_KEY = 'hockey-teams';
-const GAMES_KEY = 'hockey-games';
+const TEAMS_KEY = 'kykie-teams';
+const GAMES_KEY = 'kykie-games';
 
 export function useMatchStore() {
   const [teams, setTeams] = useState(() => loadData(TEAMS_KEY, []));

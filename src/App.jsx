@@ -640,7 +640,7 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
   };
 
   const handleUpdateGame = async (updatedGame) => {
-    const GAMES_KEY = 'hockey-games';
+    const GAMES_KEY = 'kykie-games';
     const games = loadData(GAMES_KEY, []);
     const updated = games.map(g => g.id === updatedGame.id ? updatedGame : g);
     saveData(GAMES_KEY, updated);

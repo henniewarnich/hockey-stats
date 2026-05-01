@@ -1,7 +1,7 @@
 {
-  "name": "hockey-stats",
+  "name": "kykie",
   "private": true,
-  "version": "7.19.4",
+  "version": "7.20.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
