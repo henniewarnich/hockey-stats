@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.20.0 | Date: 1 May 2026**
+**Version: 7.21.1 | Date: 1 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -16,6 +16,9 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Staging**: gswvccchwrkcwepufvdq.supabase.co (kykie-staging, eu-central-2)
 - Switching via `.env.production` / `.env.development` (Vite auto-selects)
 - `.env.development` is gitignored
+- Staging test users: `admin@kykie.test`, `coach@kykie.test`, `commentator@kykie.test`, `supporter@kykie.test` (profile rows seeded via `upgrade-scripts/v7.20.0/seed-staging-test-users.sql`)
+- Staging seeder: `node --env-file=.env.staging-import scripts/seed-staging.js` (reuses prod data; service-role keys live in gitignored `.env.staging-import`, template at `.env.staging-import.example`)
+- Schema differ: `node --env-file=.env.staging-import scripts/diff-schemas.js` — flags column drift between prod and staging
 
 ## Critical Build Rules
 - **NEVER build unless explicitly instructed** — always ask first
@@ -64,6 +67,23 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (1 May 2026)
+
+### Code Changes (v7.21.0 → v7.21.1)
+- **Notify Coaches digest workflow** — new admin screen, batched per-coach digest emails of new match reports
+  - "Notify Coaches" tile on admin home; coach-first grouping with per-coach select-all
+  - Default-tick excludes coaches already notified for that report and pending coaches (greyed out)
+  - "Reports since" date filter (filters on `match_reports.generated_at`, default 30 days)
+  - Test mode toggle (staging-only, auto-hidden in prod) routes all sends to a fixed gmail and skips audit log
+- **Game History REPORT badge** (admin-only) — orange badge on matches with a report; click jumps to report; `kykie-report-return` sessionStorage drives Back to admin
+- **Per-report Notify button removed** from `ReportScreen` — replaced by the batched flow above
+- **Report Back button** now falls back to user's role home when no return token AND no browser history (fixes Back doing nothing when opened from an email link)
+- **Game History dashboard tile** counts played matches from cloud (not localStorage) — was showing 0 on fresh devices
+- **Local match cache prune** — `kykie-games` only persists unsynced games; synced re-hydrate from cloud on load. Self-heals on first load after deploy. Fixes `QuotaExceededError` on accounts with many synced matches.
+
+### Database (v7.21.0)
+- `communication_log` — generic outbound comms audit table (reusable beyond reports)
+- `notify_coach_digest(p_coach_id, p_report_ids[], p_override_email)` RPC — builds digest HTML, sends via Resend, logs the send. Test-mode override email skips the log.
+- Dropped older `notify_coaches_of_report(UUID)` — replaced by the digest flow
 
 ### Code Changes (v7.18.20 → v7.20.0, merged build)
 - Rename hockey-stats → kykie (package.json, IndexedDB, localStorage keys)
