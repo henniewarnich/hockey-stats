@@ -1,5 +1,13 @@
 # Kykie — Live School Sport Stats & Analytics
 
+## Communication style
+Hennie is a product owner with strong product intuition and limited coding experience. Tailor responses accordingly:
+- Lead with **what this means for him** in plain English. Save the technical detail for when he asks.
+- Skip filenames and line numbers in conversational answers — he can't usefully click them. They belong in PRs and code reviews, not chat.
+- When investigating something, **summarise the finding in 1–2 sentences he can act on**, then offer "want the technical detail?" as a follow-up.
+- Match the tone of the Claude.ai project: brief, direct, no walls of code unless he asks.
+- If a decision is non-obvious, give him the choice in product terms (impact, tradeoff) — not implementation terms.
+
 ## Stack
 - React 18 + Vite, hash routing, builds to `docs/` folder
 - Supabase backend (env-switched: `.env.production` for live, `.env.development` for staging)
