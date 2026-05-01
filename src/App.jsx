@@ -42,6 +42,7 @@ import CreditsScreen from './screens/CreditsScreen.jsx';
 import AdminCreditsScreen from './screens/AdminCreditsScreen.jsx';
 import SecurityScreen from './screens/SecurityScreen.jsx';
 import ReportScreen from './screens/ReportScreen.jsx';
+import NotifyCoachesScreen from './screens/NotifyCoachesScreen.jsx';
 import DeviceVerification from './components/DeviceVerification.jsx';
 import PageHeader from './components/PageHeader.jsx';
 import { KykieLoadingScreen } from './components/KykieSpinner.jsx';
@@ -738,6 +739,9 @@ function AppContent({ store, screen, setScreen, matchConfig, setMatchConfig, rev
 
     case "health":
       return <SystemHealthScreen onBack={() => navigate("home")} />;
+
+    case "notify_coaches":
+      return <NotifyCoachesScreen currentUser={currentUser} onBack={() => navigate("home")} />;
 
     case "sponsors":
       return <SponsorManagementScreen onBack={() => navigate("home")} />;

@@ -35,8 +35,10 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   const [penEdit, setPenEdit] = useState(null); // { id, home, away }
   const [top10TeamIds, setTop10TeamIds] = useState(new Set());
   const [loadingVideoId, setLoadingVideoId] = useState(null);
+  const [reportsByMatch, setReportsByMatch] = useState({});
 
   const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';
+  const isAdminRole = currentUser?.role === 'admin' || currentUser?.role === 'commentator_admin';
 
   // Fetch all ended + abandoned matches from Supabase
   const fetchCloud = async () => {
@@ -80,6 +82,17 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
 
   useEffect(() => {
     fetchCloud();
+    if (isAdminRole) {
+      supabase.from('match_reports').select('id, match_id, generated_at').order('generated_at', { ascending: false })
+        .then(({ data }) => {
+          if (!data) return;
+          const map = {};
+          data.forEach(r => {
+            if (!map[r.match_id]) map[r.match_id] = r.id; // most-recent wins (ordered desc)
+          });
+          setReportsByMatch(map);
+        });
+    }
     if (isApprentice) {
       // Fetch Top 10 team IDs to filter for apprentice
       supabase.from('ranking_sets').select('id').order('created_at', { ascending: false }).limit(1)
@@ -305,6 +318,16 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                     {g.venue && ` · ${g.venue}`}
                     {matchLabel && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#10B981", background: "#10B98118", padding: "1px 5px", borderRadius: 3 }}>{matchLabel}</span>}
                     {g.status === 'abandoned' && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#64748B", background: "#64748B22", padding: "1px 5px", borderRadius: 3 }}>ABANDONED</span>}
+                    {isAdminRole && reportsByMatch[g.supabase_id || g.id] && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sessionStorage.setItem('kykie-report-return', '#/admin');
+                          window.location.hash = `#/report/${reportsByMatch[g.supabase_id || g.id]}`;
+                        }}
+                        style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: "#F59E0B", background: "#F59E0B18", padding: "1px 5px", borderRadius: 3, cursor: "pointer", border: "1px solid #F59E0B33" }}
+                      >📄 REPORT</span>
+                    )}
                   </div>
                 </div>
 

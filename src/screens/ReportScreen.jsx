@@ -9,8 +9,6 @@ export default function ReportScreen({ reportId, matchId, currentUser, onBack })
   const [error, setError] = useState(null);
   const [isCoachForMatch, setIsCoachForMatch] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [notifying, setNotifying] = useState(false);
-  const [notifyResult, setNotifyResult] = useState(null);
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -66,21 +64,6 @@ export default function ReportScreen({ reportId, matchId, currentUser, onBack })
     else { navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {}); }
   };
 
-  const handleNotifyCoaches = async () => {
-    if (!confirm('Send email notification to all coaches of both teams?')) return;
-    setNotifying(true);
-    try {
-      const { data, error } = await supabase.rpc('notify_coaches_of_report', { p_report_id: report.id });
-      if (error) throw error;
-      setNotifyResult(data);
-      setTimeout(() => setNotifyResult(null), 4000);
-    } catch (e) {
-      console.error('Notify error:', e);
-      alert('Failed to send notifications: ' + (e.message || e));
-    }
-    setNotifying(false);
-  };
-
   if (loading) return (<div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}><KykieSpinner text message="Loading report..." /></div>);
 
   if (error === 'login') return (
@@ -104,11 +87,6 @@ export default function ReportScreen({ reportId, matchId, currentUser, onBack })
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: 13, cursor: 'pointer', padding: 0 }}>{'\u2190'} Back</button>
         <div style={{ flex: 1 }} />
         <button onClick={handleShare} style={{ fontSize: 10, fontWeight: 700, color: '#10B981', background: '#10B98115', border: '1px solid #10B98133', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>{copied ? '\u2713 Copied!' : '\u{1F517} Share'}</button>
-        {isCoachForMatch && ['admin','commentator_admin'].includes(currentUser?.role) && (
-          <button onClick={handleNotifyCoaches} disabled={notifying} style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', background: '#F59E0B15', border: '1px solid #F59E0B33', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, opacity: notifying ? 0.5 : 1 }}>
-            {notifyResult ? `\u2713 ${notifyResult.sent} sent` : notifying ? 'Sending...' : '\u{1F4E7} Notify'}
-          </button>
-        )}
         <div style={{ fontSize: 9, color: '#64748B', marginLeft: 4 }}>{report.report_type === 'analysis' ? 'Match Analysis' : report.report_type === 'scouting' ? 'Scouting Report' : 'Season Review'}</div>
       </div>
       <iframe ref={iframeRef} style={{ width: '100%', border: 'none', minHeight: 400, background: '#0B0F1A' }} sandbox="allow-same-origin allow-scripts" title={report.title} />
