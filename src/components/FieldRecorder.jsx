@@ -68,7 +68,7 @@ export default function FieldRecorder({
   useEffect(() => {
     if (fieldRef.current) setFieldW(fieldRef.current.offsetWidth);
   });
-  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? Math.min(fieldW / FIELD_H, FIELD_H / fieldW) : 1;
+  const rotateScale = needsCssRotate && fieldW > 0 && FIELD_H > 0 ? fieldW / FIELD_H : 1;
   const scaledVisualH = needsCssRotate && fieldW > 0 ? fieldW * rotateScale : FIELD_H;
   const rotateMargin = needsCssRotate && fieldW > 0 ? Math.ceil((scaledVisualH - FIELD_H) / 2) : 0;
   const screenToLocal = (clientX, clientY) => {
