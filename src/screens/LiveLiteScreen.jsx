@@ -9,6 +9,7 @@ import { teamShortName, teamColor } from '../utils/teams.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import Scoreboard from '../components/Scoreboard.jsx';
 import PausePopup from '../components/PausePopup.jsx';
+import PenaltyShootout, { pushShootoutStart, pushPenaltyKick, deleteLastKickRow, wipeShootoutRows } from '../components/PenaltyShootout.jsx';
 
 const EVENTS = [
   { id: 'goal', label: 'Goal', icon: '⚽', isGoal: true },
@@ -23,8 +24,9 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
   const [events, setEvents] = useState([]);
   const [showPause, setShowPause] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
-  const [endPenHome, setEndPenHome] = useState(null);
-  const [endPenAway, setEndPenAway] = useState(null);
+  const [shootoutOpen, setShootoutOpen] = useState(false);
+  const [shootoutFirstKicker, setShootoutFirstKicker] = useState(null);
+  const [shootoutKicks, setShootoutKicks] = useState([]);
   const [lastClicked, setLastClicked] = useState(null); // { team, eventId }
   const flashTimerRef = useRef(null);
   const [matchId, setMatchId] = useState(match.supabaseId || null);
@@ -135,16 +137,90 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
     if (matchId && !isDemo) pushLiveEvent(matchId, undoEvt, seq);
   };
 
-  const handleEndMatch = async () => {
+  const handleEndMatch = async (penOpts = {}) => {
     timer.end();
     setShowEndConfirm(false);
-    const penOpts = (homeScore === awayScore && endPenHome != null && endPenAway != null)
-      ? { homePenalty: endPenHome, awayPenalty: endPenAway } : {};
     if (matchId && !isDemo) {
       await endLiveMatch(matchId, homeScore, awayScore, timer.matchTime, penOpts);
       if (currentUser?.id) awardLiveMatchCredits(currentUser.id, matchId, 'lite').catch(() => {});
     }
     if (onEnd) onEnd({ matchId, homeScore, awayScore, duration: timer.matchTime });
+  };
+
+  // ─── Penalty Shoot-out handlers ─────────────────────
+  const openShootout = () => {
+    setShowEndConfirm(false);
+    if (timer.running) timer.pause();
+    setShootoutOpen(true);
+  };
+
+  const handlePickFirstKicker = async (team) => {
+    setShootoutFirstKicker(team);
+    const teamLabel = team === 'home' ? teamShortName(homeTeam) : teamShortName(awayTeam);
+    const startEntry = { team: 'meta', event: 'Shootout Start', detail: team, time: timer.matchTime };
+    const narrative = { team: 'commentary', event: '💬', detail: `Penalty shoot-out begins. ${teamLabel} kicks first.`, time: timer.matchTime };
+    setEvents(prev => [narrative, startEntry, ...prev]);
+    if (matchId && !isDemo) {
+      const seq1 = ++seqRef.current;
+      await pushShootoutStart(matchId, team, timer.matchTime, seq1);
+      const seq2 = ++seqRef.current;
+      await pushLiveEvent(matchId, narrative, seq2);
+    }
+  };
+
+  const handleAddKick = async (kick) => {
+    const localEntry = { team: kick.team, event: 'Penalty Kick', detail: kick.result, time: timer.matchTime };
+    setEvents(prev => [localEntry, ...prev]);
+
+    let dbId = null;
+    if (matchId && !isDemo) {
+      const seq = ++seqRef.current;
+      const { id } = await pushPenaltyKick(matchId, kick, timer.matchTime, seq);
+      dbId = id;
+    }
+    setShootoutKicks(prev => [...prev, { ...kick, eventId: dbId }]);
+  };
+
+  const handleUndoKick = async () => {
+    if (shootoutKicks.length === 0) return;
+    const last = shootoutKicks[shootoutKicks.length - 1];
+    setShootoutKicks(prev => prev.slice(0, -1));
+    setEvents(prev => {
+      const idx = prev.findIndex(e => e.event === 'Penalty Kick');
+      if (idx < 0) return prev;
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
+    });
+    if (matchId && !isDemo && last.eventId) {
+      await deleteLastKickRow(matchId, last.eventId);
+    }
+  };
+
+  const handleCancelShootout = async () => {
+    setShootoutOpen(false);
+    setShootoutFirstKicker(null);
+    setShootoutKicks([]);
+    setEvents(prev => prev.filter(e =>
+      e.event !== 'Penalty Kick' && e.event !== 'Shootout Start' && e.event !== 'Shootout End'
+      && !(e.team === 'commentary' && e.detail?.toLowerCase()?.includes('shoot-out begins'))
+    ));
+    if (matchId && !isDemo) {
+      await wipeShootoutRows(matchId);
+      try {
+        await supabase.from('match_events').delete().eq('match_id', matchId).eq('team', 'commentary').ilike('detail', '%shoot-out begins%');
+      } catch {}
+    }
+  };
+
+  const handleShootoutComplete = async (homePens, awayPens) => {
+    const winLabel = homePens > awayPens ? teamShortName(homeTeam) : teamShortName(awayTeam);
+    const endEntry = { team: 'meta', event: 'Shootout End', detail: `${winLabel} win shoot-out ${Math.max(homePens, awayPens)}–${Math.min(homePens, awayPens)}`, time: timer.matchTime };
+    setEvents(prev => [endEntry, ...prev]);
+    if (matchId && !isDemo) {
+      const seq = ++seqRef.current;
+      await pushLiveEvent(matchId, endEntry, seq);
+    }
+    setShootoutOpen(false);
+    handleEndMatch({ homePenalty: homePens, awayPenalty: awayPens });
   };
 
   const handleAbandon = async () => {
@@ -345,36 +421,19 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
             <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
               Time: {fmt(timer.matchTime)}{isDemo ? ' · Data will not be saved' : ''}
             </div>
-            {/* Penalty option when tied */}
+            {/* Penalty Shoot-out option when tied */}
             {!isDemo && homeScore === awayScore && (
               <div style={{ marginBottom: 12 }}>
-                <div onClick={() => { if (endPenHome == null) { setEndPenHome(0); setEndPenAway(0); } else { setEndPenHome(null); setEndPenAway(null); } }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', padding: '4px 0' }}>
-                  <div style={{ width: 14, height: 14, borderRadius: 3, border: '1.5px solid #F59E0B44', background: endPenHome != null ? '#F59E0B' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {endPenHome != null && <span style={{ color: '#0B0F1A', fontSize: 10, fontWeight: 900 }}>✓</span>}
-                  </div>
-                  <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>Decided by penalties</span>
-                </div>
-                {endPenHome != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button onClick={() => setEndPenHome(Math.max(0, (endPenHome || 0) - 1))} style={{ ...btnStyle('#334155'), width: 28, padding: 0 }}>–</button>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenHome}</div>
-                      <button onClick={() => setEndPenHome((endPenHome || 0) + 1)} style={{ ...btnStyle('#F59E0B'), width: 28, padding: 0 }}>+</button>
-                    </div>
-                    <span style={{ fontSize: 9, color: '#475569' }}>pen</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button onClick={() => setEndPenAway(Math.max(0, (endPenAway || 0) - 1))} style={{ ...btnStyle('#334155'), width: 28, padding: 0 }}>–</button>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', width: 20, textAlign: 'center' }}>{endPenAway}</div>
-                      <button onClick={() => setEndPenAway((endPenAway || 0) + 1)} style={{ ...btnStyle('#F59E0B'), width: 28, padding: 0 }}>+</button>
-                    </div>
-                  </div>
-                )}
+                <button onClick={openShootout} style={{
+                  width: '100%', padding: 12, borderRadius: 10, border: '1px solid #F59E0B66',
+                  background: '#F59E0B22', color: '#F59E0B', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                }}>⚽ Decide by Penalty Shoot-out</button>
+                <div style={{ fontSize: 9, color: '#64748B', marginTop: 4, textAlign: 'center' }}>Records each kick live for supporters</div>
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setShowEndConfirm(false)} style={{ ...btnStyle('#334155'), flex: 1 }}>Cancel</button>
-              <button onClick={handleEndMatch} style={{ ...btnStyle('#EF4444'), flex: 1, color: '#F8FAFC' }}>{isDemo ? 'End & Discard' : 'End Match'}</button>
+              <button onClick={() => handleEndMatch()} style={{ ...btnStyle('#EF4444'), flex: 1, color: '#F8FAFC' }}>{isDemo ? 'End & Discard' : 'End Match'}</button>
             </div>
             {!isDemo && (
               <button onClick={handleAbandon} style={{ ...btnStyle('#64748B'), width: '100%', marginTop: 6, fontSize: 10, color: '#94A3B8' }}>Abandon Match</button>
@@ -384,6 +443,20 @@ export default function LiveLiteScreen({ match, currentUser, onEnd, onPromote })
       )}
 
       <PausePopup show={showPause} onSelect={handlePause} onClose={() => setShowPause(false)} />
+
+      {/* Penalty Shoot-out overlay */}
+      {shootoutOpen && (
+        <PenaltyShootout
+          teams={{ home: homeTeam, away: awayTeam }}
+          firstKicker={shootoutFirstKicker}
+          kicks={shootoutKicks}
+          onPickFirstKicker={handlePickFirstKicker}
+          onAddKick={handleAddKick}
+          onUndoLastKick={handleUndoKick}
+          onCancelShootout={handleCancelShootout}
+          onComplete={handleShootoutComplete}
+        />
+      )}
     </div>
   );
 }

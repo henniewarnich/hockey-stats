@@ -4,3 +4,4 @@ node_modules/
 .env.staging-import
 .DS_Store
 *.log
+mockups/

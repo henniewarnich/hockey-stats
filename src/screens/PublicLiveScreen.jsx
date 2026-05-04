@@ -16,6 +16,8 @@ function filterPublicEvents(events) {
 }
 
 function classifyEvent(entry) {
+  if (entry.event === "Penalty Kick") return entry.detail === "Goal" ? "pen_goal" : "pen_miss";
+  if (entry.event === "Shootout Start" || entry.event === "Shootout End") return "shootout_marker";
   if (entry.event?.startsWith("Goal")) return "goal";
   if (entry.event === "Short Corner" || entry.event === "Long Corner" || entry.event === "Penalty") return "set_piece";
   if (entry.event?.includes("Card")) return "card";
@@ -28,6 +30,9 @@ function classifyEvent(entry) {
 function getEventStyle(type, teamColor) {
   switch (type) {
     case "goal": return { bg: "#F59E0B12", border: "#F59E0B", icon: "⚽", iconBg: "#F59E0B22" };
+    case "pen_goal": return { bg: "#10B98112", border: "#10B981", icon: "⚽", iconBg: "#10B98122" };
+    case "pen_miss": return { bg: "#EF444412", border: "#EF4444", icon: "✗", iconBg: "#EF444422" };
+    case "shootout_marker": return { bg: "#8B5CF618", border: "#8B5CF6", icon: "🥅", iconBg: "#8B5CF622" };
     case "set_piece": return { bg: "#8B5CF608", border: teamColor || "#64748B", icon: "🔲", iconBg: "#8B5CF622" };
     case "card": return { bg: "#F59E0B08", border: "#F59E0B", icon: "🟨", iconBg: "#F59E0B18" };
     case "narrative": return { bg: "#1E293B", border: "#475569", icon: "📝", iconBg: "#334155" };
@@ -43,6 +48,13 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
 
   const publicEvents = filterPublicEvents(events);
   const isEnded = match?.status === "ended";
+
+  // Detect shootout state from events
+  const shootoutStarted = events.some(e => e.event === "Shootout Start");
+  const shootoutEnded = events.some(e => e.event === "Shootout End");
+  const homePens = events.filter(e => e.event === "Penalty Kick" && e.team === "home" && e.detail === "Goal").length;
+  const awayPens = events.filter(e => e.event === "Penalty Kick" && e.team === "away" && e.detail === "Goal").length;
+  const inShootout = shootoutStarted && !shootoutEnded && !isEnded;
 
   // Determine current quarter from pause events
   const pauseEvents = events.filter(e => e.team === "meta" && e.detail);
@@ -69,21 +81,31 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
 
       {/* Scoreboard */}
       <div style={{ padding: "12px 14px 16px" }}>
-        <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: isEnded ? "1px solid #33415544" : "1px solid #10B98122" }}>
+        <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: isEnded ? "1px solid #33415544" : inShootout ? "1px solid #F59E0B66" : "1px solid #10B98122" }}>
+          {inShootout && (
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", background: "#F59E0B22", padding: "3px 10px", borderRadius: 99, letterSpacing: 1.5 }}>
+                ⚽ PENALTY SHOOT-OUT
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center", flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: teamColor(teams.home), marginBottom: 2 }}>{teamShortName(teams.home)}</div>
               {teams.home.rank && <div style={{ fontSize: 8, color: "#64748B", marginBottom: 6 }}>Ranked #{teams.home.rank}</div>}
               {!teams.home.rank && <div style={{ fontSize: 8, color: "#475569", marginBottom: 6 }}>&nbsp;</div>}
               <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{homeGoals}</div>
+              {(inShootout || (homePens + awayPens > 0)) && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B', marginTop: 2 }}>{homePens} <span style={{ fontSize: 8, color: '#64748B' }}>pen</span></div>
+              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "0 10px" }}>
               <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "monospace", color: isEnded ? theme.danger : "#F59E0B" }}>
-                {isEnded ? "FT" : fmtClock(matchTime)}
+                {isEnded ? "FT" : inShootout ? "PEN" : fmtClock(matchTime)}
               </div>
               {!isEnded && (
-                <div style={{ fontSize: 8, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: running ? "#10B98122" : "#F59E0B22", color: running ? "#10B981" : "#F59E0B" }}>
-                  {running ? periodLabel : "⏸"}
+                <div style={{ fontSize: 8, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: inShootout ? "#F59E0B22" : running ? "#10B98122" : "#F59E0B22", color: inShootout ? "#F59E0B" : running ? "#10B981" : "#F59E0B" }}>
+                  {inShootout ? "SHOOT-OUT" : running ? periodLabel : "⏸"}
                 </div>
               )}
             </div>
@@ -92,6 +114,9 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
               {teams.away.rank && <div style={{ fontSize: 8, color: "#64748B", marginBottom: 6 }}>Ranked #{teams.away.rank}</div>}
               {!teams.away.rank && <div style={{ fontSize: 8, color: "#475569", marginBottom: 6 }}>Unranked</div>}
               <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1 }}>{awayGoals}</div>
+              {(inShootout || (homePens + awayPens > 0)) && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B', marginTop: 2 }}>{awayPens} <span style={{ fontSize: 8, color: '#64748B' }}>pen</span></div>
+              )}
             </div>
           </div>
         </div>
@@ -136,6 +161,19 @@ export default function PublicLiveScreen({ match, events, matchTime, running, on
                       <>
                         <div style={{ fontSize: 12, fontWeight: 900, color: "#F59E0B", marginBottom: 2 }}>GOAL! {teamShortName(teams[entry.team])}</div>
                         <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.4 }}>{entry.detail}</div>
+                      </>
+                    ) : type === "pen_goal" ? (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#10B981", marginBottom: 2 }}>⚽ {teamShortName(teams[entry.team])} — Penalty scored</div>
+                      </>
+                    ) : type === "pen_miss" ? (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#EF4444", marginBottom: 2 }}>✗ {teamShortName(teams[entry.team])} — Penalty saved</div>
+                      </>
+                    ) : type === "shootout_marker" ? (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#8B5CF6", marginBottom: 1 }}>{entry.event === "Shootout Start" ? "Penalty shoot-out begins" : "Shoot-out complete"}</div>
+                        {entry.detail && <div style={{ fontSize: 10, color: "#CBD5E1", lineHeight: 1.4 }}>{entry.event === "Shootout Start" ? `${teamShortName(teams[entry.detail])} kicks first` : entry.detail}</div>}
                       </>
                     ) : type === "card" ? (
                       <>

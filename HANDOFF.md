@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.21.1 | Date: 1 May 2026**
+**Version: 7.22.0 | Date: 4 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,7 +66,21 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Report notification**: `notify_coaches_of_report(p_report_id)` RPC → emails coaches of both teams
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
-## Session Summary (1 May 2026)
+## Session Summary (4 May 2026)
+
+### Code Changes (v7.21.1 → v7.22.0)
+- **Live Penalty Shoot-out flow** — kick-by-kick recording for both Live Pro and Live Lite recorders
+  - At full-time when scores are level, "⚽ Decide by Penalty Shoot-out" replaces the old typed-in pen score
+  - Recorder picks first kicker, then taps GOAL or MISS for each kick; running pen tally + round indicator
+  - Open-ended sudden-death rounds beyond 5 (slot dots get added as kicks come in)
+  - Undo Last Kick (with confirmation) reverses the kick + pen score in DB and on supporters' feed
+  - Cancel Shoot-out (with confirmation) wipes all kick events and returns to tied full-time state
+  - Complete Match writes `home_penalty_score` / `away_penalty_score` and ends the match
+  - Each kick stored as a `match_events` row (`event='Penalty Kick'`, `detail='Goal'|'Miss'`); no schema changes
+- **Public live view (TeamPage live tab + PublicLiveScreen)** — supporters now see the shoot-out as it happens
+  - Scoreboard shows running pen score under each team and a "⚽ PEN SHOOT-OUT" badge
+  - Live commentary feed picks up each kick (green-styled GOAL / red-styled SAVED) plus the "Penalty shoot-out begins" marker
+- **Game History "+ pen" dialog fixes** — full team names in the popup, error surfacing on save failure, Clear button race condition fixed
 
 ### Code Changes (v7.21.0 → v7.21.1)
 - **Notify Coaches digest workflow** — new admin screen, batched per-coach digest emails of new match reports

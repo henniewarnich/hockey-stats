@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
-import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamSearchString, teamShortName } from '../utils/teams.js';
+import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamShortName } from '../utils/teams.js';
 import { logAudit } from '../utils/audit.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
@@ -57,8 +57,8 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
           supabase_id: m.id,
           date: m.match_date,
           teams: {
-            home: { name: teamShortName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase(), instName: m.home_team?.institution?.name || '' },
-            away: { name: teamShortName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase(), instName: m.away_team?.institution?.name || '' },
+            home: { name: teamShortName(m.home_team), displayName: teamDisplayName(m.home_team), color: m.home_team?.color, id: m.home_team?.id, short: teamShortName(m.home_team)?.slice(0, 3).toUpperCase(), instName: m.home_team?.institution?.name || '' },
+            away: { name: teamShortName(m.away_team), displayName: teamDisplayName(m.away_team), color: m.away_team?.color, id: m.away_team?.id, short: teamShortName(m.away_team)?.slice(0, 3).toUpperCase(), instName: m.away_team?.institution?.name || '' },
           },
           homeScore: m.home_score,
           awayScore: m.away_score,
@@ -162,14 +162,25 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
     fetchCloud();
   };
 
-  const savePenalty = async () => {
-    if (!penEdit) return;
-    const { id, home, away } = penEdit;
+  const savePenalty = async (override) => {
+    const edit = override || penEdit;
+    if (!edit) return;
+    const { id, home, away } = edit;
     const hasValues = home != null && away != null && (home > 0 || away > 0);
     const update = hasValues
       ? { home_penalty_score: home, away_penalty_score: away }
       : { home_penalty_score: null, away_penalty_score: null };
-    await supabase.from('matches').update(update).eq('id', id);
+    const { data, error } = await supabase.from('matches').update(update).eq('id', id).select('id, home_penalty_score, away_penalty_score');
+    if (error) {
+      console.error('Penalty save failed:', error);
+      alert(`Could not save penalty score: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      console.error('Penalty save matched no rows:', { id, update });
+      alert('Could not save penalty score: match not found or update blocked.');
+      return;
+    }
     logAudit('penalty_score_edit', 'match', id, update);
     setPenEdit(null);
     fetchCloud();
@@ -340,7 +351,7 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                   <div style={{ height: 3, borderRadius: 2, background: rc, marginTop: 3 }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', marginTop: 4 }}>
                     {isSynced && g.homeScore === g.awayScore && g.status !== 'abandoned' && !isApprentice && (
-                      <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0, homeName: g.teams?.home?.name || 'Home', awayName: g.teams?.away?.name || 'Away' }); }}
+                      <span onClick={(e) => { e.stopPropagation(); setPenEdit({ id: g.supabase_id || g.id, home: g.homePenalty || 0, away: g.awayPenalty || 0, homeName: g.teams?.home?.displayName || g.teams?.home?.name || 'Home', awayName: g.teams?.away?.displayName || g.teams?.away?.name || 'Away' }); }}
                         style={{ fontSize: 8, color: '#F59E0B', cursor: 'pointer', fontWeight: 700, border: '1px solid #F59E0B44', borderRadius: 4, padding: '2px 6px', background: '#F59E0B11' }}>
                         {g.homePenalty != null ? '✏ pen' : '+ pen'}
                       </span>
@@ -389,9 +400,9 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { setPenEdit(p => ({ ...p, home: null, away: null })); savePenalty(); }}
+              <button onClick={() => savePenalty({ ...penEdit, home: null, away: null })}
                 style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#64748B', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Clear</button>
-              <button onClick={savePenalty}
+              <button onClick={() => savePenalty()}
                 style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', background: '#F59E0B', color: '#0B0F1A', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Save</button>
             </div>
             <button onClick={() => setPenEdit(null)}

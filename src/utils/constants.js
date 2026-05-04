@@ -1,4 +1,4 @@
-export const APP_VERSION = "7.21.1";
+export const APP_VERSION = "7.22.0";
 
 export const ZONES = [
   { id: "opp_quarter", label: "Opp Quarter" },
@@ -68,4 +68,5 @@ export const PUBLIC_EVENTS = [
   "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
   "Green Card", "Yellow Card", "Penalty Stroke",
   "D Entry", "Shot on Goal", "Shot Off Target", "Dead Ball", "Long Corner", "Lost Possession",
+  "Penalty Kick", "Shootout Start", "Shootout End",
 ];

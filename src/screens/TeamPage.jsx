@@ -49,6 +49,8 @@ const PUBLIC_EVENTS = [
 const COMMENTARY_TYPES = ["commentary", "meta"];
 
 function classifyEvent(e) {
+  if (e.event === "Penalty Kick") return e.detail === "Goal" ? "pen_goal" : "pen_miss";
+  if (e.event === "Shootout Start" || e.event === "Shootout End") return "shootout_marker";
   if (e.event?.startsWith("Goal")) return "goal";
   if (["Short Corner", "Long Corner", "Penalty"].includes(e.event)) return "set_piece";
   if (e.event?.includes("Card")) return "card";
@@ -63,6 +65,9 @@ function classifyEvent(e) {
 function eventIcon(type) {
   switch (type) {
     case "goal": return "⚽";
+    case "pen_goal": return "⚽";
+    case "pen_miss": return "✗";
+    case "shootout_marker": return "🥅";
     case "set_piece": return "🏑";
     case "card": return "🟨";
     case "pause": return "⏸";
@@ -77,6 +82,9 @@ function eventIcon(type) {
 function eventColor(type) {
   switch (type) {
     case "goal": return "#F59E0B";
+    case "pen_goal": return "#10B981";
+    case "pen_miss": return "#EF4444";
+    case "shootout_marker": return "#8B5CF6";
     case "set_piece": return "#8B5CF6";
     case "card": return "#EF4444";
     case "pause": return "#F59E0B";
@@ -892,15 +900,25 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
       )}
 
       {/* ═══ LIVE TAB ═══ */}
-      {(tab === "live" && liveMatch) && (
+      {(tab === "live" && liveMatch) && (() => {
+        // Detect shootout state from live events
+        const shootoutStarted = liveEvents.some(e => e.event === "Shootout Start");
+        const shootoutEnded = liveEvents.some(e => e.event === "Shootout End");
+        const homePens = liveEvents.filter(e => e.event === "Penalty Kick" && e.team === "home" && e.detail === "Goal").length;
+        const awayPens = liveEvents.filter(e => e.event === "Penalty Kick" && e.team === "away" && e.detail === "Goal").length;
+        const inShootout = shootoutStarted && !shootoutEnded;
+        return (
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           {/* Scoreboard */}
           <div style={{ padding: "8px 14px 14px" }}>
-            <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: "1px solid #10B98122" }}>
+            <div style={{ background: "#1E293B", borderRadius: 14, padding: "16px 12px", border: inShootout ? "1px solid #F59E0B66" : "1px solid #10B98122" }}>
               <div style={{ textAlign: "center", marginBottom: 8, display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "#10B981", background: "#10B98122", padding: "3px 12px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 4 }}>
                   <span style={{ animation: "pulse-dot 2s infinite" }}>●</span> LIVE
                 </span>
+                {inShootout && (
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", background: "#F59E0B22", padding: "3px 10px", borderRadius: 99, letterSpacing: 1 }}>⚽ PEN SHOOT-OUT</span>
+                )}
                 {matchViewers > 0 && (
                   <span style={{ fontSize: 10, color: "#64748B", display: "inline-flex", alignItems: "center", gap: 3 }}>
                     👁 {matchViewers} watching
@@ -911,13 +929,19 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.homeColor || "#3B82F6", marginBottom: 4 }}>{teamDisplayName(liveMatch.home_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.home_score}</div>
+                  {(inShootout || homePens + awayPens > 0) && (
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#F59E0B', marginTop: 4 }}>{homePens} <span style={{ fontSize: 9, color: '#64748B' }}>pen</span></div>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: "#F59E0B" }}>{fmtClock(liveTime)}</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "monospace", color: "#F59E0B" }}>{inShootout ? "PEN" : fmtClock(liveTime)}</div>
                 </div>
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: liveColors.awayColor || "#EF4444", marginBottom: 4 }}>{teamDisplayName(liveMatch.away_team)}</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1 }}>{liveMatch.away_score}</div>
+                  {(inShootout || homePens + awayPens > 0) && (
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#F59E0B', marginTop: 4 }}>{awayPens} <span style={{ fontSize: 9, color: '#64748B' }}>pen</span></div>
+                  )}
                 </div>
               </div>
               {liveMatch.venue && <div style={{ textAlign: "center", marginTop: 8, fontSize: 10, color: "#64748B" }}>{liveMatch.match_type ? (liveMatch.match_type.charAt(0).toUpperCase() + liveMatch.match_type.slice(1)) + ' @ ' : ''}{liveMatch.venue}</div>}
@@ -971,6 +995,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
                 if (isGoal && teamName) text = `GOAL! ${teamName}`;
                 if (type === "start") text = entry.detail || "Match underway";
                 if (type === "pause") text = entry.detail || entry.event;
+                if (type === "pen_goal" && teamName) text = `${teamName} — Penalty scored`;
+                if (type === "pen_miss" && teamName) text = `${teamName} — Penalty saved`;
+                if (type === "shootout_marker") {
+                  if (entry.event === "Shootout Start") {
+                    const firstTeam = entry.detail === "home" ? teamShortName(liveMatch.home_team) : teamShortName(liveMatch.away_team);
+                    text = `Penalty shoot-out begins — ${firstTeam} kicks first`;
+                  } else {
+                    text = entry.detail || "Shoot-out complete";
+                  }
+                }
 
                 const showReactions = ["goal", "narrative", "set_piece"].includes(type);
 
@@ -998,7 +1032,8 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══ OVERALL TAB (Coach) ═══ */}
       {tab === "overall" && isCoach && !selectedMatch && (
