@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.22.0 | Date: 4 May 2026**
+**Version: 7.22.1 | Date: 4 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -67,6 +67,9 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (4 May 2026)
+
+### Code Changes (v7.22.0 → v7.22.1)
+- **System Health → Export All Data (JSON)** now includes 7 previously-missing tables: `match_reports`, `app_settings`, `communication_log`, `login_attempts`, `team_credits`, `team_tiers`, `user_devices`, `vouchers`
 
 ### Code Changes (v7.21.1 → v7.22.0)
 - **Live Penalty Shoot-out flow** — kick-by-kick recording for both Live Pro and Live Lite recorders
