@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.22.1 | Date: 4 May 2026**
+**Version: 7.22.2 | Date: 4 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -67,6 +67,10 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (4 May 2026)
+
+### Code Changes (v7.22.1 → v7.22.2)
+- **Live Pro field rotation** — fix 270° (4th rotation) to put the previously-top team on the left instead of right; full clockwise cycle now works at every 90° step
+- **Coach digest email** — when a match was decided by penalties, the digest line now shows e.g. "Oranje won 3–1 on penalties" under the regulation score (DB function update — run `upgrade-scripts/v7.22.2/migration-coach-digest-pens.sql` in Supabase SQL editor)
 
 ### Code Changes (v7.22.0 → v7.22.1)
 - **System Health → Export All Data (JSON)** now includes 7 previously-missing tables: `match_reports`, `app_settings`, `communication_log`, `login_attempts`, `team_credits`, `team_tiers`, `user_devices`, `vouchers`

@@ -40,7 +40,7 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [showPauseReason, setShowPauseReason] = useState(false);
   const [rotation, setRotation] = useState(0);
-  const flipped = rotation >= 180;
+  const flipped = rotation === 180;
   const [sidelineOut, setSidelineOut] = useState(null);
   const [lastSavedGame, setLastSavedGame] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
@@ -606,8 +606,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
         {matchState !== "ended" && (
           <button onClick={() => {
             const next = (rotation + 90) % 360;
-            const wasFlipped = rotation >= 180;
-            const willFlip = next >= 180;
+            const wasFlipped = rotation === 180;
+            const willFlip = next === 180;
             if (wasFlipped !== willFlip) {
               const mirrorPos = (p) => p === "left" ? "right" : p === "right" ? "left" : p;
               const mirrorEnd = (e) => e === "top" ? "bottom" : e === "bottom" ? "top" : e;
