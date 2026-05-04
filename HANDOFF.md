@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.22.2 | Date: 4 May 2026**
+**Version: 7.22.3 | Date: 4 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -67,6 +67,9 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (4 May 2026)
+
+### Code Changes (v7.22.2 → v7.22.3)
+- **Live Pro field rotation no longer stretches** at 90°/270° on screens wider than the field's native height — scale is clamped so the rotated field never grows beyond its natural proportions
 
 ### Code Changes (v7.22.1 → v7.22.2)
 - **Live Pro field rotation** — fix 270° (4th rotation) to put the previously-top team on the left instead of right; full clockwise cycle now works at every 90° step
