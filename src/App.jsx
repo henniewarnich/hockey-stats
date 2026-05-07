@@ -25,6 +25,7 @@ import MatchScheduleScreen from './screens/MatchScheduleScreen.jsx';
 import CommentatorDashboard from './screens/CommentatorDashboard.jsx';
 import CoachDashboard from './screens/CoachDashboard.jsx';
 import ResetPasswordScreen from './screens/ResetPasswordScreen.jsx';
+import ProfileEditScreen from './screens/ProfileEditScreen.jsx';
 import RegisterPage from './screens/RegisterPage.jsx';
 import CrowdSubmitScreen from './screens/CrowdSubmitScreen.jsx';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen.jsx';
@@ -75,6 +76,7 @@ function getHashRoute() {
   if (hash === 'health') return { type: 'health' };
   if (hash === 'training') return { type: 'training' };
   if (hash === 'security') return { type: 'security' };
+  if (hash === 'profile') return { type: 'profile' };
   if (hash === 'coach') return { type: 'coach' };
   if (hash === 'info/coach') return { type: 'info_coach' };
   if (hash === 'info/commentator') return { type: 'info_commentator' };
@@ -451,6 +453,18 @@ export default function App() {
       return <LoginPage onLogin={handleLogin} />;
     }
     return <SecurityScreen currentUser={currentUser} onBack={() => { window.history.back(); }} />;
+  }
+
+  // Profile self-edit (any authenticated user)
+  if (route.type === 'profile') {
+    if (!currentUser) {
+      return <LoginPage onLogin={handleLogin} />;
+    }
+    return <ProfileEditScreen currentUser={currentUser} onLogout={handleLogout} onRoleSwitch={handleRoleSwitch}
+      onBack={() => {
+        if (window.history.length > 1) window.history.back();
+        else window.location.hash = getHomeHash(currentUser);
+      }} />;
   }
 
   if (route.type === 'info_coach') return <CoachInfoScreen />;

@@ -37,7 +37,9 @@ export default function UserManagementScreen({ currentUser, onBack }) {
   const [coachTeamsMap, setCoachTeamsMap] = useState({}); // { coachId: [team, ...] }
   const [editCoachTeams, setEditCoachTeams] = useState([]); // team IDs for edit view
   const [editRoles, setEditRoles] = useState([]);
+  const [editSupportingInsts, setEditSupportingInsts] = useState([]); // institution IDs
   const [teamSearch, setTeamSearch] = useState("");
+  const [instSearch, setInstSearch] = useState("");
 
   // Create form state
   const [firstname, setFirstname] = useState("");
@@ -132,6 +134,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
       role: editUser.role,
       roles: editRoles,
       mobile_number: editUser.mobile_number?.trim() || null,
+      supporting_institution_ids: editSupportingInsts,
       commentator_status: editUser.commentator_status || null,
       coach_status: editUser.coach_status || null,
     });
@@ -175,7 +178,9 @@ export default function UserManagementScreen({ currentUser, onBack }) {
     setEditUser({ ...u });
     setEditRoles(u.roles?.length > 0 ? [...u.roles] : [u.role]);
     setEditCoachTeams((coachTeamsMap[u.id] || []).map(t => t.id));
+    setEditSupportingInsts(u.supporting_institution_ids || []);
     setTeamSearch("");
+    setInstSearch("");
     setView("edit");
     setSaveError("");
   };
@@ -292,6 +297,54 @@ export default function UserManagementScreen({ currentUser, onBack }) {
             placeholder="e.g. 082 123 4567" />
         </div>
 
+        {/* Supporting Institutions — admin-editable for any user */}
+        {isAdmin && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: theme.textDim, marginBottom: 4 }}>Supporting Institutions</div>
+            {editSupportingInsts.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                {editSupportingInsts.map(id => {
+                  const inst = allInstitutions.find(i => i.id === id);
+                  if (!inst) return null;
+                  return (
+                    <span key={id} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                      background: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F644',
+                    }}>
+                      {inst.short_name || inst.name}
+                      <span onClick={() => setEditSupportingInsts(prev => prev.filter(x => x !== id))}
+                        style={{ cursor: 'pointer', marginLeft: 2, fontSize: 13, lineHeight: 1 }}>×</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <input style={{ ...S.input, fontSize: 11 }} value={instSearch}
+              onChange={e => setInstSearch(e.target.value)}
+              placeholder="🔍 Search institutions to add..." />
+            {instSearch.trim() && (
+              <div style={{ maxHeight: 140, overflowY: 'auto', marginTop: 4, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg }}>
+                {allInstitutions.filter(i =>
+                  !editSupportingInsts.includes(i.id) &&
+                  (i.name?.toLowerCase().includes(instSearch.toLowerCase()) || i.short_name?.toLowerCase().includes(instSearch.toLowerCase()))
+                ).slice(0, 30).map(i => (
+                  <div key={i.id} onClick={() => { setEditSupportingInsts(prev => [...prev, i.id]); setInstSearch(""); }}
+                    style={{ padding: '8px 12px', fontSize: 12, color: theme.text, cursor: 'pointer', borderBottom: `1px solid ${theme.border}` }}>
+                    {i.short_name ? `${i.short_name} — ${i.name}` : i.name}
+                  </div>
+                ))}
+                {allInstitutions.filter(i =>
+                  !editSupportingInsts.includes(i.id) &&
+                  (i.name?.toLowerCase().includes(instSearch.toLowerCase()) || i.short_name?.toLowerCase().includes(instSearch.toLowerCase()))
+                ).length === 0 && (
+                  <div style={{ padding: '8px 12px', fontSize: 11, color: theme.textDim }}>No matches</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Profile details — read-only summary of registration data */}
         {(() => {
           const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -319,7 +372,6 @@ export default function UserManagementScreen({ currentUser, onBack }) {
               <Row label="Gender" value={editUser.biological_gender ? editUser.biological_gender.charAt(0).toUpperCase() + editUser.biological_gender.slice(1) : null} />
               <Row label="Home town" value={editUser.home_town} />
               <Row label="Sport interest" value={sportLabel === '—' ? null : sportLabel} />
-              <Row label="Supporting" value={supportingNames.length > 0 ? supportingNames.join(', ') : null} />
               <Row label="Notifications" value={notifBits.length > 0 ? notifBits.join(' · ') : 'None'} />
               <Row label="Terms accepted" value={editUser.accepted_terms_at ? fmtDate(editUser.accepted_terms_at) : null} />
               <Row label="Last seen" value={editUser.last_seen_at ? fmtDate(editUser.last_seen_at) : null} />

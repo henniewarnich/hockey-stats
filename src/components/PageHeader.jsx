@@ -29,7 +29,11 @@ export default function PageHeader({ currentUser, onLogout, onRoleSwitch, onBack
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {currentUser ? (
           <>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>{currentUser.alias_nickname || currentUser.firstname}</div>
+            <div onClick={() => { window.location.hash = '#/profile'; }}
+              style={{ fontSize: 11, color: '#94A3B8', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#33415588', textUnderlineOffset: 2 }}
+              title="Edit my profile">
+              {currentUser.alias_nickname || currentUser.firstname}
+            </div>
             {onRoleSwitch && <RoleSwitcher currentUser={currentUser} onSwitch={onRoleSwitch} />}
             <button onClick={onLogout} style={{ fontSize: 10, color: '#EF4444', background: '#EF444411', border: '1px solid #EF444444', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}>Sign out</button>
           </>

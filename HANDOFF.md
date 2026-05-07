@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.23.3 | Date: 7 May 2026**
+**Version: 7.23.4 | Date: 7 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,6 +66,12 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (7 May 2026 — afternoon)
+
+### Code Changes (v7.23.3 → v7.23.4)
+- **Admin can edit Supporting Institutions on any user** — Edit User screen now has a search/chip picker for `supporting_institution_ids` (mirrors the Coach Teams picker UX)
+- **Self-edit profile screen at `#/profile`** — any logged-in user can now edit their own First/Last name, Nickname, Mobile Number, Home Town, DOB, Gender, Sport Interest, Supporting Institutions and Notification Preferences. Email, username and role stay read-only (admin-managed)
+- **Entry point** — clicking your own first name in the page header (visible from Home, Coach Dashboard, Supporter Dashboard etc.) routes to `#/profile`
+- **No DB changes** — uses the existing "Users update own profile" RLS policy (`auth.uid() = id`) from baseline migration
 
 ### Code Changes (v7.23.2 → v7.23.3)
 - **Added `mobile_number` field on profiles**
