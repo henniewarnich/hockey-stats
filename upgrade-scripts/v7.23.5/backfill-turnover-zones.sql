@@ -1,6 +1,20 @@
 -- ============================================
--- kykie.net v7.23.5 — Backfill Turnover Won zones
+-- kykie.net v7.23.5 — Backfill Turnover Won zones (PAIR-BASED — SUPERSEDED)
 -- ============================================
+--
+-- ⚠ SUPERSEDED — DO NOT USE. Kept for record only.
+--
+-- This was the first attempt: copy the zone from a "matching"
+-- Poss Conceded event (opposite team, ±2s match_time). It only
+-- recovered ~0.1% of rows in practice because Turnover Won and
+-- Poss Conceded are alternate workflows in the recorder, not
+-- paired writes — most "Centre" rows have no Poss Conceded twin.
+--
+-- ✅ Use `backfill-turnover-zones-smart.sql` instead. It looks at
+-- the ball's last-known zone from any preceding zone-bearing event
+-- in the same match (by `seq`) and recovers ~99.7% of rows.
+--
+-- ── Original description (for reference) ──────────────────────
 -- A bug in Live Pro hardcoded zone='Centre' on every Turnover Won
 -- event (LiveMatchScreen handleBallTap). The matching Poss Conceded
 -- event from the opposite team — same match, within ±2 seconds of

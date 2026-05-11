@@ -1404,6 +1404,128 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
           </div>
           {loadingEvents ? (
             <div style={{ textAlign: "center", padding: 30 }}><KykieSpinner /></div>
+          ) : ((selectedMatch.duration || 0) === 0 && !selectedEvents.some(e => e.zone)) ? (
+            (() => {
+              // ── QUICK-SCORE MATCH: no Live Pro recording ──
+              // Skip empty match-stats / misleading insights. Show season
+              // form + rich Kykie Predicts panel (mirrors LandingPage).
+              const hc = selectedColors.homeColor || '#3B82F6';
+              const ac = selectedColors.awayColor || '#10B981';
+              const homeId = selectedMatch.home_team?.id;
+              const awayId = selectedMatch.away_team?.id;
+              const hr = matchDetailRecords[homeId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+              const ar = matchDetailRecords[awayId] || { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 };
+              const hName = teamShortName(selectedMatch.home_team);
+              const aName = teamShortName(selectedMatch.away_team);
+              const pred = (hr.p >= 3 || ar.p >= 3)
+                ? predictMatch(hr, ar, hName, aName, { homeRank: latestRankings[homeId]?.rank, awayRank: latestRankings[awayId]?.rank })
+                : null;
+              const ScoutCard = ({ t, r, color }) => {
+                const gd = (r.gf || 0) - (r.ga || 0);
+                const rk = latestRankings[t?.id];
+                return (
+                  <div style={{
+                    flex: 1, minWidth: 0, overflow: 'hidden', background: '#0B0F1A', borderRadius: 8, padding: '8px 10px',
+                    border: `1px solid ${color}33`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 7, background: color + '22', border: `1.5px solid ${color}44`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 800, color, flexShrink: 0,
+                      }}>{teamInitial(t)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>{teamShortName(t)}</span>
+                          {rk && <RankBadge rank={rk.rank} />}
+                        </div>
+                        <div style={{ fontSize: 9, color: '#64748B', fontWeight: 600 }}>{teamDerivedName(t)}</div>
+                      </div>
+                    </div>
+                    {r.p > 0 ? (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', textAlign: 'center' }}>
+                        {[['P', r.p, '#F8FAFC'], ['W', r.w, '#10B981'], ['D', r.d, '#64748B'], ['L', r.l, '#EF4444']].map(([lbl, val, clr]) => (
+                          <div key={lbl}>
+                            <div style={{ fontSize: 13, fontWeight: 900, color: clr }}>{val}</div>
+                            <div style={{ fontSize: 7, fontWeight: 700, color: '#475569' }}>{lbl}</div>
+                          </div>
+                        ))}
+                        {[['GF', r.gf], ['GA', r.ga], ['GD', gd]].map(([lbl, val]) => (
+                          <div key={lbl}>
+                            <div style={{ fontSize: 13, fontWeight: 900, color: lbl === 'GD' ? (gd > 0 ? '#10B981' : gd < 0 ? '#EF4444' : '#F8FAFC') : '#F8FAFC' }}>{lbl === 'GD' && gd > 0 ? `+${val}` : val}</div>
+                            <div style={{ fontSize: 7, fontWeight: 700, color: '#475569' }}>{lbl}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 9, color: '#475569', textAlign: 'center' }}>No matches yet</div>
+                    )}
+                  </div>
+                );
+              };
+              return (
+                <div style={{ padding: "0 14px 20px" }}>
+                  {/* Banner: no Live Pro recording */}
+                  <div style={{ background: '#0F172A', border: '1px solid #33415544', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#64748B', marginBottom: 12, textAlign: 'center' }}>
+                    This match was recorded by quick score only — no live commentary or detailed stats available.
+                  </div>
+
+                  {/* Season form */}
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Season form</div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                    <ScoutCard t={selectedMatch.home_team} r={hr} color={hc} />
+                    <ScoutCard t={selectedMatch.away_team} r={ar} color={ac} />
+                  </div>
+
+                  {/* Kykie Predicts — same layout as LandingPage upcoming */}
+                  {pred && (() => {
+                    const isDraw = pred.draw >= pred.homeWin && pred.draw >= pred.awayWin;
+                    const homeWins = pred.homeWin >= pred.awayWin && pred.homeWin > pred.draw;
+                    const winnerName = homeWins ? hName : aName;
+                    return (
+                      <div style={{ background: 'linear-gradient(135deg,#1E293B,#0F172A)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, border: '1px solid #F59E0B33' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12 }}>🔮</span>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: 1 }}>kykie predicted</span>
+                        </div>
+                        <div style={{ textAlign: 'center', marginBottom: 10 }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: isDraw ? '#F59E0B' : '#F8FAFC' }}>
+                            {isDraw ? 'Draw' : `${winnerName} to win`}
+                          </div>
+                          <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                            Based on {hr.p} and {ar.p} matches played
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                          <div style={{ width: `${pred.homeWin}%`, background: '#10B981' }} />
+                          <div style={{ width: `${pred.draw}%`, background: '#F59E0B' }} />
+                          <div style={{ width: `${pred.awayWin}%`, background: '#64748B' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, fontWeight: 700 }}>
+                          <span style={{ color: '#10B981' }}>{hName} {pred.homeWin}%</span>
+                          <span style={{ color: '#F59E0B' }}>Draw {pred.draw}%</span>
+                          <span style={{ color: '#64748B' }}>{aName} {pred.awayWin}%</span>
+                        </div>
+                        {pred.reasons.length > 0 && (
+                          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #33415544' }}>
+                            {pred.reasons.map((r, i) => (
+                              <div key={i} style={{ fontSize: 9, color: r.type === 'home' ? '#10B981' : r.type === 'away' ? '#64748B' : '#F59E0B', lineHeight: 1.6 }}>
+                                {r.type === 'neutral' ? '~' : '+'} {r.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {!pred && (
+                    <div style={{ fontSize: 10, color: '#475569', textAlign: 'center', padding: 16 }}>
+                      Both teams need at least 3 recorded matches before Kykie can predict.
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           ) : isCoach ? (
             <CoachLiveScreen
               embedded

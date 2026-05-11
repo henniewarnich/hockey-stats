@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.23.6 | Date: 11 May 2026**
+**Version: 7.23.7 | Date: 11 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -67,6 +67,14 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 
 ## Session Summary (11 May 2026)
 
+### Code Changes (v7.23.6 → v7.23.7)
+- **Quick-score match detail view** — opening a match that was only recorded via quick score (no Live Pro events, `duration = 0`) previously showed a useless "Match Stats" panel of zeros plus a misleading "Clinical" insight (e.g. "4 goals from 0 shots on target"). TeamPage's selected-match view now detects this case and shows:
+  - A small banner explaining the match was recorded by quick score only
+  - Season-form scout cards for both teams (P / W / D / L / GF / GA / GD with rank badges)
+  - A full Kykie Predicts panel (same one LandingPage uses for upcoming matches): win-probability bar, top-level winner prediction, and the bullet-point reasons (GD per game, GS/GA averages, ranking differential, etc.)
+  - When both teams have fewer than 3 recorded matches, shows a friendly "needs more data" message instead of the predicts panel
+- Live Pro matches (any match with at least one zone event recorded) are unaffected — they still render the CoachLiveScreen embedded view with full stats and visuals.
+
 ### Code Changes (v7.23.5 → v7.23.6)
 - **Shared upcoming-match links now land on the Upcoming tab** — TeamPage's `initialMatchId` handler only checked `ended` matches and ignored upcoming/live ones, so a shared link for an upcoming match opened the default Overall tab. Now: ended → match detail; upcoming → Upcoming tab; live → Live tab.
 - **Standard share icon** — replaced the 📋 emoji on all four share buttons with the canonical iOS-style share glyph (square box with upward arrow). Added a `share` entry to `Icons.jsx` so it's reusable. Toast copy simplified from "🔗 Link copied" to "Link copied".
@@ -74,7 +82,10 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 
 ### Code Changes (v7.23.4 → v7.23.5)
 - **Fixed Turnover Won zone bug** — `LiveMatchScreen.handleBallTap` was logging every Turnover Won with `zone='Centre'` due to a ternary that returned "Centre" in both branches. Now reads the actual ball zone (`${zone.label} (${pos})`), mirroring Poss Conceded. Single writer affected; covers both home→away and away→home directions.
-- **Backfill SQL** `upgrade-scripts/v7.23.5/backfill-turnover-zones.sql` — for each Turnover Won @ Centre, finds the matching Poss Conceded (opposite team, same match, ±2s match_time) and copies its zone across. Defaults to ROLLBACK so you can preview the count; flip to COMMIT to apply. Run in prod AND staging.
+- **Backfill SQL — smart approach** `upgrade-scripts/v7.23.5/backfill-turnover-zones-smart.sql` — for each Turnover Won @ Centre, copies the zone from the most recent zone-bearing event in the same match (by `seq`). **Production run on 2026-05-11 recovered 2,433 of 2,440 rows (99.7%).** The 7 remaining "Centre" rows are first-turnover-of-the-match cases where no prior zone event existed yet.
+  - Superseded earlier `backfill-turnover-zones.sql` (pair-based — only ~0.1% recovery because Turnover Won and Poss Conceded are alternate workflows in the recorder, not paired writes). Marked SUPERSEDED on disk.
+  - Companion preview-only script `preview-turnover-backfill-smart.sql` runs the analysis on one match at a time without touching data — useful for sanity-checking new matches before the next bulk pass.
+- **⚠ Supabase SQL editor gotcha** — explicit `BEGIN; … COMMIT;` blocks are unreliable in the Studio SQL editor because their connection pooler (PgBouncer in transaction mode) can release the connection between statements. The first prod attempt of the smart backfill silently rolled back even after switching ROLLBACK→COMMIT. Workaround: just run each statement standalone and rely on PostgreSQL auto-commit. The smart-backfill SQL has been restructured into discrete steps; the gotcha is documented in its header.
 - **Share match link** — new `#/match/{id}` route resolves to the team page via `MatchRedirect`. Helper `shareMatchLink(matchId)` uses `navigator.share` on mobile (WhatsApp/Messages picker) with a clipboard fallback + green toast on desktop. New 📋 Share buttons added to:
   - Match Schedule list (admin/coach/commentator action row)
   - Game History cards (next to abandon/restore)
