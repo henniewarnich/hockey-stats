@@ -87,11 +87,51 @@ function getHashRoute() {
     const id = hash.replace('report/', '');
     return { type: 'report', id };
   }
+  if (hash.startsWith('match/')) {
+    const id = hash.replace('match/', '').split('?')[0];
+    return { type: 'match', matchId: id };
+  }
   if (hash === 'admin' || hash.startsWith('admin/') || hash.startsWith('admin?')) {
     const sub = hash.includes('/') ? hash.split('/')[1] : null;
     return { type: 'admin', screen: sub || null };
   }
   return { type: 'landing' };
+}
+
+// Resolves #/match/{id} → fetches home team, forwards to canonical #/team/{slug}?match={id}
+function MatchRedirect({ matchId, currentUser }) {
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    if (!matchId) { setError('No match ID'); return; }
+    supabase.from('matches')
+      .select('id, home_team:teams!home_team_id(*, institution:institutions(*))')
+      .eq('id', matchId)
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data?.home_team) { setError('Match not found'); return; }
+        const slug = teamSlug(data.home_team);
+        if (!slug) { setError('Could not resolve match'); return; }
+        window.location.hash = `#/team/${slug}?match=${matchId}`;
+      });
+  }, [matchId]);
+
+  if (error) {
+    return (
+      <div style={{ fontFamily: "'Outfit',sans-serif", maxWidth: 430, margin: '0 auto', background: '#0B0F1A', minHeight: '100vh', color: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+        <div style={{ fontSize: 24 }}>🏑</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>{error}</div>
+        <button onClick={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; }}
+          style={{ marginTop: 8, padding: '8px 16px', borderRadius: 8, border: '1px solid #F59E0B44', background: '#F59E0B11', color: '#F59E0B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          Go home
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ ...S.app, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+      <KykieLoadingScreen />
+    </div>
+  );
 }
 
 function getHomeHash(user) {
@@ -385,6 +425,10 @@ export default function App() {
 
   if (route.type === 'team') {
     return <TeamPage teamSlug={route.slug} initialMatchId={route.matchId} currentUser={currentUser} onBack={() => { window.location.hash = currentUser ? getHomeHash(currentUser) : ''; setRoute(getHashRoute()); }} />;
+  }
+
+  if (route.type === 'match') {
+    return <MatchRedirect matchId={route.matchId} currentUser={currentUser} />;
   }
 
   if (route.type === 'report') {

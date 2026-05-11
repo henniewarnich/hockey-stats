@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { S, theme } from '../utils/styles.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamShortName } from '../utils/teams.js';
 import { logAudit } from '../utils/audit.js';
+import { shareMatchLink } from '../utils/share.js';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
 
@@ -36,6 +37,18 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
   const [top10TeamIds, setTop10TeamIds] = useState(new Set());
   const [loadingVideoId, setLoadingVideoId] = useState(null);
   const [reportsByMatch, setReportsByMatch] = useState({});
+  const [shareToast, setShareToast] = useState(null);
+
+  const handleShare = async (g, e) => {
+    if (e) e.stopPropagation();
+    const matchId = g.supabase_id || g.id;
+    if (!matchId) { setShareToast('Cannot share — match not synced'); setTimeout(() => setShareToast(null), 2500); return; }
+    const home = teamShortName(g.teams?.home) || 'Home';
+    const away = teamShortName(g.teams?.away) || 'Away';
+    const res = await shareMatchLink(matchId, { title: `${home} vs ${away}`, text: `${home} vs ${away} on Kykie` });
+    if (res.ok && res.method === 'clipboard') { setShareToast('🔗 Link copied'); setTimeout(() => setShareToast(null), 2500); }
+    else if (!res.ok && res.error && res.error !== 'cancelled') { setShareToast(`Share failed: ${res.error}`); setTimeout(() => setShareToast(null), 3000); }
+  };
 
   const isApprentice = currentUser?.role === 'commentator' && currentUser?.commentator_status === 'apprentice';
   const isAdminRole = currentUser?.role === 'admin';
@@ -362,6 +375,13 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                         {g.status === 'abandoned' ? '↩ restore' : '⚡ abandon'}
                       </span>
                     )}
+                    {isSynced && (
+                      <span onClick={(e) => handleShare(g, e)}
+                        title="Share match link"
+                        style={{ fontSize: 8, color: '#94A3B8', cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}>
+                        📋 share
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -369,6 +389,9 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
           })
         )}
       </div>
+      {shareToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#0B0F1A', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>{shareToast}</div>
+      )}
 
       {/* Penalty Edit Popup */}
       {penEdit && (

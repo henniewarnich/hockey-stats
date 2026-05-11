@@ -195,7 +195,9 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     if (!running || showRestart || !possession) return;
     if (ballPos?.type === "d") { setShowDPopup({ end: ballPos.end }); return; }
     const other = otherTeam(possession);
-    addLog(other, "Turnover Won", ballPos?.zoneId ? "Centre" : "Centre", `${teamShortName(teams[other])} won possession`);
+    const zone = ballPos?.zoneId ? ZONES.find(z => z.id === ballPos.zoneId) : null;
+    const zoneLbl = zone ? `${zone.label} (${ballPos.pos || "centre"})` : "Centre";
+    addLog(other, "Turnover Won", zoneLbl, `${teamShortName(teams[other])} won possession in ${zoneLbl}`);
     setPossession(other);
   };
 

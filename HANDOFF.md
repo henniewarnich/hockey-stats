@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.23.4 | Date: 7 May 2026**
+**Version: 7.23.5 | Date: 11 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -64,6 +64,20 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Registration trigger**: `on_profile_created_notify` → emails hennie.warnich@gmail.com
 - **Report notification**: `notify_coaches_of_report(p_report_id)` RPC → emails coaches of both teams
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
+
+## Session Summary (11 May 2026)
+
+### Code Changes (v7.23.4 → v7.23.5)
+- **Fixed Turnover Won zone bug** — `LiveMatchScreen.handleBallTap` was logging every Turnover Won with `zone='Centre'` due to a ternary that returned "Centre" in both branches. Now reads the actual ball zone (`${zone.label} (${pos})`), mirroring Poss Conceded. Single writer affected; covers both home→away and away→home directions.
+- **Backfill SQL** `upgrade-scripts/v7.23.5/backfill-turnover-zones.sql` — for each Turnover Won @ Centre, finds the matching Poss Conceded (opposite team, same match, ±2s match_time) and copies its zone across. Defaults to ROLLBACK so you can preview the count; flip to COMMIT to apply. Run in prod AND staging.
+- **Share match link** — new `#/match/{id}` route resolves to the team page via `MatchRedirect`. Helper `shareMatchLink(matchId)` uses `navigator.share` on mobile (WhatsApp/Messages picker) with a clipboard fallback + green toast on desktop. New 📋 Share buttons added to:
+  - Match Schedule list (admin/coach/commentator action row)
+  - Game History cards (next to abandon/restore)
+  - Team page selected-match detail header
+  - Team page live-match scoreboard header
+- **Live recorder field-side clarity**:
+  - **Coloured backline** — top and bottom backlines now tinted with the defending team's colour (33% alpha) plus a 3px solid stripe; team short_name jumped from 9px to 12px bold white with a coloured drop-shadow. Always visible during play, updates automatically when the field rotates.
+  - **Pre-match team splash** — large team short_names appear faintly across each half before kickoff (when the recorder is idle), so the commentator can confirm orientation before tapping "Start". Disappears as soon as the match goes live or pauses.
 
 ## Session Summary (7 May 2026 — afternoon)
 

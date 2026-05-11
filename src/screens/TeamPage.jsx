@@ -19,6 +19,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import { predictMatch } from '../utils/predict.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamColor, teamDerivedName, teamDisplayName, teamInitial, teamShortName, teamSlug as makeTeamSlug } from '../utils/teams.js';
 import KykieSpinner from '../components/KykieSpinner.jsx';
+import { shareMatchLink } from '../utils/share.js';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
@@ -196,6 +197,16 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
   const [tab, setTab] = useState("results");
   const [liveView, setLiveView] = useState("totals");
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [shareToast, setShareToast] = useState(null);
+
+  const handleShareMatch = async (m) => {
+    if (!m?.id) return;
+    const home = teamShortName(m.home_team) || 'Home';
+    const away = teamShortName(m.away_team) || 'Away';
+    const res = await shareMatchLink(m.id, { title: `${home} vs ${away}`, text: `${home} vs ${away} on Kykie` });
+    if (res.ok && res.method === 'clipboard') { setShareToast('🔗 Link copied'); setTimeout(() => setShareToast(null), 2500); }
+    else if (!res.ok && res.error && res.error !== 'cancelled') { setShareToast(`Share failed: ${res.error}`); setTimeout(() => setShareToast(null), 3000); }
+  };
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [oppSeasonAvg, setOppSeasonAvg] = useState(null);
@@ -924,6 +935,10 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
                     👁 {matchViewers} watching
                   </span>
                 )}
+                <span onClick={() => handleShareMatch(liveMatch)} title="Share live match link"
+                  style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", background: "#33415544", border: "1px solid #33415588", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
+                  📋 Share
+                </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
@@ -1322,12 +1337,18 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
           <div style={{ padding: "6px 14px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button onClick={() => { setSelectedMatch(null); setSelectedEvents([]); setTotalViewers(null); setMatchPredictions(null); setMatchDetailRecords({}); setOppSeasonAvg(null); }} style={{ background: "none", border: "none", color: "#94A3B8", fontSize: 13, cursor: "pointer", padding: 0 }}>← Back to results</button>
-            {matchReportIds[selectedMatch.id] && (
-              <button onClick={() => { sessionStorage.setItem('kykie-report-return', '#/team/' + teamSlug + '?match=' + selectedMatch.id); window.location.hash = '#/report/' + matchReportIds[selectedMatch.id]; }}
-                style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B33", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                📊 View Report
+            <div style={{ display: 'flex', gap: 6 }}>
+              {matchReportIds[selectedMatch.id] && (
+                <button onClick={() => { sessionStorage.setItem('kykie-report-return', '#/team/' + teamSlug + '?match=' + selectedMatch.id); window.location.hash = '#/report/' + matchReportIds[selectedMatch.id]; }}
+                  style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B33", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                  📊 View Report
+                </button>
+              )}
+              <button onClick={() => handleShareMatch(selectedMatch)} title="Share match link"
+                style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", background: "#33415522", border: "1px solid #33415588", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                📋 Share
               </button>
-            )}
+            </div>
           </div>
           {/* Match scoreboard */}
           <div style={{ padding: "8px 14px 10px" }}>
@@ -1620,6 +1641,9 @@ export default function TeamPage({ teamSlug, initialMatchId, onBack, currentUser
         @keyframes slide-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes reaction-float { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(1.4); } }
       `}</style>
+      {shareToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#0B0F1A', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>{shareToast}</div>
+      )}
     </div>
   );
 }

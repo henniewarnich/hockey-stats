@@ -354,17 +354,21 @@ export default function FieldRecorder({
   const renderBackline = (end) => {
     const defendingTeam = end === "top" ? (flipped ? "home" : "away") : (flipped ? "away" : "home");
     const dColor = teams[defendingTeam].color;
+    const backlineBg = `${dColor}33`;
+    const stripeStyle = end === "top"
+      ? { borderBottom: `3px solid ${dColor}` }
+      : { borderTop: `3px solid ${dColor}` };
     return (
-      <div style={{ display: "flex", height: 30, background: "#1a3a2a" }}>
+      <div style={{ display: "flex", height: 30, background: backlineBg, ...stripeStyle }}>
         <div onClick={() => handleDead(end, "left")} style={{ width: 56, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#162D22", borderRight: "1px solid #0f1f18" }}>
           <span style={{ fontSize: 7, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>Dead</span>
         </div>
         <div onClick={() => handleLongCorner(end, "left")} style={{ width: 50, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#1E3A2F", borderRight: "1px solid #0f1f18" }}>
           <span style={{ fontSize: 7, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase" }}>◁ LC</span>
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#1a3a2a", position: "relative" }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: dColor, textTransform: "uppercase", letterSpacing: "0.1em", lineHeight: 1 }}>{teamShortName(teams[defendingTeam])}</span>
-          <span style={{ fontSize: 6, fontWeight: 600, color: "#64748B", textTransform: "uppercase", lineHeight: 1, marginTop: 1 }}>{teamDerivedName(teams[defendingTeam])}</span>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: backlineBg, position: "relative" }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: "#F8FAFC", textShadow: `0 1px 2px ${dColor}, 0 0 8px rgba(0,0,0,0.6)`, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1 }}>{teamShortName(teams[defendingTeam])}</span>
+          <span style={{ fontSize: 6, fontWeight: 600, color: "#CBD5E1", textTransform: "uppercase", lineHeight: 1, marginTop: 1, opacity: 0.7 }}>{teamDerivedName(teams[defendingTeam])}</span>
           {running && !showRestart && (
             <div onClick={(e) => { e.stopPropagation(); setActionPopup(actionPopup === end ? null : end); }}
               style={{
@@ -459,6 +463,34 @@ export default function FieldRecorder({
             }}>⏸ Paused</div>
           </div>
         )}
+
+        {/* Pre-match team-name splash — show which team is on which side */}
+        {matchState !== "running" && matchState !== "paused" && matchState !== "ended" && !showRestart && (() => {
+          const topTeamKey = flipped ? "home" : "away";
+          const bottomTeamKey = flipped ? "away" : "home";
+          const topColor = teams[topTeamKey].color;
+          const bottomColor = teams[bottomTeamKey].color;
+          return (
+            <div style={{ position: "absolute", inset: 0, zIndex: 8, pointerEvents: "none", display: "flex", flexDirection: "column" }}>
+              <div style={{ height: 30 }} />
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{
+                  fontSize: 30, fontWeight: 900, color: "#FFFFFF",
+                  textShadow: `0 2px 6px ${topColor}, 0 0 16px rgba(0,0,0,0.7)`,
+                  letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.75,
+                }}>{teamShortName(teams[topTeamKey])}</span>
+              </div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{
+                  fontSize: 30, fontWeight: 900, color: "#FFFFFF",
+                  textShadow: `0 2px 6px ${bottomColor}, 0 0 16px rgba(0,0,0,0.7)`,
+                  letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.75,
+                }}>{teamShortName(teams[bottomTeamKey])}</span>
+              </div>
+              <div style={{ height: 30 }} />
+            </div>
+          );
+        })()}
 
         {/* Ghost trail line — skip when originating from D or SC */}
         {ghostCoords && ballCoords && prevBallPos && ballPos && prevBallPos.type !== "d" && prevBallPos.type !== "sc" && (

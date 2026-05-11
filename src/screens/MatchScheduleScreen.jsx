@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase.js';
 import { scheduleMatch, assignCommentators, updateScheduledMatch, lockMatch, unlockMatch, snapshotRankings, fetchLatestRankings } from '../utils/sync.js';
 import { awardQuickScoreCredits, awardScheduleCredits } from '../utils/credits.js';
 import { listUsersByRole } from '../utils/auth.js';
+import { shareMatchLink } from '../utils/share.js';
 import { BREAK_FORMATS, MATCH_TYPES } from '../utils/constants.js';
 import { S, theme } from '../utils/styles.js';
 import { parseSAST, parseSASTDate } from '../utils/helpers.js';
@@ -57,6 +58,20 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
   const [myInstitutionIds, setMyInstitutionIds] = useState(new Set());
   const [commSearch, setCommSearch] = useState("");
   const [reservingMatchId, setReservingMatchId] = useState(null);
+  const [shareToast, setShareToast] = useState(null);
+
+  const handleShare = async (m) => {
+    const home = teamShortName(m.home_team);
+    const away = teamShortName(m.away_team);
+    const res = await shareMatchLink(m.id, { title: `${home} vs ${away}`, text: `Follow ${home} vs ${away} live on Kykie` });
+    if (res.ok) {
+      setShareToast(res.method === 'clipboard' ? '🔗 Link copied' : null);
+      if (res.method === 'clipboard') setTimeout(() => setShareToast(null), 2500);
+    } else if (res.error && res.error !== 'cancelled') {
+      setShareToast(`Share failed: ${res.error}`);
+      setTimeout(() => setShareToast(null), 3000);
+    }
+  };
 
   const ml = parseInt(matchLength) || 60;
   const inputStyle = { width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -743,6 +758,8 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
                         {currentUser?.role !== 'supporter' && !isApprentice && (
                           <button onClick={() => handleEdit(m)} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>✏️</button>
                         )}
+                        <button onClick={() => handleShare(m)} title="Share match link"
+                          style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.textMuted, cursor: "pointer" }}>📋</button>
                         {(currentUser?.role === 'admin' || m.created_by === currentUser?.id) && (
                           <button onClick={() => { if (confirm("Delete this match?")) handleDelete(m.id); }} style={{ padding: "6px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #EF444444", background: "transparent", color: "#EF4444", cursor: "pointer" }}>🗑</button>
                         )}
@@ -778,6 +795,9 @@ export default function MatchScheduleScreen({ onBack, currentUser }) {
       </div>
       <LiveModeChooser show={!!pendingStartMatch} onSelect={handleModeChosen} onClose={() => setPendingStartMatch(null)}
         allowedModes={['lite', 'pro']} />
+      {shareToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#0B0F1A', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>{shareToast}</div>
+      )}
     </div>
   );
 }
