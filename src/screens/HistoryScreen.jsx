@@ -389,11 +389,11 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
                       </span>
                     )}
                     {isSynced && (
-                      <span onClick={(e) => handleShare(g, e)}
+                      <button onClick={(e) => handleShare(g, e)}
                         title="Share match link"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 8, color: '#94A3B8', cursor: 'pointer', fontWeight: 600, padding: '2px 6px' }}>
-                        <Icon name="share" size={11} /> share
-                      </span>
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#8B5CF6', background: '#8B5CF618', border: '1px solid #8B5CF644', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', marginTop: 2 }}>
+                        <Icon name="share" size={12} /> Share
+                      </button>
                     )}
                   </div>
                 </div>

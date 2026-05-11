@@ -4,7 +4,9 @@ import { S, theme } from '../utils/styles.js';
 import { teamShortName, teamColor } from '../utils/teams.js';
 import { supabase } from '../utils/supabase.js';
 import { logAudit } from '../utils/audit.js';
+import { shareMatchLink } from '../utils/share.js';
 import NavLogo from '../components/NavLogo.jsx';
+import Icon from '../components/Icons.jsx';
 
 export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, currentUser, onStartVideoReview }) {
   const [deleting, setDeleting] = useState(false);
@@ -12,12 +14,32 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
   const [deletingEventId, setDeletingEventId] = useState(null);
   const [homeScore, setHomeScore] = useState(game.homeScore);
   const [awayScore, setAwayScore] = useState(game.awayScore);
+  const [shareToast, setShareToast] = useState(null);
   const G = game;
   const T = G.teams;
   const d = new Date(G.date);
   const isAdmin = currentUser?.role === 'admin';
-  const hasRecording = (events.length > 0 || (G.duration && G.duration > 0));
+  const hasRecording = events.length > 0 || (G.duration || 0) > 0;
   const matchId = G.supabase_id || G.id;
+
+  const handleShare = async () => {
+    if (!matchId) { setShareToast('Cannot share — match not synced'); setTimeout(() => setShareToast(null), 2500); return; }
+    const home = teamShortName(T.home) || 'Home';
+    const away = teamShortName(T.away) || 'Away';
+    const url = `${window.location.origin}${window.location.pathname}#/review/${matchId}`;
+    const title = `${home} vs ${away}`;
+    const text = `Record video stats for ${home} vs ${away} on Kykie`;
+    try {
+      if (navigator.share) { await navigator.share({ title, text, url }); return; }
+      await navigator.clipboard.writeText(url);
+      setShareToast('Link copied');
+      setTimeout(() => setShareToast(null), 2500);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setShareToast(`Share failed: ${err?.message || 'unavailable'}`);
+      setTimeout(() => setShareToast(null), 3000);
+    }
+  };
 
   const handleDeleteEvent = async (evt) => {
     const isGoal = evt.event?.startsWith('Goal');
@@ -172,6 +194,17 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
 
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 6, padding: "0 16px 10px", justifyContent: "center", flexWrap: "wrap" }}>
+        {/* Start Video Recording — admin or commentator, when no recording yet */}
+        {!hasRecording && onStartVideoReview && (isAdmin || currentUser?.role === 'commentator') && (
+          <button onClick={() => onStartVideoReview(G)} style={S.btnSm("#8B5CF6", "#FFF")}>
+            📹 Start Video Recording
+          </button>
+        )}
+        {/* Share — everyone */}
+        <button onClick={handleShare} title="Share match link"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#94A3B8', background: '#33415544', border: '1px solid #33415588', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
+          <Icon name="share" size={12} /> Share
+        </button>
         {/* Admin-only actions */}
         {isAdmin && (
           <>
@@ -185,14 +218,9 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
             </button>}
           </>
         )}
-        {/* Commentator: Start video recording (only if not yet recorded) + Report Issue */}
+        {/* Commentator extras */}
         {!isAdmin && currentUser?.role === 'commentator' && (
           <>
-            {!hasRecording && onStartVideoReview && (
-              <button onClick={() => onStartVideoReview(G)} style={S.btnSm("#8B5CF6", "#FFF")}>
-                📹 Start Video Recording
-              </button>
-            )}
             <button onClick={() => { window.location.hash = '#/issues'; }}
               style={S.btnSm("transparent", "#F59E0B")}>
               ⚠️ Report Issue
@@ -207,6 +235,9 @@ export default function GameReviewScreen({ game, onDelete, onBack, onNavigate, c
           </>
         )}
       </div>
+      {shareToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#0B0F1A', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>{shareToast}</div>
+      )}
       {isAdmin && hasRecording && (
         <div style={{ textAlign: 'center', padding: '0 16px 10px' }}>
           <button onClick={handleDeleteRecording} disabled={deleting}

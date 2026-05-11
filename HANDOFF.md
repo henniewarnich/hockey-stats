@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.24.1 | Date: 11 May 2026**
+**Version: 7.24.2 | Date: 11 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,6 +66,13 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (11 May 2026)
+
+### Code Changes (v7.24.1 → v7.24.2)
+- **Game History share button — more visible.** Was a tiny 8px text "share" link. Now a proper purple-tinted button (10px text, share icon, padded with a coloured border), in line with the other share buttons in the app.
+- **GameReviewScreen polish:**
+  - **Fixed rogue "0"** appearing on the screen when a match had no recording. Cause: `hasRecording = events.length > 0 || (G.duration && G.duration > 0)` evaluated to `0` when duration was 0 (`false || 0` is `0`), and `{isAdmin && hasRecording && (...)}` rendered the literal `0`. Now strictly a boolean: `events.length > 0 || (G.duration || 0) > 0`.
+  - **Start Video Recording for admin too.** The button is now shown to any admin or commentator when the match has no recording yet (was commentator-only).
+  - **Share button on the screen itself.** Admin and commentator can now share the review link directly from the Game Review screen — same `#/review/{id}` URL as the Game History share.
 
 ### Code Changes (v7.24.0 → v7.24.1)
 - **Role-switching restricted to admins** — only users with `admin` in their `roles[]` array can switch between roles via the RoleSwitcher. Everyone else now sees a static role pill (no dropdown).
