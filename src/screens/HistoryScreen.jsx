@@ -4,6 +4,7 @@ import { S, theme } from '../utils/styles.js';
 import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, teamDisplayName, teamShortName } from '../utils/teams.js';
 import { logAudit } from '../utils/audit.js';
 import { shareMatchLink } from '../utils/share.js';
+import { fetchPeerTopTeamIds } from '../utils/sync.js';
 import Icon from '../components/Icons.jsx';
 import MatchCardTeams from '../components/MatchCardTeams.jsx';
 import KykieSpinner from '../components/KykieSpinner.jsx';
@@ -120,16 +121,10 @@ export default function HistoryScreen({ games, currentUser, onSelect, onBack, on
         });
     }
     if (isApprentice) {
-      // Fetch Top 10 team IDs to filter for apprentice
-      supabase.from('ranking_sets').select('id').order('created_at', { ascending: false }).limit(1)
-        .then(({ data: sets }) => {
-          if (sets?.[0]?.id) {
-            supabase.from('rankings').select('team_id').eq('ranking_set_id', sets[0].id).lte('rank', 10)
-              .then(({ data: ranks }) => {
-                if (ranks) setTop10TeamIds(new Set(ranks.map(r => r.team_id)));
-              });
-          }
-        });
+      // Top 10 within each peer group (not a global top 10), so an
+      // apprentice is barred from any "high-stakes" match in its own
+      // gender/age/sport bracket — not from unrelated brackets.
+      fetchPeerTopTeamIds(10).then(set => setTop10TeamIds(set)).catch(() => {});
     }
   }, []);
 

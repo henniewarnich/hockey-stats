@@ -724,6 +724,13 @@ export async function endVideoReview(matchId, homeScore, awayScore, duration) {
  * Fetch latest 2 ranking sets and return a map: teamId → { rank, prevRank }
  * Used for upcoming matches where we want current rankings, not snapshot.
  */
+// Returns each team's rank computed WITHIN its peer group (same sport,
+// gender, age_group). Today's data is all Girls 1st so peer-group rank
+// equals global rank, but this keeps the app honest once other peer
+// groups (Boys 1st, U16, etc.) get ranked.
+//
+// Output shape unchanged from previous implementation:
+//   { team_id: { rank, prevRank } }
 export async function fetchLatestRankings() {
   const { data: sets } = await supabase
     .from('ranking_sets')
@@ -739,23 +746,102 @@ export async function fetchLatestRankings() {
     .from('rankings')
     .select('team_id, position')
     .eq('ranking_set_id', latestId);
+  if (!latest || latest.length === 0) return {};
 
-  let prevMap = {};
+  let prev = null;
   if (prevId) {
-    const { data: prev } = await supabase
+    const { data: prevData } = await supabase
       .from('rankings')
       .select('team_id, position')
       .eq('ranking_set_id', prevId);
-    if (prev) prevMap = Object.fromEntries(prev.map(r => [r.team_id, r.position]));
+    prev = prevData;
   }
 
-  const result = {};
-  if (latest) {
-    for (const r of latest) {
-      result[r.team_id] = { rank: r.position, prevRank: prevMap[r.team_id] ?? null };
+  // Fetch demographic metadata for every team that appears in either snapshot
+  const teamIds = Array.from(new Set([
+    ...latest.map(r => r.team_id),
+    ...(prev || []).map(r => r.team_id),
+  ]));
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id, sport, gender, age_group')
+    .in('id', teamIds);
+  const peerKey = (id) => {
+    const t = (teams || []).find(x => x.id === id);
+    if (!t || !t.sport || !t.gender || !t.age_group) return null;
+    return `${t.sport}|${t.gender}|${t.age_group}`;
+  };
+
+  // Within each peer group, sort by global position and number 1..N
+  const rerank = (rows) => {
+    const groups = {};
+    const orphans = []; // teams with missing metadata — keep global position
+    for (const r of rows) {
+      const key = peerKey(r.team_id);
+      if (key) {
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+      } else {
+        orphans.push(r);
+      }
     }
+    const out = {};
+    for (const key in groups) {
+      groups[key].sort((a, b) => a.position - b.position);
+      groups[key].forEach((r, i) => { out[r.team_id] = i + 1; });
+    }
+    orphans.forEach(r => { out[r.team_id] = r.position; });
+    return out;
+  };
+
+  const latestPeer = rerank(latest);
+  const prevPeer = prev ? rerank(prev) : {};
+
+  const result = {};
+  for (const r of latest) {
+    result[r.team_id] = {
+      rank: latestPeer[r.team_id],
+      prevRank: prevPeer[r.team_id] ?? null,
+    };
   }
   return result;
+}
+
+// Returns a Set of team IDs that sit in the top N of THEIR peer group
+// (same sport + gender + age_group). Used by the apprentice gate so
+// apprentice commentators are barred from top-N matches within each
+// peer group, not against a global cross-demographic Top N pool.
+export async function fetchPeerTopTeamIds(topN = 10) {
+  const { data: sets } = await supabase
+    .from('ranking_sets')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (!sets || sets.length === 0) return new Set();
+  const { data: rows } = await supabase
+    .from('rankings')
+    .select('team_id, position')
+    .eq('ranking_set_id', sets[0].id);
+  if (!rows || rows.length === 0) return new Set();
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id, sport, gender, age_group')
+    .in('id', rows.map(r => r.team_id));
+  const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
+  const groups = {};
+  for (const r of rows) {
+    const t = teamMap[r.team_id];
+    if (!t || !t.sport || !t.gender || !t.age_group) continue;
+    const key = `${t.sport}|${t.gender}|${t.age_group}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+  const top = new Set();
+  for (const key in groups) {
+    groups[key].sort((a, b) => a.position - b.position);
+    groups[key].slice(0, topN).forEach(r => top.add(r.team_id));
+  }
+  return top;
 }
 
 // ─── CROWD SUBMISSIONS ──────────────────────────────

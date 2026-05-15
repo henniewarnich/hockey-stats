@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.24.3 | Date: 14 May 2026**
+**Version: 7.24.4 | Date: 14 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,6 +66,11 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (11 May 2026)
+
+### Code Changes (v7.24.3 → v7.24.4)
+- **Peer-grouped rankings throughout the app.** `fetchLatestRankings` in [utils/sync.js](src/utils/sync.js) now returns each team's rank computed within its peer group (same sport + gender + age_group), not its global cross-demographic position. Today's data is all Girls 1st hockey so the surface change is nil, but the moment Boys 1st / U16 / other brackets get ranked, every `RankBadge`, prediction-input rank, and ranking-based insight automatically scopes correctly. Teams with missing demographic metadata fall back to their global position so nothing breaks.
+- **Apprentice "no Top 10 matches" gating is now peer-aware.** New helper `fetchPeerTopTeamIds(topN)` builds a set of teams that are top-N within their own peer group. `HistoryScreen` uses this set so an apprentice commentator can't record matches that are top 10 _in their own bracket_, regardless of bracket. Apprentices remain unblocked from unrelated brackets they have no ranking context for. Qualified commentators are unaffected.
+- No DB changes. The `ranking_sets` / `rankings` tables stay global; peer-grouping is computed in the client at fetch time using the existing `teams.gender / age_group / sport` columns.
 
 ### Code Changes (v7.24.2 → v7.24.3)
 - **TOP 10 benchmark now peer-scoped** — the Coach view's TOP 10 benchmark (per-match averages, aggregated stats, etc.) was previously the global top-10 ranked teams regardless of gender/age. Now restricted to teams sharing the same `gender`, `age_group` and `sport` as the team being viewed. So Paarl Girls 1st is benchmarked against the top 10 Girls 1st teams only; Paarl Boys 1st against the top 10 Boys 1st teams; etc.
