@@ -937,8 +937,7 @@ export async function fetchPending() {
       .order('created_at', { ascending: false }),
     supabase.from('teams')
       .select(`${TEAM_SELECT}, suggester:profiles!suggested_by(firstname, lastname, alias_nickname)`)
-      .eq('status', 'pending')
-      .order('name'),
+      .eq('status', 'pending'),
   ]);
   return { pendingMatches: pendingMatches || [], pendingTeams: pendingTeams || [] };
 }

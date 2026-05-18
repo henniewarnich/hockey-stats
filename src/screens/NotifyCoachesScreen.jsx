@@ -41,8 +41,8 @@ export default function NotifyCoachesScreen({ currentUser, onBack }) {
         id, match_id, report_type, title, generated_at,
         match:matches!inner(
           id, match_date, home_score, away_score, home_team_id, away_team_id,
-          home_team:teams!matches_home_team_id_fkey(id, name, institution:institutions(name, short_name)),
-          away_team:teams!matches_away_team_id_fkey(id, name, institution:institutions(name, short_name))
+          home_team:teams!matches_home_team_id_fkey(id, gender, age_group, sport, variant, institution:institutions(name, short_name)),
+          away_team:teams!matches_away_team_id_fkey(id, gender, age_group, sport, variant, institution:institutions(name, short_name))
         )
       `)
       .gte('generated_at', dateFrom)

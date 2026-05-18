@@ -18,8 +18,8 @@ export const MATCH_HOME_TEAM = 'home_team:teams!home_team_id(*, institution:inst
 export const MATCH_AWAY_TEAM = 'away_team:teams!away_team_id(*, institution:institutions(*))';
 
 // Short match joins (for issues, sponsors, etc):
-export const MATCH_HOME_TEAM_NAME = 'home_team:teams!home_team_id(id, name, gender, age_group, sport, institution:institutions(id, name, short_name))';
-export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, name, gender, age_group, sport, institution:institutions(id, name, short_name))';
+export const MATCH_HOME_TEAM_NAME = 'home_team:teams!home_team_id(id, gender, age_group, sport, variant, institution:institutions(id, name, short_name))';
+export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, gender, age_group, sport, variant, institution:institutions(id, name, short_name))';
 
 // ── DERIVED NAME ──────────────────────────────────────
 

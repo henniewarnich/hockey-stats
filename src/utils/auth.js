@@ -337,6 +337,6 @@ export async function isCoachForTeam(userId, teamSlug) {
     const instName = d.teams.institution?.name || '';
     const suffix = d.teams.variant || d.teams.age_group || '';
     const fullSlug = suffix ? slugify(`${instName} ${suffix}`) : slugify(instName);
-    return fullSlug === teamSlug || slugify(d.teams.name) === teamSlug;
+    return fullSlug === teamSlug;
   });
 }
