@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.24.6 | Date: 18 May 2026**
+**Version: 7.24.7 | Date: 18 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,6 +66,11 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (11 May 2026)
+
+### Code Changes (v7.24.6 → v7.24.7)
+- **Tier override date picker now usable.** The "Expires" date input on the admin team tier-override popup had no visible calendar icon on the dark background (browser dropdown rendered black-on-dark). Added `color-scheme: dark` to the input plus a "Clear" button next to it so admins can easily remove the expiry to make the override permanent.
+- **Fixed "Girls Hockey 1st" mislabelling on boys teams.** `teamDerivedName` and `teamDisplayName` in [src/utils/teams.js](src/utils/teams.js) were defaulting `gender` to the literal string `'Girls'` when `team.gender` was null/empty. Every team with missing gender metadata (most boys teams in the DB) was showing as "Girls Hockey 1st" — including Grey, Boishaai, etc. Now: if gender is set, render it; if not, omit it entirely ("Hockey 1st") rather than guess wrong.
+- **DB hygiene reminder:** team rows where `gender` is NULL now show with no gender prefix. Worth backfilling via the admin Teams screen, or one-off SQL if you have many.
 
 ### Code Changes (v7.24.5 → v7.24.6) — Hotfix
 - **Fixed ReferenceError crash on the Coach Overall tab.** `top10Label` was used in `CoachOverall.jsx`'s JSX (lines 262 & 320, added in v7.24.3) but the corresponding function signature edit silently failed at the time, so the prop was never destructured. Every coach who opened the Overall tab on a team page hit `Uncaught ReferenceError: top10Label is not defined` and saw a blank black screen. Latent since the v7.24.3 deploy; surfaced today when admin switched to coach role.

@@ -480,8 +480,18 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
             {tierEdit.override && (
               <>
                 <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 4 }}>Expires (optional)</div>
-                <input type="date" value={tierEdit.expires || ''} onChange={e => setTierEdit(prev => ({ ...prev, expires: e.target.value }))}
-                  style={{ ...S.input, fontSize: 12, marginBottom: 12 }} />
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12, alignItems: 'stretch' }}>
+                  <input type="date" value={tierEdit.expires || ''}
+                    onChange={e => setTierEdit(prev => ({ ...prev, expires: e.target.value }))}
+                    style={{ ...S.input, fontSize: 12, flex: 1, colorScheme: 'dark', cursor: 'pointer' }} />
+                  {tierEdit.expires && (
+                    <button onClick={() => setTierEdit(prev => ({ ...prev, expires: '' }))}
+                      title="Clear expiry (permanent override)"
+                      style={{ padding: '0 12px', borderRadius: 8, border: `1px solid ${theme.border}`, background: 'transparent', color: '#94A3B8', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
 
                 <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 4 }}>Note</div>
                 <input value={tierEdit.note || ''} onChange={e => setTierEdit(prev => ({ ...prev, note: e.target.value }))}

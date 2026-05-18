@@ -24,14 +24,17 @@ export const MATCH_AWAY_TEAM_NAME = 'away_team:teams!away_team_id(id, name, gend
 
 /**
  * Derive team name from gender + sport + age_group (or variant)
- * e.g. "Girls Hockey 1st", "Girls Hockey Festival"
+ * e.g. "Girls Hockey 1st", "Boys Hockey 1st", "Festival XV".
+ * If `gender` is missing, it's omitted rather than guessed — defaulting
+ * to "Girls" produces misleading subtitles for unlabelled boys teams.
  */
 export function teamDerivedName(team) {
   if (!team) return 'Unknown';
-  const g = team.gender || 'Girls';
+  const g = team.gender;
   const s = team.sport || 'Hockey';
   const v = team.variant;
-  return v ? `${g} ${s} ${v}` : `${g} ${s} ${team.age_group || '1st'}`;
+  const suffix = v || team.age_group || '1st';
+  return g ? `${g} ${s} ${suffix}` : `${s} ${suffix}`;
 }
 
 // ── DISPLAY FUNCTIONS ─────────────────────────────────
@@ -47,10 +50,10 @@ export function teamDisplayName(team) {
   if (inst) {
     const label = inst.short_name || inst.name || '';
     if (!label) return derived;
-    const gender = (team.gender || 'Girls').toLowerCase();
+    const gender = team.gender ? team.gender.toLowerCase() : null;
     // If institution name ends with the gender word, skip gender from derived
-    if (label.toLowerCase().endsWith(` ${gender}`) || label.toLowerCase() === gender) {
-      const withoutGender = derived.replace(new RegExp(`^${team.gender || 'Girls'}\\s+`), '');
+    if (gender && (label.toLowerCase().endsWith(` ${gender}`) || label.toLowerCase() === gender)) {
+      const withoutGender = derived.replace(new RegExp(`^${team.gender}\\s+`), '');
       return `${label} ${withoutGender}`;
     }
     return `${label} ${derived}`;
