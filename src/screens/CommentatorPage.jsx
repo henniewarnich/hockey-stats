@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase.js';
 import { saveMatchToSupabase } from '../utils/sync.js';
-import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION } from '../utils/constants.js';
+import { BREAK_FORMATS, MATCH_TYPES, APP_VERSION, PUBLIC_EVENTS } from '../utils/constants.js';
 import { logAudit } from '../utils/audit.js';
 import { parseSASTDate } from '../utils/helpers.js';
 import RankBadge from '../components/RankBadge.jsx';
@@ -11,7 +11,6 @@ import KykieSpinner from '../components/KykieSpinner.jsx';
 
 const fmtClock = (s) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 const fmtMin = (s) => `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}`;
-const PUBLIC_EVENTS = ["Goal!", "Goal! (SC)", "Short Corner", "Long Corner", "Penalty", "Start"];
 
 function classifyEvent(e) {
   if (e.event?.startsWith("Goal")) return "goal";

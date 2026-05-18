@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { otherTeam, exportMatchJSON, ensureContrastingColors } from '../utils/helpers.js';
-import { generateInsight } from '../utils/commentary.js';
+import { generateInsight, generatePauseInsight } from '../utils/commentary.js';
 import { S, theme } from '../utils/styles.js';
 import { useMatchTimer } from '../hooks/useMatchTimer.js';
 import { useAutoSave } from '../hooks/useAutoSave.js';
@@ -124,24 +124,19 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
   const addLog = useCallback((team, event, zone, detail) => {
     const entry = { id: Date.now(), team, event, zone, detail, time: timer.matchTime };
 
-    setEvents(prev => {
-      const upd = [entry, ...prev];
-      const triggers = ["D Entry", "Goal!", "Goal! (SC)", "Turnover Won", "Short Corner", "Penalty"];
-      if (triggers.includes(event)) {
-        const ins = generateInsight(team, event, upd, teams);
-        if (ins) {
-          const commentaryEntry = { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime };
-          // Push commentary to Supabase too
-          if (liveMatchId && !isDemo) {
-            eventSeqRef.current += 1;
-            pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
-          }
-          // Event on top, insight below it in newest-first feed
-          return [entry, commentaryEntry, ...prev];
-        }
-      }
-      return upd;
-    });
+    // Insights fire only on goals — supporter feed stays a highlight reel, not a firehose.
+    const isGoal = event === "Goal!" || event === "Goal! (SC)";
+    const ins = isGoal ? generateInsight(team, event, [entry, ...events], teams) : null;
+    const commentaryEntry = ins
+      ? { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }
+      : null;
+
+    setEvents(prev => commentaryEntry ? [entry, commentaryEntry, ...prev] : [entry, ...prev]);
+
+    if (commentaryEntry && liveMatchId && !isDemo) {
+      eventSeqRef.current += 1;
+      pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
+    }
 
     // Push event to Supabase
     if (liveMatchId && !isDemo) {
@@ -319,11 +314,22 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
     setShowPauseReason(false);
     setPauseReason(reason);
     const entry = { id: Date.now(), team: "meta", event: `Pause: ${reason}`, zone: null, detail: reason, time: timer.matchTime };
-    setEvents(prev => [entry, ...prev]);
-    // Push to Supabase
+
+    // Insight to fill the dead time during the break.
+    const ins = generatePauseInsight(events, teams, reason);
+    const commentaryEntry = ins
+      ? { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }
+      : null;
+
+    setEvents(prev => commentaryEntry ? [entry, commentaryEntry, ...prev] : [entry, ...prev]);
+
     if (liveMatchId && !isDemo) {
       eventSeqRef.current += 1;
       pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
+      if (commentaryEntry) {
+        eventSeqRef.current += 1;
+        pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
+      }
     }
     if (reason === "Quarter Break" || reason === "Half Time") {
       setBallPos(null); setPrevBallPos(null); setShowRestart(true); setPossession(null);

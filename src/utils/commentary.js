@@ -130,3 +130,79 @@ export function generateInsight(team, event, allEvents, teams) {
   // Pick a random insight
   return pool[Math.floor(Math.random() * pool.length)];
 }
+
+// Insight fired when the match pauses (quarter break, half time, manual pause).
+// Summarises the current state of play so supporters get context during dead time.
+export function generatePauseInsight(allEvents, teams, pauseReason) {
+  const real = allEvents.filter(e => e.team !== "commentary" && e.team !== "meta");
+  if (real.length < 3) return null;
+
+  const home = teams?.home, away = teams?.away;
+  if (!home || !away) return null;
+  const homeName = teamShortName(home);
+  const awayName = teamShortName(away);
+
+  const goals = (t) => real.filter(e => e.team === t && e.event?.startsWith("Goal!")).length;
+  const dEn = (t) => real.filter(e => e.team === t && e.event === "D Entry").length;
+  const sc = (t) => real.filter(e => e.team === t && e.event === "Short Corner").length;
+  const shots = (t) => real.filter(e => e.team === t && (e.event === "Shot on Goal" || e.event === "Shot Off Target")).length;
+
+  const hG = goals("home"), aG = goals("away");
+  const hD = dEn("home"), aD = dEn("away");
+  const hSC = sc("home"), aSC = sc("away");
+  const hE = real.filter(e => e.team === "home").length;
+  const aE = real.filter(e => e.team === "away").length;
+  const hPct = hE + aE > 0 ? Math.round(hE / (hE + aE) * 100) : 50;
+
+  const r = (pauseReason || "").toLowerCase();
+  const isHT = r.includes("half");
+  const isQB = r.includes("quarter");
+  const prefix = isHT ? "Half time" : isQB ? "End of period" : "Break in play";
+
+  const pool = [];
+
+  // Score-driven openers
+  if (hG === aG) {
+    pool.push(`${prefix} — all square at ${hG}-${aG}. Everything to play for.`);
+    if (hG === 0 && real.length > 12) {
+      if (hD > aD + 1) pool.push(`${prefix} — goalless, but ${homeName} pressing for the breakthrough.`);
+      else if (aD > hD + 1) pool.push(`${prefix} — goalless, but ${awayName} pressing for the breakthrough.`);
+      else pool.push(`${prefix} — goalless deadlock. Both keepers earning their keep.`);
+    }
+  } else {
+    const leader = hG > aG ? homeName : awayName;
+    const lead = Math.abs(hG - aG);
+    const big = Math.max(hG, aG), small = Math.min(hG, aG);
+    if (lead === 1) pool.push(`${prefix} — ${leader} edge ahead ${big}-${small}.`);
+    else if (lead === 2) pool.push(`${prefix} — ${leader} in control at ${big}-${small}.`);
+    else pool.push(`${prefix} — ${leader} pulling away at ${big}-${small}.`);
+  }
+
+  // D-entry dominance
+  if (Math.abs(hD - aD) >= 3) {
+    const dom = hD > aD ? homeName : awayName;
+    const oth = hD > aD ? awayName : homeName;
+    pool.push(`${dom} dominating the attack — ${Math.max(hD, aD)} D entries to ${oth}'s ${Math.min(hD, aD)}.`);
+  }
+
+  // Possession swing
+  if (Math.abs(hPct - 50) >= 15 && real.length > 15) {
+    const dom = hPct > 50 ? homeName : awayName;
+    const winPct = Math.max(hPct, 100 - hPct);
+    pool.push(`${dom} controlling possession ${winPct}-${100 - winPct}.`);
+  }
+
+  // Set-piece pressure
+  if (hSC + aSC >= 3) {
+    if (hSC > aSC + 1) pool.push(`${homeName} winning the set-piece battle — ${hSC} short corners.`);
+    if (aSC > hSC + 1) pool.push(`${awayName} winning the set-piece battle — ${aSC} short corners.`);
+  }
+
+  // Wasteful in front of goal
+  const hShots = shots("home"), aShots = shots("away");
+  if (hShots >= 4 && hG === 0) pool.push(`${homeName} have ${hShots} shots but nothing to show for it yet.`);
+  if (aShots >= 4 && aG === 0) pool.push(`${awayName} have ${aShots} shots but nothing to show for it yet.`);
+
+  if (pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}

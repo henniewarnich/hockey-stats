@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../utils/supabase.js';
-import { APP_VERSION } from '../utils/constants.js';
+import { APP_VERSION, PUBLIC_EVENTS } from '../utils/constants.js';
 import { ensureContrastingColors, parseSAST, parseSASTDate, matchOutcome, matchWinner } from '../utils/helpers.js';
 import { computeMatchStats, statsFromArchive, aggregateStats } from '../utils/stats.js';
 import { getSession, getProfile, isCoachForTeam, signOut } from '../utils/auth.js';
@@ -42,12 +42,6 @@ const seasonAvgForTeam = (teamId, matchList) => {
   return { gf: gf / n, ga: ga / n, gd: (gf - ga) / n, n };
 };
 
-// Public-visible event types
-const PUBLIC_EVENTS = [
-  "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
-  "Green Card", "Yellow Card", "Penalty Stroke",
-  "D Entry", "Shot on Goal", "Shot Off Target", "Dead Ball", "Long Corner", "Lost Possession",
-];
 const COMMENTARY_TYPES = ["commentary", "meta"];
 
 function classifyEvent(e) {

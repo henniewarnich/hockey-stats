@@ -1,4 +1,4 @@
-export const APP_VERSION = "7.24.8";
+export const APP_VERSION = "7.24.9";
 
 export const ZONES = [
   { id: "opp_quarter", label: "Opp Quarter" },
@@ -63,10 +63,13 @@ export const KEY_EVENTS = [
   "Poss Conceded", "Sideline Out", "Ball Dead", "Start",
 ];
 
-// Events visible to public viewers (no tactical data)
+// Events visible to public viewers (trimmed supporter feed — no firehose)
+// Keep: match starts, D-Entry + its outcomes (shots/SC/goals), penalties, cards, shootouts.
+// Drop: Dead Ball, Long Corner, Lost Possession, Turnover Won, Poss Conceded, Sideline Out.
 export const PUBLIC_EVENTS = [
-  "Start", "Goal!", "Goal! (SC)", "Short Corner", "Penalty",
-  "Green Card", "Yellow Card", "Penalty Stroke",
-  "D Entry", "Shot on Goal", "Shot Off Target", "Dead Ball", "Long Corner", "Lost Possession",
-  "Penalty Kick", "Shootout Start", "Shootout End",
+  "Start", "Goal!", "Goal! (SC)", "Short Corner",
+  "D Entry", "Shot on Goal", "Shot Off Target",
+  "Penalty", "Penalty Stroke", "Penalty Kick",
+  "Green Card", "Yellow Card",
+  "Shootout Start", "Shootout End",
 ];
