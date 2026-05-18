@@ -127,8 +127,7 @@ export default function TeamsScreen({ currentUser, onSave, onBack, getShareLink 
     if (!editTeam?.institution_id) return alert('Missing institution');
     if (!editTeam?.gender) return alert('Please select a gender');
     if (!editTeam?.age_group) return alert('Please select an age group');
-    const derivedName = teamDerivedName(editTeam);
-    onSave({ ...editTeam, name: derivedName, color: editTeam._inst?.color || editTeam.institution?.color || '#1D4ED8' });
+    onSave({ ...editTeam, color: editTeam._inst?.color || editTeam.institution?.color || '#1D4ED8' });
     setView('list');
     setEditTeam(null);
     setTimeout(load, 500);

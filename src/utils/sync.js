@@ -10,21 +10,28 @@ import { MATCH_AWAY_TEAM, MATCH_HOME_TEAM, TEAM_SELECT, teamDerivedName, teamSho
 export async function fetchTeams() {
   const { data, error } = await supabase
     .from('teams')
-    .select(TEAM_SELECT)
-    .order('name');
+    .select(TEAM_SELECT);
   if (error) { console.error('Fetch teams error:', error); return null; }
-  return data;
+  // Sort by institution short_name so the picker reads alphabetically by school,
+  // not by gender (the old `.order('name')` grouped all Boys teams before Girls).
+  return (data || []).sort((a, b) => {
+    const an = (a.institution?.short_name || a.institution?.name || '').toLowerCase();
+    const bn = (b.institution?.short_name || b.institution?.name || '').toLowerCase();
+    if (an === bn) return (a.gender || '').localeCompare(b.gender || '');
+    return an.localeCompare(bn);
+  });
 }
 
 export async function upsertTeam(team) {
-  const gender = team.gender || 'Girls';
+  // Team identity is sport + gender + age_group (+ variant) — derived on display
+  // via teamDerivedName(). The legacy `name` column is intentionally NOT written
+  // here; display logic is the single source of truth.
+  const gender = team.gender || null;
   const sport = team.sport || 'Hockey';
   const age_group = team.age_group || '1st';
   const variant = team.variant?.trim() || null;
-  const derivedName = variant ? `${gender} ${sport} ${variant}` : `${gender} ${sport} ${age_group}`;
 
   const row = {
-    name: derivedName,
     color: team.institution?.color || team.color || '#1D4ED8',
     short_name: team.short_name || null,
     school: team.school || false,
@@ -298,35 +305,18 @@ export async function deleteMatchRemote(matchId) {
 // ─── HELPERS ─────────────────────────────────────────
 
 async function findOrCreateTeam(team) {
-  // Try to find by ID first (preferred post-institution migration)
-  if (team.id) {
-    const { data: byId } = await supabase
-      .from('teams')
-      .select(TEAM_SELECT)
-      .eq('id', team.id)
-      .single();
-    if (byId) return byId;
+  // Post-institution migration: every real team has an id. Resolve by id only.
+  // The legacy name-based fallback was removed when the `name` column was dropped.
+  if (!team?.id) {
+    console.error('findOrCreateTeam called without team.id', team);
+    return null;
   }
-
-  // Fallback: find by name
-  const { data: existing } = await supabase
+  const { data: byId } = await supabase
     .from('teams')
     .select(TEAM_SELECT)
-    .ilike('name', team.name.trim())
-    .limit(1)
+    .eq('id', team.id)
     .single();
-
-  if (existing) return existing;
-
-  // Create new
-  const { data: created, error } = await supabase
-    .from('teams')
-    .insert({ name: team.name.trim(), color: team.color })
-    .select()
-    .single();
-
-  if (error) { console.error('Create team error:', error); return null; }
-  return created;
+  return byId || null;
 }
 
 // ─── LIVE MATCH (for future real-time) ───────────────
@@ -1018,7 +1008,7 @@ export async function retrofitPredictions(onProgress) {
   // Fetch team names for predictMatch reasons
   const { data: teams } = await supabase.from('teams').select(TEAM_SELECT);
   const teamMap = {};
-  (teams || []).forEach(t => { teamMap[t.id] = t.institution?.short_name || t.institution?.name || t.name; });
+  (teams || []).forEach(t => { teamMap[t.id] = t.institution?.short_name || t.institution?.name || '?'; });
 
   // Fetch latest rankings for Suzi
   const { data: rankData } = await supabase

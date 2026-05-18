@@ -1,6 +1,7 @@
 // ─── TEAM DISPLAY HELPERS ─────────────────────────────
-// Centralises all team name display logic post-institution migration.
-// Every screen should use these helpers instead of raw team.name.
+// Centralises all team name display logic. The legacy `teams.name` column was
+// dropped — display is now always derived from institution + sport + gender +
+// age_group (+ variant). Every screen must use these helpers.
 
 // ── SUPABASE SELECT PATTERNS ──────────────────────────
 // Use these in all queries to ensure institution data is loaded.
@@ -70,7 +71,7 @@ export function teamDisplayName(team) {
 export function teamShortName(team) {
   if (!team) return '?';
   const inst = team.institution;
-  const base = inst?.short_name || inst?.name || team.short_name || team.name || '?';
+  const base = inst?.short_name || inst?.name || team.short_name || '?';
   // Append variant if it's a non-standard team (not 1st / not default)
   const variant = team.variant;
   if (variant) return `${base} (${variant})`;
@@ -87,7 +88,8 @@ export function teamInitial(team) {
   const inst = team.institution;
   if (inst?.short_name) return inst.short_name.charAt(0).toUpperCase();
   if (inst?.name) return inst.name.charAt(0).toUpperCase();
-  return (team.name || '?').charAt(0).toUpperCase();
+  if (team.short_name) return team.short_name.charAt(0).toUpperCase();
+  return '?';
 }
 
 /**
@@ -105,7 +107,7 @@ export function teamColor(team) {
 export function teamSlug(team) {
   if (!team) return '';
   const inst = team.institution;
-  const instName = inst?.name || team.team_description || team.name || '';
+  const instName = inst?.name || team.team_description || '';
   const suffix = team.variant || team.age_group || '';
   const base = suffix ? `${instName} ${suffix}` : instName;
   return base.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');

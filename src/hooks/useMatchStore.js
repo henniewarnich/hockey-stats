@@ -44,13 +44,13 @@ export function useMatchStore() {
 
   // Team CRUD — local first, then sync
   const saveTeam = useCallback((team) => {
-    // Optimistic local update
+    // Optimistic local update. Identity comes from id + institution; no name field.
     setTeams(prev => {
       let updated;
       if (team.id) {
-        updated = prev.map(t => t.id === team.id ? { ...t, ...team, name: (team.name || t.name).trim() } : t);
+        updated = prev.map(t => t.id === team.id ? { ...t, ...team } : t);
       } else {
-        updated = [...prev, { ...team, id: Date.now().toString(), name: (team.name || '').trim() }];
+        updated = [...prev, { ...team, id: Date.now().toString() }];
       }
       saveData(TEAMS_KEY, updated);
       return updated;
@@ -197,15 +197,13 @@ function mergeTeams(local, remote) {
     supabase_id: rt.id,
   }));
 
-  // Add any local-only teams (not yet in Supabase)
+  // Add any local-only teams (not yet in Supabase). Match on id only —
+  // the legacy name-based duplicate check was removed when the `name` column
+  // was dropped.
   for (const lt of local) {
-    if (lt.supabase_id) continue; // already in remote
-    const inRemote = merged.find(t =>
-      t.id === lt.id || t.name.trim().toLowerCase() === lt.name.trim().toLowerCase()
-    );
-    if (!inRemote) {
-      merged.push(lt);
-    }
+    if (lt.supabase_id) continue;
+    const inRemote = merged.find(t => t.id === lt.id);
+    if (!inRemote) merged.push(lt);
   }
 
   return merged;
@@ -221,13 +219,14 @@ function mergeGames(local, remote) {
     return remoteIds.has(g.supabase_id); // synced — only keep if still in Supabase
   });
 
-  // Now merge remote into kept
+  // Now merge remote into kept. Fallback duplicate-detection uses institution_id
+  // since the legacy team.name column was dropped.
   for (const rg of remote) {
     const existing = kept.find(g =>
       g.supabase_id === rg.supabase_id ||
       g.id === rg.id ||
-      (g.teams?.home?.name === rg.teams?.home?.name &&
-       g.teams?.away?.name === rg.teams?.away?.name &&
+      (g.teams?.home?.institution_id && g.teams?.home?.institution_id === rg.teams?.home?.institution_id &&
+       g.teams?.away?.institution_id === rg.teams?.away?.institution_id &&
        g.date?.slice(0, 10) === rg.date?.slice(0, 10))
     );
     if (existing) {

@@ -118,7 +118,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
 
       // Fetch team names
       const teamIds = [...new Set((matches || []).flatMap(m => [m.home_team_id, m.away_team_id]))];
-      const { data: teams } = await supabase.from('teams').select('id, name, institution_id').in('id', teamIds);
+      const { data: teams } = await supabase.from('teams').select('id, institution_id').in('id', teamIds);
       const instIds = [...new Set((teams || []).map(t => t.institution_id).filter(Boolean))];
       const { data: insts } = await supabase.from('institutions').select('id, name, short_name').in('id', instIds);
       const instMap = {};
@@ -126,7 +126,7 @@ export default function AdminCreditsScreen({ currentUser, onBack }) {
       const teamNames = {};
       (teams || []).forEach(t => {
         const inst = instMap[t.institution_id];
-        teamNames[t.id] = inst?.short_name || inst?.name || t.name;
+        teamNames[t.id] = inst?.short_name || inst?.name || '?';
       });
       Object.values(matchMap).forEach(m => {
         m.homeName = teamNames[m.home_team_id] || '?';
