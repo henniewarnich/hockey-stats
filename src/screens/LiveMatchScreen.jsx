@@ -131,18 +131,19 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       ? { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }
       : null;
 
-    setEvents(prev => commentaryEntry ? [entry, commentaryEntry, ...prev] : [entry, ...prev]);
+    // Order: goal first, insight after (insight is a reaction to the goal).
+    // Newest-first feeds put commentary at the top, goal just below.
+    setEvents(prev => commentaryEntry ? [commentaryEntry, entry, ...prev] : [entry, ...prev]);
 
-    if (commentaryEntry && liveMatchId && !isDemo) {
-      eventSeqRef.current += 1;
-      pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
-    }
-
-    // Push event to Supabase
+    // Push event to Supabase first so it gets the lower seq; commentary follows.
     if (liveMatchId && !isDemo) {
       eventSeqRef.current += 1;
       lastEventSeqRef.current = eventSeqRef.current;
       pushLiveEvent(liveMatchId, entry, eventSeqRef.current).catch(() => {});
+      if (commentaryEntry) {
+        eventSeqRef.current += 1;
+        pushLiveEvent(liveMatchId, commentaryEntry, eventSeqRef.current).catch(() => {});
+      }
     }
   }, [timer.matchTime, teams, liveMatchId, isDemo]);
 
@@ -321,7 +322,8 @@ export default function LiveMatchScreen({ matchConfig, existingMatchId, onSaveGa
       ? { id: Date.now() + 1, team: "commentary", event: "💬", zone: "", detail: ins, time: timer.matchTime }
       : null;
 
-    setEvents(prev => commentaryEntry ? [entry, commentaryEntry, ...prev] : [entry, ...prev]);
+    // Pause first, insight after — same ordering rule as goals.
+    setEvents(prev => commentaryEntry ? [commentaryEntry, entry, ...prev] : [entry, ...prev]);
 
     if (liveMatchId && !isDemo) {
       eventSeqRef.current += 1;
