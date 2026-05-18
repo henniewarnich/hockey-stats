@@ -173,7 +173,7 @@ export default function LandingPage({ currentUser, onLogout, emailConfirmed, ini
     const load = async () => {
       try {
         const [{ data: allTeams }, { data: allMatches }, { data: live }, { data: upcoming }, { data: allRecords }, { count: totalResults }] = await Promise.all([
-          supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+          supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null'),
           supabase.from('matches')
             .select(`*, ${MATCH_HOME_TEAM}, ${MATCH_AWAY_TEAM}`)
             .in('status', ['ended', 'abandoned'])

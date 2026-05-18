@@ -41,7 +41,7 @@ export default function SponsorManagementScreen({ onBack }) {
     setLoading(true);
     const [{ data: s }, { data: t }, { data: m }] = await Promise.all([
       supabase.from('sponsors').select('*').order('created_at', { ascending: false }),
-      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null'),
       supabase.from('matches').select(`id, ${MATCH_HOME_TEAM_NAME}, ${MATCH_AWAY_TEAM_NAME}, match_date, status`).in('status', ['upcoming', 'live']).order('match_date'),
     ]);
     setSponsors(s || []);

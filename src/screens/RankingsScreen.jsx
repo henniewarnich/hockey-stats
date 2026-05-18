@@ -25,7 +25,7 @@ export default function RankingsScreen({ onBack, currentUser }) {
     setLoading(true);
     const [{ data: allSets }, { data: allTeams }] = await Promise.all([
       supabase.from('ranking_sets').select('*, rankings(count)').order('ranking_date', { ascending: false }),
-      supabase.from('teams').select(TEAM_SELECT).order('name'),
+      supabase.from('teams').select(TEAM_SELECT),
     ]);
     setSets(allSets || []);
     const sorted = (allTeams || []).sort((a, b) => teamDisplayName(a).localeCompare(teamDisplayName(b)));

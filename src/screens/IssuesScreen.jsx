@@ -66,7 +66,7 @@ export default function IssuesScreen({ currentUser, onBack }) {
 
   const loadRefData = async () => {
     const [{ data: teams }, { data: matches }] = await Promise.all([
-      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+      supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null'),
       supabase.from('matches').select(`id, ${MATCH_HOME_TEAM_NAME}, ${MATCH_AWAY_TEAM_NAME}, match_date, status`)
         .in('status', ['upcoming', 'live', 'ended']).order('match_date', { ascending: false }).limit(100),
     ]);

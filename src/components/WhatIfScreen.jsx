@@ -85,7 +85,7 @@ export default function WhatIfScreen({ onBack }) {
   useEffect(() => {
     (async () => {
       const [{ data: allTeams }, { data: allMatches }] = await Promise.all([
-        supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name'),
+        supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null'),
         supabase.from('matches').select('home_team_id, away_team_id, home_score, away_score, match_type').eq('status', 'ended'),
       ]);
       setTeams(allTeams || []);

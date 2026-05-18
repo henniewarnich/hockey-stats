@@ -172,7 +172,7 @@ export default function SystemHealthScreen({ onBack }) {
       }
 
       // Load teams for export dropdown
-      const { data: teamsData } = await supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name');
+      const { data: teamsData } = await supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null');
       if (teamsData) setAllTeams(teamsData);
 
       setLoading(false);

@@ -38,7 +38,7 @@ export default function CrowdSubmitScreen({ currentUser, onBack, initialMode }) 
   const [similarTeams, setSimilarTeams] = useState([]);
 
   useEffect(() => {
-    supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null').order('name')
+    supabase.from('teams').select(TEAM_SELECT).or('status.eq.active,status.is.null')
       .then(({ data }) => { if (data) setTeams(data); });
     fetchInstitutions().then(setInstitutions);
   }, []);

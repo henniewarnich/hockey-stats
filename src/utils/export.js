@@ -50,7 +50,7 @@ export async function exportAllData(onProgress) {
     ['match_commentators', '*'],
     ['match_viewers', '*'],
     ['profiles', 'id, firstname, lastname, username, email, role, roles, blocked, last_seen_at, alias_nickname, biological_gender, home_town, sport_interest, supporting_institution_ids, created_at'],
-    ['coach_teams', '*, teams(id, name, institution:institutions(id, name, short_name))'],
+    ['coach_teams', '*, teams(id, gender, sport, age_group, variant, institution:institutions(id, name, short_name))'],
     ['rankings', '*'],
     ['ranking_sets', '*'],
     ['event_reactions', '*'],

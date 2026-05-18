@@ -62,7 +62,7 @@ export default function UserManagementScreen({ currentUser, onBack }) {
 
   const loadTeams = async () => {
     const [{ data: t }, { data: insts }] = await Promise.all([
-      supabase.from('teams').select(TEAM_SELECT).order('name'),
+      supabase.from('teams').select(TEAM_SELECT),
       supabase.from('institutions').select('id, name, short_name').order('name'),
     ]);
     setAllTeams(t || []);
