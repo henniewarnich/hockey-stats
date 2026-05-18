@@ -1,5 +1,5 @@
 # kykie.net Hockey Stats PWA — Handoff Document
-**Version: 7.24.5 | Date: 18 May 2026**
+**Version: 7.24.6 | Date: 18 May 2026**
 
 ## Project Overview
 A Progressive Web App for live school hockey match stats, commentary, and analytics.
@@ -66,6 +66,9 @@ A Progressive Web App for live school hockey match stats, commentary, and analyt
 - **Gmail signature**: kykie-icon-dark.png + name + kykie.net
 
 ## Session Summary (11 May 2026)
+
+### Code Changes (v7.24.5 → v7.24.6) — Hotfix
+- **Fixed ReferenceError crash on the Coach Overall tab.** `top10Label` was used in `CoachOverall.jsx`'s JSX (lines 262 & 320, added in v7.24.3) but the corresponding function signature edit silently failed at the time, so the prop was never destructured. Every coach who opened the Overall tab on a team page hit `Uncaught ReferenceError: top10Label is not defined` and saw a blank black screen. Latent since the v7.24.3 deploy; surfaced today when admin switched to coach role.
 
 ### Code Changes (v7.24.4 → v7.24.5)
 Two stat-correctness bugs fixed in [src/utils/stats.js](src/utils/stats.js) following an end-to-end audit comparing the in-app coach stats with the external Python match-analysis pipeline.

@@ -87,7 +87,7 @@ function MiniTrend({ points, oppAvg, top10Avg, teamColor: tc }) {
   );
 }
 
-export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, teamColor, teamId, allMatches, matchCount, top10Agg, top10PM, teamTier = 'free' }) {
+export default function CoachOverall({ matchStatsList, matchStatsMap, teamName, teamColor, teamId, allMatches, matchCount, top10Agg, top10PM, top10Label, teamTier = 'free' }) {
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
   const canSeeOpp = teamTier === 'free_plus' || teamTier === 'premium';
